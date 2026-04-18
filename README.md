@@ -1,0 +1,45 @@
+# PentaVault
+
+Runtime secrets proxy for AI-assisted development.
+
+> Protect your API keys from AI coding agents. Replace real secrets with proxy tokens.
+> Full audit log. Per-developer access controls. One command to set up.
+
+## Monorepo structure
+
+| Directory | Description | Visibility |
+|---|---|---|
+| `/src` | Next.js dashboard (this repo) | Public |
+| `/cli` | `vaultproxy` CLI npm package | Public |
+| `/PentaVault-Backend` | Fastify API server | Private (gitignored) |
+
+## Getting started (frontend dev)
+
+```bash
+git clone https://github.com/PentaVault/PentaVault
+cd PentaVault
+npm install
+cp .env.example .env.local
+# Edit .env.local with your local API URL
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000)
+
+## Requirements
+
+- Node.js 22+
+- A running PentaVault backend
+
+## Tech stack
+
+- Next.js 16 (App Router)
+- TypeScript (strict)
+- Tailwind CSS
+- TanStack Query
+- Radix UI primitives
+- Zod validation
+
+## Contributing
+
+Conventional commits are required. Run `npm run lint` and `npm run type-check` before pushing.

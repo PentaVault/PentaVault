@@ -1,0 +1,10 @@
+export const APP_NAME = 'PentaVault'
+export const APP_DESCRIPTION = 'Runtime secrets proxy for AI-assisted development.'
+export const API_V1_PREFIX = '/v1'
+export const AUTH_SESSION_PATH = `${API_V1_PREFIX}/auth/session`
+export const AUTH_SESSIONS_PATH = `${API_V1_PREFIX}/auth/sessions`
+export const AUTH_REVOKE_SESSION_PATH = `${API_V1_PREFIX}/auth/sessions/revoke`
+export const DASHBOARD_HOME_PATH = '/dashboard'
+export const LOGIN_PATH = '/login'
+export const REGISTER_PATH = '/register'
+export const DEFAULT_QUERY_STALE_TIME_MS = 30_000

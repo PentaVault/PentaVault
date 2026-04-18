@@ -1,0 +1,16 @@
+import { cn } from '@/lib/utils/cn'
+
+type LoadingSpinnerProps = {
+  className?: string
+}
+
+export function LoadingSpinner({ className }: LoadingSpinnerProps) {
+  return (
+    <span
+      className={cn(
+        'inline-flex h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent',
+        className
+      )}
+    />
+  )
+}

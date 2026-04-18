@@ -1,0 +1,14 @@
+import { apiClient } from '@/lib/api/client'
+import type { AuditListQuery, AuditListResponse } from '@/lib/types/api'
+
+export const auditApi = {
+  async listProjectAudit(
+    projectId: string,
+    query: AuditListQuery = {}
+  ): Promise<AuditListResponse> {
+    const response = await apiClient.get<AuditListResponse>(`/v1/projects/${projectId}/audit`, {
+      params: query,
+    })
+    return response.data
+  },
+}
