@@ -18,10 +18,10 @@ Runtime secrets proxy for AI-assisted development.
 ```bash
 git clone https://github.com/PentaVault/PentaVault
 cd PentaVault
-npm install
+pnpm install
 cp .env.example .env.local
 # Edit .env.local with your local API URL
-npm run dev
+pnpm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
@@ -29,6 +29,7 @@ Open [http://localhost:3000](http://localhost:3000)
 ## Requirements
 
 - Node.js 22+
+- pnpm 10+
 - A running PentaVault backend
 
 ## Tech stack
@@ -42,4 +43,4 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ## Contributing
 
-Conventional commits are required. Run `npm run lint` and `npm run type-check` before pushing.
+Conventional commits are required. Run `pnpm run lint` and `pnpm run type-check` before pushing.

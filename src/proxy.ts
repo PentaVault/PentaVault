@@ -15,7 +15,7 @@ function getApiOrigin(): string | null {
   }
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const response = NextResponse.next()
   const apiOrigin = getApiOrigin()
   const isSecureRequest = request.nextUrl.protocol === 'https:'

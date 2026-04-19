@@ -1,0 +1,75 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "build",
+  "share": "disabled",
+  "watcher": {
+    "ignore": [
+      "node_modules/**",
+      ".next/**",
+      "dist/**",
+      "build/**",
+      "coverage/**",
+      ".git/**",
+      ".pnpm-store/**",
+      "tmp/**",
+      "temp/**",
+      "PentaVault-Backend/**"
+    ]
+  },
+  "permission": {
+    "read": {
+      "*": "allow",
+      "*.pem": "deny",
+      "*.key": "deny",
+      "*.p12": "deny",
+      "*.pfx": "deny",
+      ".secrets/**": "deny",
+      "**/.secrets/**": "deny",
+      "**/.aws/**": "deny"
+    },
+    "edit": {
+      "*": "ask",
+      "README.md": "allow",
+      "todo.md": "allow",
+      "docs/**/*.md": "allow",
+      ".opencode/**/*.md": "allow",
+      ".github/**/*.md": "allow"
+    },
+    "bash": {
+      "*": "ask",
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "ls*": "allow",
+      "pwd*": "allow",
+      "pnpm*": "allow",
+      "git push*": "deny",
+      "git reset*": "deny",
+      "git clean*": "deny",
+      "rm *": "deny",
+      "ssh *": "deny",
+      "scp *": "deny"
+    },
+    "question": "allow",
+    "skill": {
+      "*": "allow"
+    },
+    "task": {
+      "*": "ask",
+      "general": "allow",
+      "explore": "allow",
+      "security-auditor": "allow",
+      "threat-modeler": "allow",
+      "migration-reviewer": "allow",
+      "docs-writer": "allow",
+      "release-manager": "allow"
+    }
+  },
+  "mcp": {
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "enabled": true
+    }
+  }
+}

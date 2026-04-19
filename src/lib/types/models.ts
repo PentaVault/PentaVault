@@ -1,11 +1,20 @@
-export type ProjectRole = 'owner' | 'admin' | 'member'
-export type ProjectStatus = 'active' | 'archived'
-export type SecretMode = 'compatibility' | 'gateway'
-export type SecretStatus = 'active' | 'archived' | 'revoked'
+import type {
+  AUDIT_OUTCOMES,
+  PROJECT_ROLES,
+  PROJECT_STATUSES,
+  SECRET_MODES,
+  SECRET_STATUSES,
+} from '@/lib/constants'
+
+export type ProjectRole = (typeof PROJECT_ROLES)[number]
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number]
+export type SecretMode = (typeof SECRET_MODES)[number]
+export type SecretStatus = (typeof SECRET_STATUSES)[number]
+
 export type SecretVersionState = 'active' | 'superseded' | 'compromised' | 'destroyed'
 export type TokenHashAlgorithm = 'sha256'
 export type TokenMode = 'compatibility' | 'gateway'
-export type AuditOutcome = 'success' | 'failure'
+export type AuditOutcome = (typeof AUDIT_OUTCOMES)[number]
 
 export interface User {
   id: string

@@ -2,8 +2,6 @@
 
 import { type PropsWithChildren, createContext, useContext, useEffect, useState } from 'react'
 
-import axios from 'axios'
-
 import { authApi } from '@/lib/api/auth'
 import { clearClientAuthHint } from '@/lib/auth/token'
 import type { AuthContextValue, AuthSession } from '@/lib/types/auth'
@@ -13,15 +11,8 @@ type AuthProviderProps = PropsWithChildren
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 async function readSession(): Promise<AuthSession | null> {
-  try {
-    return await authApi.getSession()
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
-      return null
-    }
-
-    throw error
-  }
+  const session = await authApi.getSession()
+  return session
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {

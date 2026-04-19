@@ -4,8 +4,7 @@ import type { ReactNode } from 'react'
 
 import { APP_DESCRIPTION, APP_NAME } from '@/lib/constants'
 import { AppProviders } from '@/providers'
-
-import '../styles/globals.css'
+import '@/styles/globals.css'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',

@@ -1,38 +1,56 @@
-/**
- * Environment variable validation.
- * This file validates all environment variables at startup.
- * The app will throw a clear error if required vars are missing.
- *
- * Rules:
- * - NEXT_PUBLIC_* variables are safe to expose to the browser
- * - Never put secrets in NEXT_PUBLIC_* variables
- * - Never access process.env directly outside this file
- */
+import { z } from 'zod'
 
-function requireEnv(name: string): string {
-  const value = process.env[name]
+const DEFAULT_DEV_API_URL = 'http://localhost:3001/api'
+const DEFAULT_DEV_APP_URL = 'http://localhost:3000'
 
-  if (!value) {
-    throw new Error(
-      `Missing required environment variable: ${name}\n` +
-        'Add it to .env.local for development or your production environment config.\n' +
-        'See .env.example for all required variables.'
-    )
+const envSchema = z.object({
+  NEXT_PUBLIC_API_URL: z.string().trim().min(1).url(),
+  NEXT_PUBLIC_APP_URL: z.string().trim().min(1).url(),
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+})
+
+type ParsedEnv = z.infer<typeof envSchema>
+
+function getRawEnv(input: NodeJS.ProcessEnv = process.env): ParsedEnv {
+  const nodeEnv = input.NODE_ENV ?? 'development'
+
+  const raw = {
+    NEXT_PUBLIC_API_URL:
+      input.NEXT_PUBLIC_API_URL ?? (nodeEnv === 'development' ? DEFAULT_DEV_API_URL : undefined),
+    NEXT_PUBLIC_APP_URL:
+      input.NEXT_PUBLIC_APP_URL ?? (nodeEnv === 'development' ? DEFAULT_DEV_APP_URL : undefined),
+    NODE_ENV: nodeEnv,
   }
 
-  return value
+  const result = envSchema.safeParse(raw)
+
+  if (result.success) {
+    return result.data
+  }
+
+  const details = result.error.issues
+    .map((issue) => `- ${issue.path.join('.')}: ${issue.message}`)
+    .join('\n')
+
+  throw new Error(
+    [
+      'Invalid frontend environment configuration.',
+      'Fix your local environment and restart the dev server.',
+      details,
+      'See .env.example for the required variables.',
+    ].join('\n')
+  )
 }
 
-function optionalEnv(name: string, fallback = ''): string {
-  return process.env[name] ?? fallback
-}
+const parsedEnv = getRawEnv()
 
 export const env = {
-  apiUrl: requireEnv('NEXT_PUBLIC_API_URL'),
-  appUrl: requireEnv('NEXT_PUBLIC_APP_URL'),
-  nodeEnv: optionalEnv('NODE_ENV', 'development'),
-  isDev: process.env.NODE_ENV === 'development',
-  isProd: process.env.NODE_ENV === 'production',
+  apiUrl: parsedEnv.NEXT_PUBLIC_API_URL,
+  appUrl: parsedEnv.NEXT_PUBLIC_APP_URL,
+  nodeEnv: parsedEnv.NODE_ENV,
+  isDev: parsedEnv.NODE_ENV === 'development',
+  isProd: parsedEnv.NODE_ENV === 'production',
+  isTest: parsedEnv.NODE_ENV === 'test',
 } as const
 
 export type Env = typeof env

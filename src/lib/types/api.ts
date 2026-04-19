@@ -150,9 +150,10 @@ export interface RevokeTokenResponse {
   revokedAt: string | null
 }
 
-export type AuthSessionResponse = AuthSession
+export type AuthSessionResponse = AuthSession | null
 export type AuthSessionListApiResponse = AuthSessionListResponse
 export type AuthSessionRevokeRequest = RevokeSessionRequest
+
 export interface AuthSessionRevokeResponse {
   revoked: boolean
   sessionId: string
