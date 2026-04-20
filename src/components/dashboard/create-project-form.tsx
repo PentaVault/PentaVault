@@ -6,7 +6,8 @@ import type { FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useCreateProject } from '@/lib/hooks/use-projects'
-import { getApiFriendlyMessage } from '@/lib/utils/errors'
+import { useToast } from '@/lib/hooks/use-toast'
+import { getApiErrorPayload, getApiFriendlyMessage } from '@/lib/utils/errors'
 
 type CreateProjectFormProps = {
   onCreated?: () => void
@@ -23,19 +24,18 @@ function normalizeSlugInput(value: string): string {
 
 export function CreateProjectForm({ onCreated }: CreateProjectFormProps) {
   const createProject = useCreateProject()
+  const { toast } = useToast()
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
-  const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
-    setError(null)
 
     const normalizedName = name.trim()
     const normalizedSlug = normalizeSlugInput(slug)
 
     if (!normalizedName) {
-      setError('Project name is required.')
+      toast.error('Project name is required.')
       return
     }
 
@@ -51,7 +51,42 @@ export function CreateProjectForm({ onCreated }: CreateProjectFormProps) {
       setSlug('')
       onCreated?.()
     } catch (submitError) {
-      setError(getApiFriendlyMessage(submitError, 'Unable to create project right now.'))
+      const apiError = getApiErrorPayload(submitError)
+
+      if (apiError?.code === 'PROJECT_SLUG_CONFLICT' && apiError.suggestedSlug && normalizedSlug) {
+        setSlug(apiError.suggestedSlug)
+        toast.error(
+          `Slug "${normalizedSlug}" is already taken. We've filled in "${apiError.suggestedSlug}" - submit again to use it.`
+        )
+        return
+      }
+
+      if (apiError?.code === 'PROJECT_SLUG_CONFLICT') {
+        toast.error(
+          apiError.error || 'That project slug is already in use. Choose a different slug.'
+        )
+        return
+      }
+
+      if (apiError?.code === 'PROJECT_CREATE_FAILURE' && apiError.error) {
+        const isGenericServerMessage = apiError.error.startsWith('Unable to create project')
+        if (!isGenericServerMessage) {
+          toast.error(apiError.error)
+          return
+        }
+
+        if (apiError.requestId) {
+          toast.error(`Project creation failed. Please try again. (ref: ${apiError.requestId})`)
+          return
+        }
+      }
+
+      if (apiError?.code === 'INVALID_REQUEST') {
+        toast.error('Some project details are invalid. Check the name and slug and try again.')
+        return
+      }
+
+      toast.error(getApiFriendlyMessage(submitError, 'Unable to create project. Please try again.'))
     }
   }
 
@@ -86,8 +121,6 @@ export function CreateProjectForm({ onCreated }: CreateProjectFormProps) {
           value={slug}
         />
       </div>
-
-      {error ? <p className="text-sm text-danger">{error}</p> : null}
 
       <Button disabled={createProject.isPending} type="submit">
         {createProject.isPending ? 'Creating...' : 'Create project'}
