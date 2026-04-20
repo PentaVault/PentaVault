@@ -1,18 +1,15 @@
 import type { ReactNode } from 'react'
 
+import { DashboardShell } from '@/components/layout/dashboard-shell'
+import { requireServerSession } from '@/lib/auth/server-session'
+import { DASHBOARD_HOME_PATH } from '@/lib/constants'
+
 type DashboardLayoutProps = {
   children: ReactNode
 }
 
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b border-border bg-card/80 backdrop-blur">
-        <div className="mx-auto max-w-6xl px-4 py-3 text-sm text-muted-foreground">
-          Dashboard shell placeholder
-        </div>
-      </div>
-      {children}
-    </div>
-  )
+export default async function DashboardLayout({ children }: DashboardLayoutProps) {
+  await requireServerSession(DASHBOARD_HOME_PATH)
+
+  return <DashboardShell>{children}</DashboardShell>
 }

@@ -1,15 +1,7 @@
 import { redirect } from 'next/navigation'
 
-import { DASHBOARD_HOME_PATH, LOGIN_PATH } from '@/lib/constants'
-
-export function buildLoginRedirectPath(nextPath?: string): string {
-  if (!nextPath) {
-    return LOGIN_PATH
-  }
-
-  const searchParams = new URLSearchParams({ next: nextPath })
-  return `${LOGIN_PATH}?${searchParams.toString()}`
-}
+import { buildLoginRedirectPath } from '@/lib/auth/paths'
+import { DASHBOARD_HOME_PATH } from '@/lib/constants'
 
 export function redirectToLogin(nextPath?: string): never {
   redirect(buildLoginRedirectPath(nextPath))

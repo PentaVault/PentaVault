@@ -1,18 +1,18 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Manrope, Source_Code_Pro } from 'next/font/google'
 import type { ReactNode } from 'react'
 
 import { APP_DESCRIPTION, APP_NAME } from '@/lib/constants'
 import { AppProviders } from '@/providers'
 import '@/styles/globals.css'
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+const brandSans = Manrope({
+  variable: '--font-brand-sans',
   subsets: ['latin'],
 })
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+const brandMono = Source_Code_Pro({
+  variable: '--font-brand-mono',
   subsets: ['latin'],
 })
 
@@ -32,7 +32,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full`}
+      className={`${brandSans.variable} ${brandMono.variable} h-full`}
       suppressHydrationWarning
     >
       <body className="min-h-full bg-background text-foreground antialiased">

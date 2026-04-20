@@ -7,5 +7,5 @@ type PageWrapperProps = PropsWithChildren<{
 }>
 
 export function PageWrapper({ children, className }: PageWrapperProps) {
-  return <div className={cn('mx-auto w-full max-w-6xl px-4 py-10', className)}>{children}</div>
+  return <div className={cn('w-full px-2 py-8 sm:px-3 lg:px-4', className)}>{children}</div>
 }

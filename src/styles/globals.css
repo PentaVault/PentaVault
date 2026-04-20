@@ -1,32 +1,67 @@
 @import 'tailwindcss';
 
 :root {
-  --background: #0b1020;
-  --foreground: #e5ecff;
-  --card: #121932;
-  --border: rgba(148, 163, 184, 0.2);
-  --muted-foreground: #94a3b8;
+  --background: #171717;
+  --background-deep: #0f0f0f;
+  --background-elevated: rgba(41, 41, 41, 0.84);
+  --foreground: #fafafa;
+  --foreground-soft: #b4b4b4;
+  --card: #171717;
+  --card-elevated: #1d1d1d;
+  --surface-frost: hsla(200, 90.3%, 93.4%, 0.109);
+  --border: #2e2e2e;
+  --border-strong: #393939;
+  --border-subtle: #242424;
+  --muted-foreground: #898989;
+  --accent: #3ecf8e;
+  --accent-strong: #00c573;
+  --danger: #d55b73;
+  --danger-muted: rgba(213, 91, 115, 0.14);
+  --warning: #d9a441;
+  --warning-muted: rgba(217, 164, 65, 0.14);
+  --focus-ring: rgba(62, 207, 142, 0.3);
+  --accent-border: rgba(62, 207, 142, 0.3);
+  --header-glass: rgba(23, 23, 23, 0.85);
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-background-deep: var(--background-deep);
+  --color-background-elevated: var(--background-elevated);
   --color-foreground: var(--foreground);
+  --color-foreground-soft: var(--foreground-soft);
   --color-card: var(--card);
+  --color-card-elevated: var(--card-elevated);
+  --color-surface-frost: var(--surface-frost);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-border-subtle: var(--border-subtle);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-danger: var(--danger);
+  --color-danger-muted: var(--danger-muted);
+  --color-warning: var(--warning);
+  --color-warning-muted: var(--warning-muted);
+  --color-focus-ring: var(--focus-ring);
+  --color-accent-border: var(--accent-border);
   --color-muted-foreground: var(--muted-foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-brand-sans);
+  --font-mono: var(--font-brand-mono);
 }
 
 html,
 body {
   min-height: 100%;
+  background-color: var(--background);
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at 12% -15%, rgba(62, 207, 142, 0.08), transparent 34%),
+    linear-gradient(180deg, var(--background), #141414 70%);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-brand-sans), 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 400;
 }
 
 a {
@@ -34,9 +69,96 @@ a {
   text-decoration: none;
 }
 
+::selection {
+  background: rgba(62, 207, 142, 0.28);
+  color: #fafafa;
+}
+
 button,
 input,
 select,
 textarea {
   font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glyph-lines-drift {
+  0% {
+    transform: translateY(0);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translateY(-0.25px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 0.85;
+  }
+}
+
+@keyframes glyph-dot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+.profile-glyph-lines {
+  animation: glyph-lines-drift 2400ms ease-in-out infinite;
+  transform-origin: center;
+}
+
+.profile-glyph {
+  animation: glyph-lines-drift 3200ms ease-in-out infinite;
+  transform-origin: center;
+}
+
+.profile-glyph-dot {
+  animation: glyph-dot-pulse 1800ms ease-in-out infinite;
+  transform-origin: center;
+}
+
+.profile-glyph-dot-1 {
+  animation-delay: 0ms;
+}
+
+.profile-glyph-dot-2 {
+  animation-delay: 180ms;
+}
+
+.profile-glyph-dot-3 {
+  animation-delay: 360ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-glyph,
+  .profile-glyph-lines,
+  .profile-glyph-dot {
+    animation: none;
+  }
 }

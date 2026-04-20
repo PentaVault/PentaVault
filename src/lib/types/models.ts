@@ -15,6 +15,24 @@ export type SecretVersionState = 'active' | 'superseded' | 'compromised' | 'dest
 export type TokenHashAlgorithm = 'sha256'
 export type TokenMode = 'compatibility' | 'gateway'
 export type AuditOutcome = (typeof AUDIT_OUTCOMES)[number]
+export type SecurityAlertSeverity = 'low' | 'medium' | 'high' | 'critical'
+export type SecurityAlertStatus =
+  | 'open'
+  | 'acknowledged'
+  | 'investigating'
+  | 'mitigated'
+  | 'resolved'
+  | 'closed_no_action'
+export type SecurityAlertType =
+  | 'probable_leak'
+  | 'rotation_recommended'
+  | 'new_device'
+  | 'new_location'
+  | 'suspicious_auth_activity'
+export type RotationRecommendationAction =
+  | 'token_revoke'
+  | 'session_revoke'
+  | 'provider_secret_rotate'
 
 export interface User {
   id: string
@@ -100,4 +118,40 @@ export interface AuditEvent {
   failureReason: string | null
   metadata: Record<string, unknown>
   occurredAt: string
+}
+
+export interface SecurityAlert {
+  id: string
+  projectId: string
+  secretId: string | null
+  tokenId: string | null
+  alertType: SecurityAlertType
+  severity: SecurityAlertSeverity
+  status: SecurityAlertStatus
+  ownerUserId: string | null
+  ownerTeam: string | null
+  source: string
+  confidence: string | null
+  title: string
+  summary: string
+  metadata: Record<string, unknown>
+  assignedAt: string | null
+  acknowledgedAt: string | null
+  resolvedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface RotationRecommendation {
+  id: string
+  alertId: string
+  projectId: string
+  secretId: string | null
+  recommendedAction: RotationRecommendationAction
+  provider: string | null
+  status: SecurityAlertStatus
+  rationale: string
+  metadata: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
 }

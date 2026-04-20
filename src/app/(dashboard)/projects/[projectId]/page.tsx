@@ -1,13 +1,116 @@
+'use client'
+
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+
 import { PageWrapper } from '@/components/layout/page-wrapper'
-import { EmptyState } from '@/components/shared/empty-state'
+import { StatusBadge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  getProjectAuditPath,
+  getProjectSecretsPath,
+  getProjectSecurityPath,
+  getProjectTeamPath,
+  getProjectTokensPath,
+  getProjectUsagePath,
+} from '@/lib/constants'
+import { useProject } from '@/lib/hooks/use-projects'
+import { formatDateTime } from '@/lib/utils/format'
+
+function membershipTone(role: 'owner' | 'admin' | 'member') {
+  return role === 'owner' ? 'warning' : role === 'admin' ? 'success' : 'neutral'
+}
+
+function projectStatusTone(status: 'active' | 'archived') {
+  return status === 'active' ? 'success' : 'warning'
+}
 
 export default function ProjectOverviewPage() {
+  const params = useParams<{ projectId: string }>()
+  const projectId = typeof params.projectId === 'string' ? params.projectId : null
+  const projectQuery = useProject(projectId)
+
+  if (projectQuery.isLoading) {
+    return (
+      <PageWrapper>
+        <Card>
+          <CardHeader>
+            <CardTitle>Project overview</CardTitle>
+            <CardDescription>Loading project details...</CardDescription>
+          </CardHeader>
+        </Card>
+      </PageWrapper>
+    )
+  }
+
+  if (projectQuery.isError || !projectQuery.data) {
+    return (
+      <PageWrapper>
+        <Card>
+          <CardHeader>
+            <CardTitle>Project unavailable</CardTitle>
+            <CardDescription>
+              The project could not be loaded. It may not exist or your account may not have access.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </PageWrapper>
+    )
+  }
+
+  const { project, membership } = projectQuery.data
+  const links = [
+    { href: getProjectSecretsPath(project.id), label: 'Manage secrets' },
+    { href: getProjectTokensPath(project.id), label: 'Manage tokens' },
+    { href: getProjectTeamPath(project.id), label: 'Manage team' },
+    { href: getProjectAuditPath(project.id), label: 'Review audit log' },
+    { href: getProjectSecurityPath(project.id), label: 'Security alerts and recommendations' },
+    { href: getProjectUsagePath(project.id), label: 'View usage status' },
+  ]
+
   return (
     <PageWrapper>
-      <EmptyState
-        title="Project overview"
-        description="Project detail UI is intentionally left as a placeholder during the setup phase."
-      />
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <Card>
+          <CardHeader>
+            <CardTitle>{project.name}</CardTitle>
+            <CardDescription>/{project.slug}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <div className="mb-2 flex flex-wrap gap-2">
+              <StatusBadge tone={membershipTone(membership.role)}>
+                role: {membership.role}
+              </StatusBadge>
+              <StatusBadge tone={projectStatusTone(project.status)}>{project.status}</StatusBadge>
+            </div>
+            <p>Project ID: {project.id}</p>
+            <p>Created: {formatDateTime(project.createdAt)}</p>
+            <p>Updated: {formatDateTime(project.updatedAt)}</p>
+            <p>
+              Archived at:{' '}
+              {project.archivedAt ? formatDateTime(project.archivedAt) : 'Not archived'}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Project actions</CardTitle>
+            <CardDescription>Jump to project management sections.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {links.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="block rounded-md border border-border px-3 py-2 text-sm transition-colors hover:border-border-strong hover:bg-card-elevated"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
     </PageWrapper>
   )
 }

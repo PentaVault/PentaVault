@@ -1,0 +1,81 @@
+'use client'
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
+import { securityApi } from '@/lib/api/security'
+import type { CreateProbableLeakAlertInput, UpdateSecurityAlertInput } from '@/lib/types/api'
+
+export function useProjectSecurity(projectId: string | null) {
+  const alertsQuery = useQuery({
+    queryKey: ['project-security-alerts', projectId],
+    queryFn: async () => {
+      if (!projectId) {
+        throw new Error('projectId is required to load security alerts')
+      }
+
+      return securityApi.listAlerts(projectId)
+    },
+    enabled: Boolean(projectId),
+  })
+
+  const recommendationsQuery = useQuery({
+    queryKey: ['project-security-recommendations', projectId],
+    queryFn: async () => {
+      if (!projectId) {
+        throw new Error('projectId is required to load rotation recommendations')
+      }
+
+      return securityApi.listRecommendations(projectId)
+    },
+    enabled: Boolean(projectId),
+  })
+
+  return {
+    alertsQuery,
+    recommendationsQuery,
+  }
+}
+
+export function useCreateProbableLeakAlert(projectId: string | null) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: CreateProbableLeakAlertInput) => {
+      if (!projectId) {
+        throw new Error('projectId is required to create probable leak alerts')
+      }
+
+      return securityApi.createProbableLeakAlert(projectId, input)
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['project-security-alerts', projectId] }),
+        queryClient.invalidateQueries({
+          queryKey: ['project-security-recommendations', projectId],
+        }),
+      ])
+    },
+  })
+}
+
+export function useUpdateSecurityAlert(projectId: string | null) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: { alertId: string; input: UpdateSecurityAlertInput }) => {
+      if (!projectId) {
+        throw new Error('projectId is required to update security alerts')
+      }
+
+      return securityApi.updateAlert(projectId, payload.alertId, payload.input)
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['project-security-alerts', projectId] }),
+        queryClient.invalidateQueries({
+          queryKey: ['project-security-recommendations', projectId],
+        }),
+      ])
+    },
+  })
+}

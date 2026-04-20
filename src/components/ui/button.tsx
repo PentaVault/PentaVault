@@ -6,18 +6,23 @@ import { type VariantProps, cva } from 'class-variance-authority'
 import { cn } from '@/lib/utils/cn'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center rounded-lg text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md text-sm font-medium leading-none transition-[background-color,border-color,color,opacity] duration-150 disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
-        default: 'bg-foreground text-background',
-        outline: 'border border-border bg-transparent text-foreground',
-        ghost: 'bg-transparent text-foreground',
+        default:
+          'border border-foreground bg-background-deep text-foreground hover:border-border-strong',
+        outline:
+          'border border-border bg-background-deep text-foreground/90 hover:border-border-strong hover:text-foreground',
+        ghost:
+          'rounded-md border border-transparent bg-transparent px-2 text-foreground hover:border-border',
+        danger:
+          'border border-danger/45 bg-danger-muted text-danger hover:border-danger hover:bg-danger/20',
       },
       size: {
-        default: 'h-10 px-4 py-2',
-        sm: 'h-9 px-3 py-2',
-        lg: 'h-11 px-6 py-3',
+        default: 'h-9 px-8 py-2',
+        sm: 'h-8 px-6 py-2 text-xs',
+        lg: 'h-10 px-10 py-2 text-sm',
       },
     },
     defaultVariants: {

@@ -5,16 +5,11 @@ import { cn } from '@/lib/utils/cn'
 type CardProps = HTMLAttributes<HTMLDivElement>
 
 export function Card({ className, ...props }: CardProps) {
-  return (
-    <div
-      className={cn('rounded-2xl border border-border bg-card shadow-sm', className)}
-      {...props}
-    />
-  )
+  return <div className={cn('rounded-2xl border border-border bg-card', className)} {...props} />
 }
 
 export function CardHeader({ className, ...props }: CardProps) {
-  return <div className={cn('space-y-1.5 px-6 py-5', className)} {...props} />
+  return <div className={cn('space-y-2 px-6 py-5', className)} {...props} />
 }
 
 export function CardContent({ className, ...props }: CardProps) {
@@ -26,7 +21,7 @@ export function CardFooter({ className, ...props }: CardProps) {
 }
 
 export function CardTitle({ className, ...props }: CardProps) {
-  return <div className={cn('text-lg font-semibold tracking-tight', className)} {...props} />
+  return <div className={cn('text-2xl tracking-[-0.16px] text-foreground', className)} {...props} />
 }
 
 export function CardDescription({ className, ...props }: CardProps) {

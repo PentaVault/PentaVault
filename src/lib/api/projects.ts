@@ -28,6 +28,24 @@ export const projectsApi = {
     return response.data
   },
 
+  async deleteProject(projectId: string): Promise<void> {
+    await apiClient.delete(`/v1/projects/${projectId}`)
+  },
+
+  async archiveProject(projectId: string): Promise<ProjectResponse> {
+    const response = await apiClient.patch<ProjectResponse>(`/v1/projects/${projectId}`, {
+      status: 'archived',
+    })
+    return response.data
+  },
+
+  async unarchiveProject(projectId: string): Promise<ProjectResponse> {
+    const response = await apiClient.patch<ProjectResponse>(`/v1/projects/${projectId}`, {
+      status: 'active',
+    })
+    return response.data
+  },
+
   async listMembers(projectId: string): Promise<ProjectMembersResponse> {
     const response = await apiClient.get<ProjectMembersResponse>(
       `/v1/projects/${projectId}/members`

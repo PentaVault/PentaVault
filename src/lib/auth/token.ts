@@ -12,7 +12,11 @@
  *   to support one, but it is not required for this scaffold
  */
 
-const AUTH_HINT_COOKIE_NAME = 'pv_auth'
+export const AUTH_HINT_COOKIE_NAME = 'pv_auth'
+
+export function setClientAuthHint(): void {
+  document.cookie = `${AUTH_HINT_COOKIE_NAME}=1; path=/; SameSite=Lax`
+}
 
 export function clearClientAuthHint(): void {
   document.cookie = `${AUTH_HINT_COOKIE_NAME}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict`

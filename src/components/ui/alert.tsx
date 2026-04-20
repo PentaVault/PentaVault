@@ -14,7 +14,7 @@ export function Alert({ className, ...props }: AlertProps) {
 }
 
 export function AlertTitle({ className, ...props }: AlertProps) {
-  return <div className={cn('font-medium', className)} {...props} />
+  return <div className={cn('text-lg tracking-[-0.16px] text-foreground', className)} {...props} />
 }
 
 export function AlertDescription({ className, ...props }: AlertProps) {

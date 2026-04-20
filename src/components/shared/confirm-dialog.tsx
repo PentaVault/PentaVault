@@ -26,17 +26,17 @@ export function ConfirmDialog({
       <AlertDialog.Trigger asChild>{trigger}</AlertDialog.Trigger>
       <AlertDialog.Portal>
         <AlertDialog.Overlay className="fixed inset-0 bg-black/40" />
-        <AlertDialog.Content className="fixed top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-6 shadow-lg">
-          <AlertDialog.Title className="text-lg font-semibold">{title}</AlertDialog.Title>
+        <AlertDialog.Content className="fixed top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-6">
+          <AlertDialog.Title className="text-2xl tracking-[-0.16px]">{title}</AlertDialog.Title>
           <AlertDialog.Description className="mt-2 text-sm text-muted-foreground">
             {description}
           </AlertDialog.Description>
           <div className="mt-4 flex items-center justify-end gap-2">
-            <AlertDialog.Cancel className="rounded-lg border border-border px-4 py-2 text-sm">
+            <AlertDialog.Cancel className="rounded-md border border-border bg-background-deep px-6 py-2 text-sm text-foreground/90">
               {cancelLabel}
             </AlertDialog.Cancel>
             <AlertDialog.Action
-              className="rounded-lg bg-foreground px-4 py-2 text-sm text-background"
+              className="rounded-md border border-foreground bg-background-deep px-6 py-2 text-sm text-foreground"
               onClick={() => onConfirm()}
             >
               {confirmLabel}

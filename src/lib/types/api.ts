@@ -5,8 +5,11 @@ import type {
   ProjectMembership,
   ProjectRole,
   ProxyToken,
+  RotationRecommendation,
   Secret,
   SecretMode,
+  SecurityAlert,
+  SecurityAlertStatus,
   UserProject,
 } from '@/lib/types/models'
 
@@ -154,6 +157,37 @@ export type AuthSessionResponse = AuthSession | null
 export type AuthSessionListApiResponse = AuthSessionListResponse
 export type AuthSessionRevokeRequest = RevokeSessionRequest
 
+export interface AuthCreateApiKeyRequest {
+  name?: string
+}
+
+export interface AuthCreateApiKeyResponse {
+  headerName: string
+  key: string
+  apiKey: {
+    id: string | null
+    name: string | null
+    start: string | null
+    prefix: string | null
+    expiresAt: string | null
+    metadata: unknown
+    rateLimitEnabled: boolean | null
+    rateLimitMax: number | null
+    rateLimitTimeWindow: number | null
+  }
+}
+
+export interface AuthSignInWithEmailInput {
+  email: string
+  password: string
+}
+
+export interface AuthSignUpWithEmailInput {
+  name: string
+  email: string
+  password: string
+}
+
 export interface AuthSessionRevokeResponse {
   revoked: boolean
   sessionId: string
@@ -162,6 +196,40 @@ export interface AuthSessionRevokeResponse {
 export interface RemoveProjectMemberResponse {
   removed: boolean
   userId: string
+}
+
+export interface CreateProbableLeakAlertInput {
+  secretId?: string
+  tokenId?: string
+  source: string
+  title: string
+  summary: string
+  provider?: string
+  confidence?: string
+  metadata?: Record<string, unknown>
+}
+
+export interface CreateProbableLeakAlertResponse {
+  alert: SecurityAlert
+  recommendation: RotationRecommendation
+}
+
+export interface UpdateSecurityAlertInput {
+  status: SecurityAlertStatus
+  ownerUserId?: string | null
+  note?: string
+}
+
+export interface UpdateSecurityAlertResponse {
+  alert: SecurityAlert
+}
+
+export interface SecurityAlertsResponse {
+  alerts: SecurityAlert[]
+}
+
+export interface RotationRecommendationsResponse {
+  recommendations: RotationRecommendation[]
 }
 
 export interface UsageAvailability {

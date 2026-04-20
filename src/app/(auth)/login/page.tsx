@@ -1,13 +1,25 @@
-import { PageWrapper } from '@/components/layout/page-wrapper'
-import { EmptyState } from '@/components/shared/empty-state'
+import { AuthPanel } from '@/components/auth/auth-panel'
+import { LoginForm } from '@/components/auth/login-form'
+import { normalizeNextPath } from '@/lib/auth/paths'
+import { redirectAuthenticatedToDashboard } from '@/lib/auth/server-session'
 
-export default function LoginPage() {
+type LoginPageProps = {
+  searchParams?: Promise<{ next?: string }>
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  await redirectAuthenticatedToDashboard()
+
+  const resolvedSearchParams = searchParams ? await searchParams : undefined
+  const nextPath = normalizeNextPath(resolvedSearchParams?.next)
+
   return (
-    <PageWrapper className="flex min-h-screen items-center justify-center">
-      <EmptyState
-        title="Login"
-        description="Authentication screens are intentionally deferred to the next implementation prompt."
-      />
-    </PageWrapper>
+    <AuthPanel
+      eyebrow="Sign In"
+      title="Welcome back"
+      description="Sign in with your account credentials to access project security controls."
+    >
+      <LoginForm nextPath={nextPath} />
+    </AuthPanel>
   )
 }

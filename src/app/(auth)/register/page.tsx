@@ -1,13 +1,17 @@
-import { PageWrapper } from '@/components/layout/page-wrapper'
-import { EmptyState } from '@/components/shared/empty-state'
+import { AuthPanel } from '@/components/auth/auth-panel'
+import { RegisterForm } from '@/components/auth/register-form'
+import { redirectAuthenticatedToDashboard } from '@/lib/auth/server-session'
 
-export default function RegisterPage() {
+export default async function RegisterPage() {
+  await redirectAuthenticatedToDashboard()
+
   return (
-    <PageWrapper className="flex min-h-screen items-center justify-center">
-      <EmptyState
-        title="Register"
-        description="Account creation UI will be added in the dedicated authentication prompt."
-      />
-    </PageWrapper>
+    <AuthPanel
+      eyebrow="Create Account"
+      title="Set up your account"
+      description="Create your PentaVault account to begin managing secrets and project access safely."
+    >
+      <RegisterForm />
+    </AuthPanel>
   )
 }
