@@ -42,6 +42,19 @@ function isProjectCreateRequest(url: string | undefined): boolean {
   return normalizedUrl === 'v1/projects' || normalizedUrl.startsWith('v1/projects?')
 }
 
+function isAuthOrganizationsRequest(url: string | undefined): boolean {
+  if (!url) {
+    return false
+  }
+
+  const normalizedUrl = normalizeUrlPath(url)
+  return (
+    normalizedUrl === 'v1/auth/organizations' ||
+    normalizedUrl.startsWith('v1/auth/organizations?') ||
+    normalizedUrl === 'v1/auth/organizations/active'
+  )
+}
+
 function getErrorMeta(error: unknown): Record<string, unknown> {
   if (!axios.isAxiosError(error)) {
     return {
@@ -89,6 +102,13 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     return true
   }
 
+  const isRedirectableUnauthorized =
+    isUnauthorized && !shouldSkipUnauthorizedRedirect(error.config?.url) && isBrowser
+
+  if (isRedirectableUnauthorized) {
+    return true
+  }
+
   const isProjectDeleteNotFound =
     error.config?.method?.toLowerCase() === 'delete' &&
     includesProjectPath(error.config?.url) &&
@@ -112,11 +132,30 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     error.response?.status === 500 &&
     errorCode === 'PROJECT_CREATE_FAILURE'
 
+  const isAuthOrganizationsUnauthorized =
+    isAuthOrganizationsRequest(error.config?.url) && error.response?.status === 401
+
+  const authOrganizationsErrorCode = (error.response?.data as { code?: string } | undefined)?.code
+  const isAuthSetActiveKnownFailure =
+    error.config?.method?.toLowerCase() === 'post' &&
+    normalizeUrlPath(error.config?.url ?? '') === 'v1/auth/organizations/active' &&
+    error.response?.status === 500 &&
+    authOrganizationsErrorCode === 'AUTH_FAILURE'
+
+  const isOrgDeleteGuardedFailure =
+    error.config?.method?.toLowerCase() === 'delete' &&
+    normalizeUrlPath(error.config?.url ?? '').startsWith('v1/organizations/') &&
+    error.response?.status === 400 &&
+    authOrganizationsErrorCode === 'ORG_DELETE_DEFAULT_NOT_ALLOWED'
+
   return (
     isProjectDeleteNotFound ||
     isProjectCreateSlugConflict ||
     isProjectCreateValidationError ||
-    isProjectCreateKnownFailure
+    isProjectCreateKnownFailure ||
+    isAuthOrganizationsUnauthorized ||
+    isAuthSetActiveKnownFailure ||
+    isOrgDeleteGuardedFailure
   )
 }
 

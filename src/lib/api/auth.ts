@@ -15,6 +15,14 @@ import type {
   AuthSignInWithEmailInput,
   AuthSignUpWithEmailInput,
 } from '@/lib/types/api'
+import type {
+  AuthCreateOrganizationInput,
+  AuthDeleteOrganizationInput,
+  AuthOrganizationsResponse,
+  AuthSetActiveOrganizationInput,
+  AuthSetActiveOrganizationResponse,
+  AuthUpdateOrganizationInput,
+} from '@/lib/types/auth'
 
 function isNetworkError(error: unknown): boolean {
   return axios.isAxiosError(error) && !error.response
@@ -64,6 +72,124 @@ export const authApi = {
     }
 
     const response = await apiClient.get<AuthSessionListApiResponse>(AUTH_SESSIONS_PATH)
+    return response.data
+  },
+
+  async listOrganizations(): Promise<AuthOrganizationsResponse> {
+    if (isMockAuthEnabled()) {
+      return {
+        organizations: hasAuthCookieHint()
+          ? [
+              {
+                organization: {
+                  id: 'org_mock_1',
+                  name: 'Mock Projects',
+                  slug: 'mock-projects',
+                  active: true,
+                  isDefault: true,
+                  defaultProjectVisibility: 'private',
+                  privateProjectDiscoverability: 'visible',
+                },
+                membership: {
+                  id: 'org_member_mock_1',
+                  userId: 'mock-user-1',
+                  role: 'owner',
+                  memberType: 'member',
+                  expiresAt: null,
+                },
+              },
+            ]
+          : [],
+      }
+    }
+
+    try {
+      const response = await apiClient.get<AuthOrganizationsResponse>('/v1/auth/organizations')
+      return response.data
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        return {
+          organizations: [],
+        }
+      }
+
+      if (isNetworkError(error)) {
+        return {
+          organizations: [],
+        }
+      }
+
+      throw error
+    }
+  },
+
+  async setActiveOrganization(
+    input: AuthSetActiveOrganizationInput
+  ): Promise<AuthSetActiveOrganizationResponse> {
+    if (isMockAuthEnabled()) {
+      return {
+        activeOrganizationId: input.organizationId ?? 'org_mock_1',
+        activeOrganizationSlug: input.organizationSlug ?? 'mock-projects',
+      }
+    }
+
+    const payload = {
+      ...(input.organizationId !== undefined ? { organizationId: input.organizationId } : {}),
+      ...(input.organizationSlug !== undefined ? { organizationSlug: input.organizationSlug } : {}),
+    }
+
+    const response = await apiClient.post<AuthSetActiveOrganizationResponse>(
+      '/v1/auth/organizations/active',
+      payload
+    )
+    return response.data
+  },
+
+  async createOrganization(
+    input: AuthCreateOrganizationInput
+  ): Promise<{ id?: string; slug?: string }> {
+    if (isMockAuthEnabled()) {
+      return { id: 'org_mock_2', slug: input.slug }
+    }
+
+    const response = await apiClient.post<{ id?: string; slug?: string }>(
+      '/auth/organization/create',
+      {
+        name: input.name,
+        slug: input.slug,
+        logo: input.logo,
+        metadata: input.metadata,
+        keepCurrentActiveOrganization: input.keepCurrentActiveOrganization ?? false,
+      }
+    )
+    return response.data
+  },
+
+  async updateOrganization(input: AuthUpdateOrganizationInput): Promise<void> {
+    if (isMockAuthEnabled()) {
+      return
+    }
+
+    await apiClient.post('/auth/organization/update', input)
+  },
+
+  async deleteOrganization(input: AuthDeleteOrganizationInput): Promise<void> {
+    if (isMockAuthEnabled()) {
+      return
+    }
+
+    await apiClient.delete(`/v1/organizations/${input.organizationId}`)
+  },
+
+  async deleteAccount(input: { email: string }): Promise<{ deleted: true }> {
+    if (isMockAuthEnabled()) {
+      clearClientAuthHint()
+      return { deleted: true }
+    }
+
+    const response = await apiClient.delete<{ deleted: true }>('/v1/auth/account', {
+      data: input,
+    })
     return response.data
   },
 

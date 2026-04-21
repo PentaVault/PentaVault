@@ -13,6 +13,7 @@ export const SETTINGS_PATH = '/settings'
 export const SETTINGS_API_KEYS_PATH = '/settings/api-keys'
 export const SETTINGS_BILLING_PATH = '/settings/billing'
 export const SETTINGS_SESSIONS_PATH = '/settings/sessions'
+export const SETTINGS_ACCOUNT_PATH = '/settings/account'
 export const ONBOARDING_PATH = '/onboarding'
 export const LOGIN_PATH = '/login'
 export const REGISTER_PATH = '/register'
@@ -23,6 +24,62 @@ export const AUTH_PROTECTED_PATH_PREFIXES = [
   SETTINGS_PATH,
   ONBOARDING_PATH,
 ] as const
+
+export function getOrgDashboardPath(orgId: string): string {
+  return `${DASHBOARD_HOME_PATH}/org/${orgId}`
+}
+
+export function getOrgProjectsPath(orgId: string): string {
+  return `${getOrgDashboardPath(orgId)}/projects`
+}
+
+export function getOrgProjectPath(orgId: string, projectId: string): string {
+  return `${getOrgProjectsPath(orgId)}/${projectId}`
+}
+
+export function getOrgProjectSecretsPath(orgId: string, projectId: string): string {
+  return `${getOrgProjectPath(orgId, projectId)}/secrets`
+}
+
+export function getOrgProjectTokensPath(orgId: string, projectId: string): string {
+  return `${getOrgProjectPath(orgId, projectId)}/tokens`
+}
+
+export function getOrgProjectTeamPath(orgId: string, projectId: string): string {
+  return `${getOrgProjectPath(orgId, projectId)}/team`
+}
+
+export function getOrgProjectAuditPath(orgId: string, projectId: string): string {
+  return `${getOrgProjectPath(orgId, projectId)}/audit`
+}
+
+export function getOrgProjectUsagePath(orgId: string, projectId: string): string {
+  return `${getOrgProjectPath(orgId, projectId)}/usage`
+}
+
+export function getOrgProjectSecurityPath(orgId: string, projectId: string): string {
+  return `${getOrgProjectPath(orgId, projectId)}/security`
+}
+
+export function getOrgSettingsPath(orgId: string): string {
+  return `${getOrgDashboardPath(orgId)}/settings`
+}
+
+export function getOrgSettingsApiKeysPath(orgId: string): string {
+  return `${getOrgSettingsPath(orgId)}/api-keys`
+}
+
+export function getOrgSettingsBillingPath(orgId: string): string {
+  return `${getOrgSettingsPath(orgId)}/billing`
+}
+
+export function getOrgSettingsSessionsPath(orgId: string): string {
+  return `${getOrgSettingsPath(orgId)}/sessions`
+}
+
+export function getOrgOnboardingPath(orgId: string): string {
+  return `${getOrgDashboardPath(orgId)}/onboarding`
+}
 
 export function getProjectPath(projectId: string): string {
   return `${PROJECTS_PATH}/${projectId}`
