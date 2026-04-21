@@ -1,70 +1,225 @@
-# PentaVault Frontend Development Todo
+# TODO
+
+Frontend execution tracker for the PentaVault web repository.
+
+This file is intentionally detailed and should stay current as work starts, ships, slips, or is deferred.
+
+---
+
+## How To Use This File
+
+- keep task IDs stable once created
+- keep statuses current; update immediately when state changes
+- prefer specific tasks with clear exits over vague epics
+- move deferred work to a dedicated deferred section, do not silently drop context
+- include validation notes for implementation tasks (`lint`, `type-check`, `build`, and focused tests)
 
 ## Status Legend
+
 - `[ ]` pending
-- `[-]` in progress
+- `[-]` intentionally deferred
 - `[x]` completed
-- `[!]` blocked or needs follow-up
 
-## Working Rules
-- Use `pnpm` only.
-- Keep backend contract as source of truth.
-- Keep authentication implementation deferred, but maintain Better Auth compatibility.
-- Keep token, API key, and session handling security-first.
-- Validate with `pnpm run lint`, `pnpm run type-check`, and `pnpm run build` after meaningful increments.
+## Task Template
 
-## Plan Tracking
+Use this template for new tasks:
 
-### 0. Planning and Tracking Documents
-- [x] Create `plan.md` with full frontend roadmap and phased delivery plan.
-- [x] Replace `todo.md` with roadmap-aligned implementation tracker.
+```text
+### F-000 Title
+Status: [x]
+Priority: high | medium | low
+Area: dashboard | projects | secrets | tokens | team | audit | security | auth | settings | ui-system | perf | a11y | docs | infra
+Depends on: F-000, F-001
+Objective: one sentence
+Validation: lint/type-check/build/tests/manual checks
+Exit criteria:
+- concrete outcome
+- concrete outcome
+```
 
-### 1. Phase 1 - Dashboard Shell + Projects
-- [x] Build production-ready dashboard shell layout (header/sidebar/project context).
-- [x] Implement projects list page with loading/empty/error/refresh handling.
-- [x] Implement project creation flow with contract-safe validation.
-- [x] Implement project overview page with role/status-aware sections.
-- [x] Add shared API error-to-UX mapping for project routes.
-- [x] Run validation checks for Phase 1 (`lint`, `type-check`, `build`).
+---
 
-### 2. Phase 2 - Secrets + Tokens
-- [x] Implement secrets page (single create + batch import).
-- [x] Implement tokens page (issue + revoke).
-- [x] Add mode-aware UX (`compatibility` vs `gateway`) with security copy.
-- [x] Add mutation feedback and retries across secrets/tokens flows.
-- [x] Run validation checks for Phase 2.
+## 1. Active Roadmap
 
-### 3. Phase 3 - Team + Audit + Security Center
-- [x] Implement team membership management page.
-- [x] Implement audit viewer with filters and cursor pagination.
-- [x] Implement project security page for alerts and recommendations.
-- [x] Add owner/admin permission-aware actions and forbidden states.
-- [x] Run validation checks for Phase 3.
+Objective: track remaining frontend work with implementation-grade detail.
 
-### 4. Phase 4 - Onboarding + Settings Maturity
-- [x] Implement onboarding flow for first project and first secret import.
-- [x] Implement settings API key page (create and display-once UX).
-- [x] Keep usage/billing pages explicit when backend capability is unavailable.
-- [x] Run validation checks for Phase 4.
+### F-101 Production auth UX hardening
 
-### 5. Phase 5 - Auth Implementation (Deferred, Planned)
-- [ ] Implement Better Auth-compatible login/register/device approval UI.
-- [ ] Add route guard patterns using centralized auth boundaries.
-- [ ] Add server-aware auth checks where needed without breaking dashboard architecture.
-- [ ] Run validation checks for Phase 5.
+Status: [ ]
+Priority: high
+Area: auth
+Depends on: none
+Objective: harden login/register/device flows for edge cases, retries, and polished failure UX.
+Validation: `pnpm run lint`, `pnpm run type-check`, focused auth flow manual tests.
+Exit criteria:
 
-### 6. Phase 6 - Production Hardening
-- [ ] Accessibility pass (keyboard/focus/contrast/semantics).
-- [ ] Error handling and retry UX hardening.
-- [ ] Performance pass (query defaults, selective SSR hydration where useful).
-- [ ] Deployment verification for Vercel + backend cloud instance.
+- auth forms show specific errors for known backend codes
+- happy path and failure path behavior is consistent across login/register/device pages
 
-### 7. Design System Update
-- [x] Rewrite `.opencode/skills/design/DESIGN.md` to remain high-quality but visually distinct from Supabase.
-- [x] Update color tokens, typography choices, component style rules, and prompt guidance.
+### F-102 Route boundary hardening
 
-## Deployment Readiness Checklist
-- [ ] Vercel env vars configured: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_API_URL`.
-- [ ] Backend trusted origins include frontend production origin.
-- [ ] Frontend and backend communicate over HTTPS only.
-- [ ] Production smoke check of auth session bootstrap and core project routes.
+Status: [ ]
+Priority: high
+Area: auth
+Depends on: F-101
+Objective: ensure centralized route guards are reliable for all protected and auth-only routes.
+Validation: manual navigation checks plus `pnpm run type-check`.
+Exit criteria:
+
+- all protected pages redirect unauthenticated users correctly
+- authenticated users are redirected away from auth-only entry pages
+
+### F-103 Accessibility pass
+
+Status: [ ]
+Priority: high
+Area: a11y
+Depends on: none
+Objective: close major keyboard, focus, semantic, and contrast issues in dashboard and auth surfaces.
+Validation: keyboard-only manual pass, automated lint/type-check/build.
+Exit criteria:
+
+- key interactive flows are keyboard-complete
+- focus visibility and contrast meet baseline accessibility expectations
+
+### F-104 Error and retry UX hardening
+
+Status: [ ]
+Priority: high
+Area: ui-system
+Depends on: none
+Objective: ensure known API failure reasons always map to specific user-facing messages and retry affordances.
+Validation: focused manual failure-path tests and automated `lint/type-check/build`.
+Exit criteria:
+
+- known backend error codes show specific, non-generic messages
+- unknown failures keep safe generic messaging with request correlation where available
+
+### F-105 Performance pass
+
+Status: [ ]
+Priority: medium
+Area: perf
+Depends on: F-102
+Objective: optimize query/cache defaults and hydration strategy where measurable UX wins exist.
+Validation: build output review, runtime manual checks on slow-path pages.
+Exit criteria:
+
+- expensive pages show improved perceived load and interaction responsiveness
+- no regression in correctness or auth behavior
+
+### F-106 Deployment verification
+
+Status: [ ]
+Priority: high
+Area: infra
+Depends on: F-101, F-102
+Objective: verify production deployment wiring and baseline smoke behavior.
+Validation: production or preview smoke checks.
+Exit criteria:
+
+- frontend env vars are correctly configured in deployment platform
+- backend trusted origins and HTTPS expectations are validated end-to-end
+
+---
+
+## 2. Completed Delivery Record
+
+Objective: preserve shipped context without cluttering active execution.
+
+### F-001 Planning and tracker baseline
+
+Status: [x]
+Priority: high
+Area: docs
+Depends on: none
+Objective: establish `plan.md` and roadmap-aligned task tracking.
+Validation: docs present and synchronized.
+Exit criteria:
+
+- planning doc exists
+- tracker exists and is maintained
+
+### F-010 Dashboard shell + projects foundation
+
+Status: [x]
+Priority: high
+Area: dashboard
+Depends on: F-001
+Objective: ship dashboard shell, projects list/create, and project overview foundations.
+Validation: `pnpm run lint`, `pnpm run type-check`, `pnpm run build`.
+Exit criteria:
+
+- shell and project flows are functional
+- loading/empty/error states are covered
+
+### F-020 Secrets + tokens workflows
+
+Status: [x]
+Priority: high
+Area: secrets
+Depends on: F-010
+Objective: deliver secret create/import and token issue/revoke workflows with mode-aware UX.
+Validation: lint/type-check/build and manual flow checks.
+Exit criteria:
+
+- secrets and tokens pages are operational
+- mutation feedback and retries are present
+
+### F-030 Team + audit + security center
+
+Status: [x]
+Priority: high
+Area: security
+Depends on: F-020
+Objective: deliver team membership, audit log, and security center surfaces with permission awareness.
+Validation: lint/type-check/build and manual role checks.
+Exit criteria:
+
+- all pages are functional
+- owner/admin restrictions are enforced in UI behavior
+
+### F-040 Onboarding + settings maturity
+
+Status: [x]
+Priority: high
+Area: settings
+Depends on: F-030
+Objective: deliver onboarding flow and settings API key UX while keeping unsupported usage/billing explicit.
+Validation: lint/type-check/build and manual checks.
+Exit criteria:
+
+- onboarding path exists for first project/secret
+- settings API key creation/display-once flow is operational
+
+### F-050 Design system refresh
+
+Status: [x]
+Priority: medium
+Area: ui-system
+Depends on: F-010
+Objective: refresh design tokens and component guidance for a cohesive dark-mode system.
+Validation: visual spot checks across auth and dashboard surfaces.
+Exit criteria:
+
+- updated design guidance exists
+- UI components align with design constraints
+
+---
+
+## 3. Deferred Backlog
+
+Objective: preserve intentionally delayed ideas for future planning.
+
+### F-201 Team-management flow redesign
+
+Status: [-]
+Priority: medium
+Area: team
+Depends on: F-030
+Objective: redesign team-management entry and interaction model after current project-actions simplification.
+Validation: design review and implementation PR.
+Exit criteria:
+
+- new IA and interaction model approved
+- updated implementation replaces legacy entry points

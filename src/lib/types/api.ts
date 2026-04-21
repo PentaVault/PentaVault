@@ -16,6 +16,9 @@ import type {
 export interface ApiErrorResponse {
   code: string
   error: string
+  message?: string
+  requestId?: string
+  suggestedSlug?: string
 }
 
 export interface CreateProjectInput {

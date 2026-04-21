@@ -10,7 +10,6 @@ import {
   getProjectAuditPath,
   getProjectSecretsPath,
   getProjectSecurityPath,
-  getProjectTeamPath,
   getProjectTokensPath,
   getProjectUsagePath,
 } from '@/lib/constants'
@@ -62,7 +61,6 @@ export default function ProjectOverviewPage() {
   const links = [
     { href: getProjectSecretsPath(project.id), label: 'Manage secrets' },
     { href: getProjectTokensPath(project.id), label: 'Manage tokens' },
-    { href: getProjectTeamPath(project.id), label: 'Manage team' },
     { href: getProjectAuditPath(project.id), label: 'Review audit log' },
     { href: getProjectSecurityPath(project.id), label: 'Security alerts and recommendations' },
     { href: getProjectUsagePath(project.id), label: 'View usage status' },

@@ -4,6 +4,14 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogOverlay,
+  DialogPortal,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useCreateProject } from '@/lib/hooks/use-projects'
 import { useToast } from '@/lib/hooks/use-toast'
@@ -27,6 +35,20 @@ export function CreateProjectForm({ onCreated }: CreateProjectFormProps) {
   const { toast } = useToast()
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
+  const [pendingSuggestedSlug, setPendingSuggestedSlug] = useState<string | null>(null)
+
+  function closeSuggestedSlugDialog(): void {
+    setPendingSuggestedSlug(null)
+  }
+
+  function applySuggestedSlug(): void {
+    if (!pendingSuggestedSlug) {
+      return
+    }
+
+    setSlug(pendingSuggestedSlug)
+    closeSuggestedSlugDialog()
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
@@ -49,15 +71,13 @@ export function CreateProjectForm({ onCreated }: CreateProjectFormProps) {
 
       setName('')
       setSlug('')
+      setPendingSuggestedSlug(null)
       onCreated?.()
     } catch (submitError) {
       const apiError = getApiErrorPayload(submitError)
 
       if (apiError?.code === 'PROJECT_SLUG_CONFLICT' && apiError.suggestedSlug && normalizedSlug) {
-        setSlug(apiError.suggestedSlug)
-        toast.error(
-          `Slug "${normalizedSlug}" is already taken. We've filled in "${apiError.suggestedSlug}" - submit again to use it.`
-        )
+        setPendingSuggestedSlug(apiError.suggestedSlug)
         return
       }
 
@@ -91,44 +111,75 @@ export function CreateProjectForm({ onCreated }: CreateProjectFormProps) {
   }
 
   return (
-    <form className="space-y-3" onSubmit={(event) => void handleSubmit(event)}>
-      <div className="space-y-1">
-        <label
-          className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
-          htmlFor="project-name"
-        >
-          Project name
-        </label>
-        <Input
-          id="project-name"
-          onChange={(event) => setName(event.target.value)}
-          placeholder="My secure project"
-          value={name}
-        />
-      </div>
+    <>
+      <form className="space-y-3" onSubmit={(event) => void handleSubmit(event)}>
+        <div className="space-y-1">
+          <label
+            className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+            htmlFor="project-name"
+          >
+            Project name
+          </label>
+          <Input
+            id="project-name"
+            onChange={(event) => setName(event.target.value)}
+            placeholder="My secure project"
+            value={name}
+          />
+        </div>
 
-      <div className="space-y-1">
-        <label
-          className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
-          htmlFor="project-slug"
-        >
-          Slug (optional)
-        </label>
-        <Input
-          id="project-slug"
-          onChange={(event) => setSlug(event.target.value)}
-          placeholder="my-secure-project"
-          value={slug}
-        />
-      </div>
+        <div className="space-y-1">
+          <label
+            className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+            htmlFor="project-slug"
+          >
+            Slug (optional)
+          </label>
+          <Input
+            id="project-slug"
+            onChange={(event) => setSlug(event.target.value)}
+            placeholder="my-secure-project"
+            value={slug}
+          />
+        </div>
 
-      <Button disabled={createProject.isPending} type="submit">
-        {createProject.isPending ? 'Creating...' : 'Create project'}
-      </Button>
+        <Button disabled={createProject.isPending} type="submit">
+          {createProject.isPending ? 'Creating...' : 'Create project'}
+        </Button>
 
-      <p className="text-xs text-muted-foreground">
-        Slug is optional. If omitted, backend may derive one from project name.
-      </p>
-    </form>
+        <p className="text-xs text-muted-foreground">
+          Slug is optional. If omitted, backend may derive one from project name.
+        </p>
+      </form>
+
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) {
+            closeSuggestedSlugDialog()
+          }
+        }}
+        open={Boolean(pendingSuggestedSlug)}
+      >
+        <DialogPortal>
+          <DialogOverlay className="fixed inset-0 bg-black/45" />
+          <DialogContent className="fixed top-1/2 left-1/2 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-5">
+            <DialogTitle className="text-xl">Use suggested slug?</DialogTitle>
+            <DialogDescription className="mt-1 text-sm text-muted-foreground">
+              The slug <span className="font-mono text-foreground">{slug}</span> is already taken.
+              Use <span className="font-mono text-foreground">{pendingSuggestedSlug}</span> instead?
+            </DialogDescription>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <Button onClick={closeSuggestedSlugDialog} size="sm" type="button" variant="outline">
+                Cancel
+              </Button>
+              <Button onClick={applySuggestedSlug} size="sm" type="button">
+                Use suggested slug
+              </Button>
+            </div>
+          </DialogContent>
+        </DialogPortal>
+      </Dialog>
+    </>
   )
 }
