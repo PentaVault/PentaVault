@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 
 import { PageWrapper } from '@/components/layout/page-wrapper'
+import { ErrorState } from '@/components/shared/error-state'
 import { StatusBadge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -20,6 +21,7 @@ import {
 } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useProject } from '@/lib/hooks/use-projects'
+import { getApiFriendlyMessage } from '@/lib/utils/errors'
 import { formatDateTime } from '@/lib/utils/format'
 
 function membershipTone(role: 'owner' | 'admin' | 'member' | 'developer' | 'readonly') {
@@ -52,14 +54,14 @@ export default function ProjectOverviewPage() {
   if (projectQuery.isError || !projectQuery.data) {
     return (
       <PageWrapper>
-        <Card>
-          <CardHeader>
-            <CardTitle>Project unavailable</CardTitle>
-            <CardDescription>
-              The project could not be loaded. It may not exist or your account may not have access.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <ErrorState
+          title="Project unavailable"
+          message={getApiFriendlyMessage(
+            projectQuery.error,
+            'The project could not be loaded. It may not exist or you may not have access.'
+          )}
+          onRetry={() => void projectQuery.refetch()}
+        />
       </PageWrapper>
     )
   }

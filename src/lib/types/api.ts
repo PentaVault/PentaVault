@@ -19,6 +19,8 @@ export interface ApiErrorResponse {
   message?: string
   requestId?: string
   suggestedSlug?: string
+  retryAfter?: number
+  fields?: Record<string, string>
 }
 
 export interface CreateProjectInput {

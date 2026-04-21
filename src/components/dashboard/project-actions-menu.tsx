@@ -32,7 +32,12 @@ import {
   useUpdateProject,
 } from '@/lib/hooks/use-projects'
 import type { UserProject } from '@/lib/types/models'
-import { getApiFriendlyMessage } from '@/lib/utils/errors'
+import { cn } from '@/lib/utils/cn'
+import {
+  getApiFieldErrors,
+  getApiFriendlyMessage,
+  getApiFriendlyMessageWithRef,
+} from '@/lib/utils/errors'
 
 type ProjectActionsMenuProps = {
   projectItem: UserProject
@@ -62,18 +67,20 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
   const [slug, setSlug] = useState(projectItem.project.slug)
   const [deleteSlugInput, setDeleteSlugInput] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const isOwner = projectItem.membership?.role === 'owner'
   const activeOrgId = auth.activeOrganization?.organization.id ?? null
 
   async function handleSave(): Promise<void> {
     setError(null)
+    setFieldErrors({})
 
     const normalizedName = name.trim()
     const normalizedSlug = normalizeSlugInput(slug)
 
     if (!normalizedName) {
-      setError('Project name is required.')
+      setFieldErrors({ name: 'Please enter a project name.' })
       return
     }
 
@@ -87,7 +94,15 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
       })
       setIsEditOpen(false)
     } catch (submitError) {
-      setError(getApiFriendlyMessage(submitError, 'Unable to update project right now.'))
+      const fields = getApiFieldErrors(submitError)
+      if (fields && Object.keys(fields).length > 0) {
+        setFieldErrors(fields)
+        return
+      }
+
+      setError(
+        getApiFriendlyMessageWithRef(submitError, 'Unable to update this project right now.')
+      )
     }
   }
 
@@ -112,9 +127,12 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
 
   async function handleDelete(): Promise<void> {
     setError(null)
+    setFieldErrors({})
 
     if (deleteSlugInput.trim() !== projectItem.project.slug) {
-      setError('Type the exact project slug to confirm deletion.')
+      setFieldErrors({
+        deleteSlug: `That doesn't match the project slug. Type '${projectItem.project.slug}' to confirm deletion.`,
+      })
       return
     }
 
@@ -193,10 +211,17 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
                       Project name
                     </label>
                     <Input
+                      className={cn(fieldErrors.name && 'border-danger focus-visible:ring-danger')}
                       id={`project-name-${projectItem.project.id}`}
-                      onChange={(event) => setName(event.target.value)}
+                      onChange={(event) => {
+                        setName(event.target.value)
+                        setFieldErrors((current) => ({ ...current, name: '' }))
+                      }}
                       value={name}
                     />
+                    {fieldErrors.name ? (
+                      <p className="text-sm text-danger">{fieldErrors.name}</p>
+                    ) : null}
                   </div>
 
                   <div className="space-y-1">
@@ -207,10 +232,23 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
                       Slug
                     </label>
                     <Input
+                      className={cn(fieldErrors.slug && 'border-danger focus-visible:ring-danger')}
                       id={`project-slug-${projectItem.project.id}`}
-                      onChange={(event) => setSlug(event.target.value)}
+                      onChange={(event) => {
+                        setSlug(event.target.value)
+                        setFieldErrors((current) => ({ ...current, slug: '' }))
+                      }}
                       value={slug}
                     />
+                    <p
+                      className={cn(
+                        'text-xs',
+                        fieldErrors.slug ? 'text-danger' : 'text-muted-foreground'
+                      )}
+                    >
+                      {fieldErrors.slug ||
+                        'Use lowercase letters, numbers, and hyphens if you want a custom slug.'}
+                    </p>
                   </div>
 
                   {error ? <p className="text-sm text-danger">{error}</p> : null}
@@ -300,11 +338,20 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
                   Confirm slug
                 </label>
                 <Input
+                  className={cn(
+                    fieldErrors.deleteSlug && 'border-danger focus-visible:ring-danger'
+                  )}
                   id={`project-delete-confirm-${projectItem.project.id}`}
-                  onChange={(event) => setDeleteSlugInput(event.target.value)}
+                  onChange={(event) => {
+                    setDeleteSlugInput(event.target.value)
+                    setFieldErrors((current) => ({ ...current, deleteSlug: '' }))
+                  }}
                   placeholder={projectItem.project.slug}
                   value={deleteSlugInput}
                 />
+                {fieldErrors.deleteSlug ? (
+                  <p className="text-sm text-danger">{fieldErrors.deleteSlug}</p>
+                ) : null}
               </div>
 
               {error ? <p className="text-sm text-danger">{error}</p> : null}

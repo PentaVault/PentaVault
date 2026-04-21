@@ -15,7 +15,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { useCreateProject } from '@/lib/hooks/use-projects'
 import { useToast } from '@/lib/hooks/use-toast'
-import { getApiErrorPayload, getApiFriendlyMessage } from '@/lib/utils/errors'
+import { cn } from '@/lib/utils/cn'
+import {
+  getApiErrorPayload,
+  getApiFieldErrors,
+  getApiFriendlyMessageWithRef,
+} from '@/lib/utils/errors'
 
 type CreateProjectFormProps = {
   onCreated?: () => void
@@ -36,6 +41,7 @@ export function CreateProjectForm({ onCreated }: CreateProjectFormProps) {
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [pendingSuggestedSlug, setPendingSuggestedSlug] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   function closeSuggestedSlugDialog(): void {
     setPendingSuggestedSlug(null)
@@ -52,12 +58,13 @@ export function CreateProjectForm({ onCreated }: CreateProjectFormProps) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
+    setFieldErrors({})
 
     const normalizedName = name.trim()
     const normalizedSlug = normalizeSlugInput(slug)
 
     if (!normalizedName) {
-      toast.error('Project name is required.')
+      setFieldErrors({ name: 'Please enter a project name.' })
       return
     }
 
@@ -74,6 +81,12 @@ export function CreateProjectForm({ onCreated }: CreateProjectFormProps) {
       setPendingSuggestedSlug(null)
       onCreated?.()
     } catch (submitError) {
+      const fields = getApiFieldErrors(submitError)
+      if (fields && Object.keys(fields).length > 0) {
+        setFieldErrors(fields)
+        return
+      }
+
       const apiError = getApiErrorPayload(submitError)
 
       if (apiError?.code === 'PROJECT_SLUG_CONFLICT' && apiError.suggestedSlug && normalizedSlug) {
@@ -101,12 +114,9 @@ export function CreateProjectForm({ onCreated }: CreateProjectFormProps) {
         }
       }
 
-      if (apiError?.code === 'INVALID_REQUEST') {
-        toast.error('Some project details are invalid. Check the name and slug and try again.')
-        return
-      }
-
-      toast.error(getApiFriendlyMessage(submitError, 'Unable to create project. Please try again.'))
+      toast.error(
+        getApiFriendlyMessageWithRef(submitError, 'Unable to create this project right now.')
+      )
     }
   }
 
@@ -121,11 +131,23 @@ export function CreateProjectForm({ onCreated }: CreateProjectFormProps) {
             Project name
           </label>
           <Input
+            className={cn(fieldErrors.name && 'border-danger focus-visible:ring-danger')}
             id="project-name"
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              setName(event.target.value)
+              setFieldErrors((current) => ({ ...current, name: '' }))
+            }}
             placeholder="My secure project"
             value={name}
           />
+          <div className="flex items-center justify-between text-xs">
+            <span className={fieldErrors.name ? 'text-danger' : 'text-muted-foreground'}>
+              {fieldErrors.name || 'Use a short, descriptive project name.'}
+            </span>
+            <span className={name.length > 100 ? 'text-danger' : 'text-muted-foreground'}>
+              {name.length}/120
+            </span>
+          </div>
         </div>
 
         <div className="space-y-1">
@@ -136,11 +158,19 @@ export function CreateProjectForm({ onCreated }: CreateProjectFormProps) {
             Slug (optional)
           </label>
           <Input
+            className={cn(fieldErrors.slug && 'border-danger focus-visible:ring-danger')}
             id="project-slug"
-            onChange={(event) => setSlug(event.target.value)}
+            onChange={(event) => {
+              setSlug(event.target.value)
+              setFieldErrors((current) => ({ ...current, slug: '' }))
+            }}
             placeholder="my-secure-project"
             value={slug}
           />
+          <p className={cn('text-xs', fieldErrors.slug ? 'text-danger' : 'text-muted-foreground')}>
+            {fieldErrors.slug ||
+              'Slug may include lowercase letters, numbers, and hyphens. Leave it blank to auto-generate one.'}
+          </p>
         </div>
 
         <Button disabled={createProject.isPending} type="submit">

@@ -7,6 +7,8 @@ import { Lock } from 'lucide-react'
 import { CreateProjectForm } from '@/components/dashboard/create-project-form'
 import { ProjectActionsMenu } from '@/components/dashboard/project-actions-menu'
 import { PageWrapper } from '@/components/layout/page-wrapper'
+import { EmptyState } from '@/components/shared/empty-state'
+import { ErrorState } from '@/components/shared/error-state'
 import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -60,14 +62,11 @@ export default function ProjectsPage() {
   if (projectsQuery.isError) {
     return (
       <PageWrapper>
-        <Card>
-          <CardHeader>
-            <CardTitle>Unable to load projects</CardTitle>
-            <CardDescription>
-              Try again in a moment. If this persists, check backend availability.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <ErrorState
+          title="Unable to load projects"
+          message={getApiFriendlyMessage(projectsQuery.error, 'Please try again in a moment.')}
+          onRetry={() => void projectsQuery.refetch()}
+        />
       </PageWrapper>
     )
   }
@@ -86,10 +85,10 @@ export default function ProjectsPage() {
           </CardHeader>
           <CardContent>
             {projects.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border p-6 text-sm text-muted-foreground">
-                No projects found yet. Create your first project to start configuring secrets and
-                runtime access.
-              </div>
+              <EmptyState
+                title="No projects yet"
+                description="Create your first project to start configuring secrets and runtime access."
+              />
             ) : (
               <div className="space-y-3">
                 {projects.map((projectItem) => {

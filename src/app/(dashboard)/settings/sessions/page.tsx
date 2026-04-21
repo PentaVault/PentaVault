@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 
 import { PageWrapper } from '@/components/layout/page-wrapper'
+import { EmptyState } from '@/components/shared/empty-state'
+import { ErrorState } from '@/components/shared/error-state'
 import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -94,17 +96,26 @@ export default function SessionsPage() {
             {isPending ? 'Refreshing...' : 'Refresh sessions'}
           </Button>
 
-          {error ? <p className="text-sm text-danger">{error}</p> : null}
+          {error ? (
+            <ErrorState
+              title="Unable to load sessions"
+              message={error}
+              onRetry={() => void refreshSessions()}
+            />
+          ) : null}
 
-          {!sessions ? (
+          {!error && !sessions ? (
             <p className="text-sm text-muted-foreground">
               Load sessions to view current and historical authenticated devices.
             </p>
-          ) : sessions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No active sessions found.</p>
-          ) : (
+          ) : !error && (sessions?.length ?? 0) === 0 ? (
+            <EmptyState
+              title="No sessions found"
+              description="Once you sign in from another browser or device, your active sessions will appear here."
+            />
+          ) : !error ? (
             <div className="space-y-3">
-              {sessions.map((session) => (
+              {(sessions ?? []).map((session) => (
                 <div
                   key={session.id}
                   className="flex flex-col gap-3 rounded-xl border border-border p-4 sm:flex-row sm:items-center sm:justify-between"
@@ -137,7 +148,7 @@ export default function SessionsPage() {
                 </div>
               ))}
             </div>
-          )}
+          ) : null}
         </CardContent>
       </Card>
     </PageWrapper>

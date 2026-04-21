@@ -5,9 +5,12 @@ import { useParams } from 'next/navigation'
 import { TeamMemberAddForm } from '@/components/dashboard/team-member-add-form'
 import { TeamMemberRow } from '@/components/dashboard/team-member-row'
 import { PageWrapper } from '@/components/layout/page-wrapper'
+import { EmptyState } from '@/components/shared/empty-state'
+import { ErrorState } from '@/components/shared/error-state'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useProject } from '@/lib/hooks/use-projects'
 import { useProjectMembers } from '@/lib/hooks/use-team'
+import { getApiFriendlyMessage } from '@/lib/utils/errors'
 
 export default function ProjectTeamPage() {
   const params = useParams<{ projectId: string }>()
@@ -46,9 +49,16 @@ export default function ProjectTeamPage() {
             {membersQuery.isLoading ? (
               <p className="text-sm text-muted-foreground">Loading members...</p>
             ) : membersQuery.isError ? (
-              <p className="text-sm text-danger">Unable to load project members right now.</p>
+              <ErrorState
+                title="Unable to load team members"
+                message={getApiFriendlyMessage(membersQuery.error, 'Please try again in a moment.')}
+                onRetry={() => void membersQuery.refetch()}
+              />
             ) : members.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No members found for this project.</p>
+              <EmptyState
+                title="No team members yet"
+                description="Add the first collaborator to start sharing access to this project."
+              />
             ) : (
               <div className="space-y-3">
                 {members.map((membership) => (

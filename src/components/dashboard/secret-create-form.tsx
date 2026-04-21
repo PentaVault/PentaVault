@@ -17,7 +17,8 @@ import { SECRET_MODES } from '@/lib/constants'
 import { useSecrets } from '@/lib/hooks/use-secrets'
 import { useToast } from '@/lib/hooks/use-toast'
 import type { SecretMode } from '@/lib/types/models'
-import { getApiFriendlyMessage } from '@/lib/utils/errors'
+import { cn } from '@/lib/utils/cn'
+import { getApiFieldErrors, getApiFriendlyMessageWithRef } from '@/lib/utils/errors'
 
 type SecretCreateFormProps = {
   projectId: string
@@ -31,18 +32,34 @@ export function SecretCreateForm({ projectId }: SecretCreateFormProps) {
   const [plaintext, setPlaintext] = useState('')
   const [environment, setEnvironment] = useState('development')
   const [mode, setMode] = useState<SecretMode>('compatibility')
-  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
-    setError(null)
+    setFieldErrors({})
 
     const normalizedName = name.trim()
     const normalizedValue = plaintext.trim()
     const normalizedEnvironment = environment.trim()
 
-    if (!normalizedName || !normalizedValue || !normalizedEnvironment) {
-      setError('Name, plaintext value, and environment are required.')
+    const nextFieldErrors: Record<string, string> = {}
+
+    if (!normalizedName) {
+      nextFieldErrors.name = 'Please enter a secret name.'
+    } else if (!/^[A-Z0-9_]+$/.test(normalizedName)) {
+      nextFieldErrors.name = 'Use uppercase letters, numbers, and underscores, like STRIPE_API_KEY.'
+    }
+
+    if (!normalizedEnvironment) {
+      nextFieldErrors.environment = 'Please enter an environment name.'
+    }
+
+    if (!normalizedValue) {
+      nextFieldErrors.plaintext = 'Please paste the secret value you want to store.'
+    }
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors)
       return
     }
 
@@ -59,8 +76,16 @@ export function SecretCreateForm({ projectId }: SecretCreateFormProps) {
       setName('')
       setPlaintext('')
     } catch (submitError) {
-      const message = getApiFriendlyMessage(submitError, 'Unable to create secret right now.')
-      setError(message)
+      const fields = getApiFieldErrors(submitError)
+      if (fields && Object.keys(fields).length > 0) {
+        setFieldErrors(fields)
+        return
+      }
+
+      const message = getApiFriendlyMessageWithRef(
+        submitError,
+        'Unable to create this secret right now.'
+      )
       toast.error(message)
     }
   }
@@ -76,11 +101,16 @@ export function SecretCreateForm({ projectId }: SecretCreateFormProps) {
             Secret name
           </label>
           <Input
+            className={cn(fieldErrors.name && 'border-danger focus-visible:ring-danger')}
             id="secret-name"
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              setName(event.target.value)
+              setFieldErrors((current) => ({ ...current, name: '' }))
+            }}
             placeholder="OPENAI_API_KEY"
             value={name}
           />
+          {fieldErrors.name ? <p className="text-sm text-danger">{fieldErrors.name}</p> : null}
         </div>
 
         <div className="space-y-1">
@@ -91,11 +121,18 @@ export function SecretCreateForm({ projectId }: SecretCreateFormProps) {
             Environment
           </label>
           <Input
+            className={cn(fieldErrors.environment && 'border-danger focus-visible:ring-danger')}
             id="secret-environment"
-            onChange={(event) => setEnvironment(event.target.value)}
+            onChange={(event) => {
+              setEnvironment(event.target.value)
+              setFieldErrors((current) => ({ ...current, environment: '' }))
+            }}
             placeholder="development"
             value={environment}
           />
+          {fieldErrors.environment ? (
+            <p className="text-sm text-danger">{fieldErrors.environment}</p>
+          ) : null}
         </div>
       </div>
 
@@ -130,12 +167,19 @@ export function SecretCreateForm({ projectId }: SecretCreateFormProps) {
           Plaintext value
         </label>
         <Input
+          className={cn(fieldErrors.plaintext && 'border-danger focus-visible:ring-danger')}
           id="secret-plaintext"
-          onChange={(event) => setPlaintext(event.target.value)}
+          onChange={(event) => {
+            setPlaintext(event.target.value)
+            setFieldErrors((current) => ({ ...current, plaintext: '' }))
+          }}
           placeholder="Paste value once"
           type="password"
           value={plaintext}
         />
+        {fieldErrors.plaintext ? (
+          <p className="text-sm text-danger">{fieldErrors.plaintext}</p>
+        ) : null}
       </div>
 
       <p className="text-xs text-muted-foreground">
@@ -146,8 +190,6 @@ export function SecretCreateForm({ projectId }: SecretCreateFormProps) {
         Compatibility mode supports resolve endpoints; gateway mode supports provider-proxy
         forwarding.
       </p>
-
-      {error ? <p className="text-sm text-danger">{error}</p> : null}
 
       <Button disabled={secrets.createSecret.isPending} type="submit">
         {secrets.createSecret.isPending ? 'Creating...' : 'Create secret'}

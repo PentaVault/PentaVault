@@ -17,7 +17,8 @@ import { SECRET_MODES } from '@/lib/constants'
 import { useSecrets } from '@/lib/hooks/use-secrets'
 import { useToast } from '@/lib/hooks/use-toast'
 import type { SecretMode } from '@/lib/types/models'
-import { getApiFriendlyMessage } from '@/lib/utils/errors'
+import { cn } from '@/lib/utils/cn'
+import { getApiFieldErrors, getApiFriendlyMessageWithRef } from '@/lib/utils/errors'
 
 type SecretsImportFormProps = {
   projectId: string
@@ -57,22 +58,22 @@ export function SecretsImportForm({ projectId }: SecretsImportFormProps) {
   const [rawInput, setRawInput] = useState('')
   const [environment, setEnvironment] = useState('development')
   const [mode, setMode] = useState<SecretMode>('compatibility')
-  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
-    setError(null)
+    setFieldErrors({})
 
     const normalizedEnvironment = environment.trim()
     const parsedSecrets = parseSecretsText(rawInput)
 
     if (!normalizedEnvironment) {
-      setError('Environment is required.')
+      setFieldErrors({ environment: 'Please enter an environment name.' })
       return
     }
 
     if (Object.keys(parsedSecrets).length === 0) {
-      setError('Add at least one KEY=value pair to import.')
+      setFieldErrors({ rawInput: 'Add at least one valid KEY=VALUE pair before importing.' })
       return
     }
 
@@ -90,8 +91,16 @@ export function SecretsImportForm({ projectId }: SecretsImportFormProps) {
       )
       setRawInput('')
     } catch (submitError) {
-      const message = getApiFriendlyMessage(submitError, 'Unable to import secrets right now.')
-      setError(message)
+      const fields = getApiFieldErrors(submitError)
+      if (fields && Object.keys(fields).length > 0) {
+        setFieldErrors(fields)
+        return
+      }
+
+      const message = getApiFriendlyMessageWithRef(
+        submitError,
+        'Unable to import these secrets right now.'
+      )
       toast.error(message)
     }
   }
@@ -107,11 +116,18 @@ export function SecretsImportForm({ projectId }: SecretsImportFormProps) {
             Environment
           </label>
           <Input
+            className={cn(fieldErrors.environment && 'border-danger focus-visible:ring-danger')}
             id="import-environment"
-            onChange={(event) => setEnvironment(event.target.value)}
+            onChange={(event) => {
+              setEnvironment(event.target.value)
+              setFieldErrors((current) => ({ ...current, environment: '' }))
+            }}
             placeholder="development"
             value={environment}
           />
+          {fieldErrors.environment ? (
+            <p className="text-sm text-danger">{fieldErrors.environment}</p>
+          ) : null}
         </div>
 
         <div className="space-y-1">
@@ -148,10 +164,19 @@ export function SecretsImportForm({ projectId }: SecretsImportFormProps) {
         <textarea
           id="import-body"
           value={rawInput}
-          onChange={(event) => setRawInput(event.target.value)}
+          onChange={(event) => {
+            setRawInput(event.target.value)
+            setFieldErrors((current) => ({ ...current, rawInput: '', secrets: '' }))
+          }}
           placeholder={'DATABASE_URL=postgres://...\nOPENAI_API_KEY=sk-...'}
-          className="min-h-36 w-full rounded-md border border-border bg-background-elevated px-3 py-2 text-sm"
+          className={cn(
+            'min-h-36 w-full rounded-md border border-border bg-background-elevated px-3 py-2 text-sm',
+            (fieldErrors.rawInput || fieldErrors.secrets) && 'border-danger'
+          )}
         />
+        {fieldErrors.rawInput || fieldErrors.secrets ? (
+          <p className="text-sm text-danger">{fieldErrors.rawInput || fieldErrors.secrets}</p>
+        ) : null}
       </div>
 
       <p className="text-xs text-muted-foreground">
@@ -161,8 +186,6 @@ export function SecretsImportForm({ projectId }: SecretsImportFormProps) {
       <p className="text-xs text-muted-foreground">
         Imported secrets can optionally issue tokens immediately for runtime onboarding.
       </p>
-
-      {error ? <p className="text-sm text-danger">{error}</p> : null}
 
       <Button disabled={secrets.importSecrets.isPending} type="submit" variant="outline">
         {secrets.importSecrets.isPending ? 'Importing...' : 'Import secrets'}

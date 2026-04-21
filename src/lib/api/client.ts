@@ -183,12 +183,34 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error: unknown) => {
-    if (axios.isAxiosError(error) && error.response?.status === 401 && isBrowser) {
+    if (!axios.isAxiosError(error)) {
+      console.error('[Unexpected Error]', error)
+      return Promise.reject(error)
+    }
+
+    if (!error.response) {
+      if (!shouldSuppressDevErrorLog(error)) {
+        console.error('[Network Error]', {
+          code: error.code,
+          message: error.message,
+          url: error.config?.url,
+          method: error.config?.method?.toUpperCase(),
+        })
+      }
+
+      return Promise.reject(error)
+    }
+
+    if (error.response.status === 401 && isBrowser) {
       if (!shouldSkipUnauthorizedRedirect(error.config?.url)) {
         clearClientAuthHint()
+        const redirectUrl =
+          window.location.pathname !== LOGIN_PATH
+            ? `${LOGIN_PATH}?expired=1&next=${encodeURIComponent(window.location.pathname)}`
+            : LOGIN_PATH
 
         if (![LOGIN_PATH, REGISTER_PATH, DEVICE_PATH].includes(window.location.pathname)) {
-          window.location.href = LOGIN_PATH
+          window.location.href = redirectUrl
         }
       }
     }

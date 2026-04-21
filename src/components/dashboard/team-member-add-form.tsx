@@ -15,7 +15,8 @@ import {
 } from '@/components/ui/select'
 import { useAddProjectMember } from '@/lib/hooks/use-team'
 import { useToast } from '@/lib/hooks/use-toast'
-import { getApiFriendlyMessage } from '@/lib/utils/errors'
+import { cn } from '@/lib/utils/cn'
+import { getApiFieldErrors, getApiFriendlyMessageWithRef } from '@/lib/utils/errors'
 
 type TeamMemberAddFormProps = {
   projectId: string
@@ -27,15 +28,15 @@ export function TeamMemberAddForm({ projectId }: TeamMemberAddFormProps) {
 
   const [userId, setUserId] = useState('')
   const [role, setRole] = useState<'admin' | 'member'>('member')
-  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
-    setError(null)
+    setFieldErrors({})
 
     const normalizedUserId = userId.trim()
     if (!normalizedUserId) {
-      setError('User ID is required.')
+      setFieldErrors({ userId: 'Please enter the user ID you want to add.' })
       return
     }
 
@@ -44,8 +45,16 @@ export function TeamMemberAddForm({ projectId }: TeamMemberAddFormProps) {
       toast.success('Member added successfully.')
       setUserId('')
     } catch (submitError) {
-      const message = getApiFriendlyMessage(submitError, 'Unable to add member right now.')
-      setError(message)
+      const fields = getApiFieldErrors(submitError)
+      if (fields && Object.keys(fields).length > 0) {
+        setFieldErrors(fields)
+        return
+      }
+
+      const message = getApiFriendlyMessageWithRef(
+        submitError,
+        'Unable to add this team member right now.'
+      )
       toast.error(message)
     }
   }
@@ -60,11 +69,16 @@ export function TeamMemberAddForm({ projectId }: TeamMemberAddFormProps) {
           User ID
         </label>
         <Input
+          className={cn(fieldErrors.userId && 'border-danger focus-visible:ring-danger')}
           id="member-user-id"
-          onChange={(event) => setUserId(event.target.value)}
+          onChange={(event) => {
+            setUserId(event.target.value)
+            setFieldErrors((current) => ({ ...current, userId: '' }))
+          }}
           placeholder="user_xxxxx"
           value={userId}
         />
+        {fieldErrors.userId ? <p className="text-sm text-danger">{fieldErrors.userId}</p> : null}
       </div>
 
       <div className="space-y-1">
@@ -86,8 +100,6 @@ export function TeamMemberAddForm({ projectId }: TeamMemberAddFormProps) {
           </SelectContent>
         </Select>
       </div>
-
-      {error ? <p className="text-sm text-danger">{error}</p> : null}
 
       <Button disabled={addMember.isPending} type="submit" variant="outline">
         {addMember.isPending ? 'Adding...' : 'Add member'}
