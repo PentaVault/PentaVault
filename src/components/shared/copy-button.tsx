@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 
+import { Check, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -10,12 +11,14 @@ import { getApiErrorMessage } from '@/lib/utils/errors'
 
 type CopyButtonProps = {
   value: string
+  label?: string
   idleLabel?: string
   successLabel?: string
 }
 
 export function CopyButton({
   value,
+  label,
   idleLabel = 'Copy',
   successLabel = 'Copied',
 }: CopyButtonProps) {
@@ -39,7 +42,14 @@ export function CopyButton({
   }
 
   return (
-    <Button onClick={() => void handleCopy()} size="sm" type="button" variant="outline">
+    <Button
+      aria-label={copied ? 'Copied!' : (label ?? idleLabel)}
+      onClick={() => void handleCopy()}
+      size="sm"
+      type="button"
+      variant="outline"
+    >
+      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
       {copied ? successLabel : idleLabel}
     </Button>
   )

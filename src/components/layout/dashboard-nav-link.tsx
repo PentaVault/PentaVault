@@ -33,13 +33,14 @@ export function DashboardNavLink({
 
   return (
     <Link
+      aria-current={active ? 'page' : undefined}
       href={href}
       className={cn(
-        'inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+        'inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
         collapsed ? 'justify-center px-2' : 'justify-start',
         active
-          ? 'border border-accent/35 text-accent'
-          : 'border border-transparent text-muted-foreground hover:border-border hover:text-foreground'
+          ? 'bg-card-elevated font-medium text-foreground'
+          : 'text-muted-foreground hover:bg-card-elevated hover:text-foreground'
       )}
       title={collapsed ? label : undefined}
     >

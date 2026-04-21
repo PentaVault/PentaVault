@@ -20,6 +20,11 @@ import {
   SETTINGS_API_KEYS_PATH,
   SETTINGS_PATH,
   SETTINGS_SESSIONS_PATH,
+  getOrgDashboardPath,
+  getOrgProjectsPath,
+  getOrgSettingsApiKeysPath,
+  getOrgSettingsPath,
+  getOrgSettingsSessionsPath,
 } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useToast } from '@/lib/hooks/use-toast'
@@ -68,6 +73,7 @@ export function ProfileMenu() {
 
   const userName = auth.session?.user.name ?? 'Unknown user'
   const userEmail = auth.session?.user.email ?? 'No email'
+  const activeOrgId = auth.activeOrganization?.organization.id ?? null
 
   async function handleLogout(): Promise<void> {
     try {
@@ -114,31 +120,41 @@ export function ProfileMenu() {
           asChild
           className="bg-transparent hover:bg-card-elevated focus:bg-card-elevated"
         >
-          <Link href={DASHBOARD_HOME_PATH}>Dashboard</Link>
+          <Link href={activeOrgId ? getOrgDashboardPath(activeOrgId) : DASHBOARD_HOME_PATH}>
+            Dashboard
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuItem
           asChild
           className="bg-transparent hover:bg-card-elevated focus:bg-card-elevated"
         >
-          <Link href={PROJECTS_PATH}>Projects</Link>
+          <Link href={activeOrgId ? getOrgProjectsPath(activeOrgId) : PROJECTS_PATH}>Projects</Link>
         </DropdownMenuItem>
         <DropdownMenuItem
           asChild
           className="bg-transparent hover:bg-card-elevated focus:bg-card-elevated"
         >
-          <Link href={SETTINGS_PATH}>Settings</Link>
+          <Link href={activeOrgId ? getOrgSettingsPath(activeOrgId) : SETTINGS_PATH}>Settings</Link>
         </DropdownMenuItem>
         <DropdownMenuItem
           asChild
           className="bg-transparent hover:bg-card-elevated focus:bg-card-elevated"
         >
-          <Link href={SETTINGS_SESSIONS_PATH}>Sessions</Link>
+          <Link
+            href={activeOrgId ? getOrgSettingsSessionsPath(activeOrgId) : SETTINGS_SESSIONS_PATH}
+          >
+            Sessions
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuItem
           asChild
           className="bg-transparent hover:bg-card-elevated focus:bg-card-elevated"
         >
-          <Link href={SETTINGS_API_KEYS_PATH}>API Keys</Link>
+          <Link
+            href={activeOrgId ? getOrgSettingsApiKeysPath(activeOrgId) : SETTINGS_API_KEYS_PATH}
+          >
+            API Keys
+          </Link>
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />

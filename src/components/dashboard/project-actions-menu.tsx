@@ -23,7 +23,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown'
 import { Input } from '@/components/ui/input'
-import { getProjectPath } from '@/lib/constants'
+import { getOrgProjectPath, getProjectPath } from '@/lib/constants'
+import { useAuth } from '@/lib/hooks/use-auth'
 import {
   useArchiveProject,
   useDeleteProject,
@@ -48,6 +49,7 @@ function normalizeSlugInput(value: string): string {
 }
 
 export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMenuProps) {
+  const auth = useAuth()
   const updateProject = useUpdateProject()
   const archiveProject = useArchiveProject()
   const unarchiveProject = useUnarchiveProject()
@@ -61,7 +63,8 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
   const [deleteSlugInput, setDeleteSlugInput] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  const isOwner = projectItem.membership.role === 'owner'
+  const isOwner = projectItem.membership?.role === 'owner'
+  const activeOrgId = auth.activeOrganization?.organization.id ?? null
 
   async function handleSave(): Promise<void> {
     setError(null)
@@ -150,7 +153,15 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
 
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem asChild>
-            <Link href={getProjectPath(projectItem.project.id)}>Open</Link>
+            <Link
+              href={
+                activeOrgId
+                  ? getOrgProjectPath(activeOrgId, projectItem.project.id)
+                  : getProjectPath(projectItem.project.id)
+              }
+            >
+              Open
+            </Link>
           </DropdownMenuItem>
 
           <Dialog onOpenChange={setIsEditOpen} open={isEditOpen}>
