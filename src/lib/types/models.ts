@@ -8,6 +8,8 @@ import type {
 
 export type ProjectRole = (typeof PROJECT_ROLES)[number]
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number]
+export type ProjectVisibility = 'open' | 'private'
+export type AccessRequestStatus = 'pending' | 'approved' | 'denied' | 'cancelled'
 export type SecretMode = (typeof SECRET_MODES)[number]
 export type SecretStatus = (typeof SECRET_STATUSES)[number]
 
@@ -46,8 +48,10 @@ export interface User {
 
 export interface Project {
   id: string
+  organizationId: string
   slug: string
   name: string
+  visibility: ProjectVisibility
   status: ProjectStatus
   createdByUserId: string | null
   archivedAt: string | null
@@ -65,7 +69,11 @@ export interface ProjectMembership {
 
 export interface UserProject {
   project: Project
-  membership: ProjectMembership
+  membership: ProjectMembership | null
+  orgRole: string
+  canAccess: boolean
+  pendingAccessRequest: boolean
+  latestRequestStatus: AccessRequestStatus | null
 }
 
 export interface Secret {

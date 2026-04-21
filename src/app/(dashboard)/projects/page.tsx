@@ -2,13 +2,19 @@
 
 import Link from 'next/link'
 
+import { Lock } from 'lucide-react'
+
 import { CreateProjectForm } from '@/components/dashboard/create-project-form'
 import { ProjectActionsMenu } from '@/components/dashboard/project-actions-menu'
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { StatusBadge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { getProjectPath } from '@/lib/constants'
-import { useProjectsQuery } from '@/lib/hooks/use-projects'
+import { getOrgProjectPath, getProjectPath } from '@/lib/constants'
+import { useAuth } from '@/lib/hooks/use-auth'
+import { useCreateProjectAccessRequest, useProjectsQuery } from '@/lib/hooks/use-projects'
+import { useToast } from '@/lib/hooks/use-toast'
+import { getApiFriendlyMessage } from '@/lib/utils/errors'
 import { formatDateTime } from '@/lib/utils/format'
 
 function projectStatusTone(status: 'active' | 'archived') {
@@ -17,6 +23,24 @@ function projectStatusTone(status: 'active' | 'archived') {
 
 export default function ProjectsPage() {
   const projectsQuery = useProjectsQuery()
+  const createAccessRequest = useCreateProjectAccessRequest()
+  const auth = useAuth()
+  const { toast } = useToast()
+  const activeOrgId = auth.activeOrganization?.organization.id ?? null
+
+  async function handleRequestAccess(projectId: string): Promise<void> {
+    try {
+      await createAccessRequest.mutateAsync({
+        projectId,
+        input: {
+          requestedRole: 'developer',
+        },
+      })
+      toast.success("Access request sent. You'll be notified when it's reviewed.")
+    } catch (error) {
+      toast.error(getApiFriendlyMessage(error, 'Unable to request access right now.'))
+    }
+  }
 
   if (projectsQuery.isLoading) {
     return (
@@ -68,42 +92,95 @@ export default function ProjectsPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {projects.map(({ project, membership }) => (
-                  <div
-                    className="rounded-xl border border-border p-4 transition-colors hover:border-border-strong hover:bg-card-elevated"
-                    key={project.id}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <Link
-                          className="text-lg tracking-[-0.16px] text-foreground hover:text-[#3ecf8e]"
-                          href={getProjectPath(project.id)}
-                        >
-                          {project.name}
-                        </Link>
-                        <p className="text-sm text-muted-foreground">/{project.slug}</p>
+                {projects.map((projectItem) => {
+                  const {
+                    project,
+                    membership,
+                    canAccess,
+                    pendingAccessRequest,
+                    latestRequestStatus,
+                  } = projectItem
+
+                  return (
+                    <div
+                      className={`rounded-xl border p-4 transition-colors ${
+                        canAccess
+                          ? 'border-border hover:border-border-strong hover:bg-card-elevated'
+                          : 'border-border/70 bg-card/50 opacity-85'
+                      }`}
+                      key={project.id}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          {canAccess ? (
+                            <Link
+                              className="text-lg tracking-[-0.16px] text-foreground hover:text-[#3ecf8e]"
+                              href={
+                                activeOrgId
+                                  ? getOrgProjectPath(activeOrgId, project.id)
+                                  : getProjectPath(project.id)
+                              }
+                            >
+                              {project.name}
+                            </Link>
+                          ) : (
+                            <div className="flex items-center gap-2 text-lg tracking-[-0.16px] text-foreground/90">
+                              <Lock className="h-4 w-4 text-muted-foreground" />
+                              <span>{project.name}</span>
+                            </div>
+                          )}
+                          <p className="text-sm text-muted-foreground">/{project.slug}</p>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          {membership ? (
+                            <StatusBadge tone="neutral">{membership.role}</StatusBadge>
+                          ) : (
+                            <StatusBadge tone="neutral">{project.visibility}</StatusBadge>
+                          )}
+                          <StatusBadge
+                            tone={projectStatusTone(project.status)}
+                            className="capitalize"
+                          >
+                            {project.status}
+                          </StatusBadge>
+                        </div>
                       </div>
-                      <div className="flex flex-wrap items-center justify-end gap-2">
-                        <StatusBadge tone="neutral">{membership.role}</StatusBadge>
-                        <StatusBadge
-                          tone={projectStatusTone(project.status)}
-                          className="capitalize"
-                        >
-                          {project.status}
-                        </StatusBadge>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Updated {formatDateTime(project.updatedAt)}
+                      </p>
+                      <div className="mt-3 flex justify-end">
+                        {canAccess && membership ? (
+                          <ProjectActionsMenu
+                            onArchived={() => void projectsQuery.refetch()}
+                            projectItem={projectItem}
+                          />
+                        ) : pendingAccessRequest ? (
+                          <StatusBadge tone="warning">Request pending</StatusBadge>
+                        ) : latestRequestStatus === 'denied' ? (
+                          <Button
+                            disabled={createAccessRequest.isPending}
+                            onClick={() => void handleRequestAccess(project.id)}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            Request access again
+                          </Button>
+                        ) : (
+                          <Button
+                            disabled={createAccessRequest.isPending}
+                            onClick={() => void handleRequestAccess(project.id)}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            Request access
+                          </Button>
+                        )}
                       </div>
                     </div>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Updated {formatDateTime(project.updatedAt)}
-                    </p>
-                    <div className="mt-3 flex justify-end">
-                      <ProjectActionsMenu
-                        onArchived={() => void projectsQuery.refetch()}
-                        projectItem={{ project, membership }}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </CardContent>

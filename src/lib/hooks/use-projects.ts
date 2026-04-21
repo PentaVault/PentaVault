@@ -3,7 +3,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { projectsApi } from '@/lib/api/projects'
-import type { CreateProjectInput, UpdateProjectInput } from '@/lib/types/api'
+import type {
+  CreateAccessRequestInput,
+  CreateProjectInput,
+  UpdateProjectInput,
+} from '@/lib/types/api'
 
 export function useProjectsQuery() {
   return useQuery({
@@ -43,6 +47,18 @@ export function useDeleteProject() {
 
   return useMutation({
     mutationFn: async (projectId: string) => projectsApi.deleteProject(projectId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['projects'] })
+    },
+  })
+}
+
+export function useCreateProjectAccessRequest() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: { projectId: string; input: CreateAccessRequestInput }) =>
+      projectsApi.createAccessRequest(payload.projectId, payload.input),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['projects'] })
     },

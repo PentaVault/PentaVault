@@ -1,5 +1,7 @@
 import { apiClient } from '@/lib/api/client'
 import type {
+  AccessRequestResponse,
+  CreateAccessRequestInput,
   CreateProjectInput,
   ListProjectsResponse,
   ProjectMembersResponse,
@@ -49,6 +51,17 @@ export const projectsApi = {
   async listMembers(projectId: string): Promise<ProjectMembersResponse> {
     const response = await apiClient.get<ProjectMembersResponse>(
       `/v1/projects/${projectId}/members`
+    )
+    return response.data
+  },
+
+  async createAccessRequest(
+    projectId: string,
+    input: CreateAccessRequestInput
+  ): Promise<AccessRequestResponse> {
+    const response = await apiClient.post<AccessRequestResponse>(
+      `/v1/projects/${projectId}/access-requests`,
+      input
     )
     return response.data
   },

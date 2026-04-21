@@ -43,6 +43,27 @@ export interface ProjectMembersResponse {
   members: ProjectMembership[]
 }
 
+export interface CreateAccessRequestInput {
+  requestedRole: 'developer' | 'readonly'
+  message?: string
+}
+
+export interface AccessRequestResponse {
+  request: {
+    id: string
+    projectId: string
+    organizationId: string
+    requesterId: string
+    requestedRole: 'developer' | 'readonly'
+    message: string | null
+    status: 'pending' | 'approved' | 'denied' | 'cancelled'
+    reviewedBy: string | null
+    reviewerNote: string | null
+    createdAt: string
+    updatedAt: string
+  }
+}
+
 export interface ProjectMembershipResponse {
   membership: ProjectMembership
 }
