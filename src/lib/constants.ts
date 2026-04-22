@@ -61,6 +61,10 @@ export function getOrgProjectSecurityPath(orgId: string, projectId: string): str
   return `${getOrgProjectPath(orgId, projectId)}/security`
 }
 
+export function getOrgProjectSettingsPath(orgId: string, projectId: string): string {
+  return `${getOrgProjectPath(orgId, projectId)}/settings`
+}
+
 export function getOrgSettingsPath(orgId: string): string {
   return `${getOrgDashboardPath(orgId)}/settings`
 }
@@ -107,6 +111,10 @@ export function getProjectUsagePath(projectId: string): string {
 
 export function getProjectSecurityPath(projectId: string): string {
   return `${getProjectPath(projectId)}/security`
+}
+
+export function getProjectSettingsPath(projectId: string): string {
+  return `${getProjectPath(projectId)}/settings`
 }
 
 export const DEFAULT_QUERY_STALE_TIME_MS = 30_000

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 
@@ -30,6 +31,7 @@ import {
 } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useToast } from '@/lib/hooks/use-toast'
+import { cn } from '@/lib/utils/cn'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
 
 type DashboardShellProps = {
@@ -38,8 +40,10 @@ type DashboardShellProps = {
 
 export function DashboardShell({ children }: DashboardShellProps) {
   const auth = useAuth()
+  const pathname = usePathname()
   const { toast } = useToast()
   const activeOrganization = auth.activeOrganization?.organization
+  const isProjectRoute = /\/projects\/[^/]+/.test(pathname)
   const [isCreateOrgOpen, setIsCreateOrgOpen] = useState(false)
   const [organizationName, setOrganizationName] = useState('')
   const [isCreatingOrganization, setIsCreatingOrganization] = useState(false)
@@ -55,9 +59,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
   async function handleCreateOrganization(): Promise<void> {
     const normalizedName = organizationName.trim()
-    const normalizedSlug = slugifyOrganizationName(organizationName)
 
-    if (!normalizedName || !normalizedSlug) {
+    if (!normalizedName) {
       toast.error('Organization name is required.')
       return
     }
@@ -67,7 +70,6 @@ export function DashboardShell({ children }: DashboardShellProps) {
     try {
       await authApi.createOrganization({
         name: normalizedName,
-        slug: normalizedSlug,
         keepCurrentActiveOrganization: false,
       })
       await auth.refresh()
@@ -132,7 +134,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Slug preview: /{slugifyOrganizationName(organizationName) || 'your-organization'}
+                URL preview: /{slugifyOrganizationName(organizationName) || 'your-organization'}
+                -xxxxxxxx
               </p>
 
               <div className="flex justify-end gap-2">
@@ -158,44 +161,55 @@ export function DashboardShell({ children }: DashboardShellProps) {
         </DialogPortal>
       </Dialog>
 
-      <div className="grid w-full grid-cols-1 gap-0 md:grid-cols-[220px_1fr]">
-        <aside className="border-b border-border bg-card md:min-h-[calc(100vh-57px)] md:border-r md:border-b-0">
-          <nav className="flex flex-wrap gap-2 px-2 py-3 md:flex-col md:px-3 md:py-4">
-            <DashboardNavLink
-              exact
-              href={
-                activeOrganization
-                  ? getOrgDashboardPath(activeOrganization.id)
-                  : DASHBOARD_HOME_PATH
-              }
-              icon={<LayoutDashboard />}
-              label="Overview"
-            />
-            <DashboardNavLink
-              href={
-                activeOrganization ? getOrgProjectsPath(activeOrganization.id) : DASHBOARD_HOME_PATH
-              }
-              icon={<FolderKanban />}
-              label="Projects"
-            />
-            <DashboardNavLink
-              href={
-                activeOrganization
-                  ? getOrgOnboardingPath(activeOrganization.id)
-                  : DASHBOARD_HOME_PATH
-              }
-              icon={<BarChart3 />}
-              label="Onboarding"
-            />
-            <DashboardNavLink
-              href={
-                activeOrganization ? getOrgSettingsPath(activeOrganization.id) : DASHBOARD_HOME_PATH
-              }
-              icon={<Settings />}
-              label="Settings"
-            />
-          </nav>
-        </aside>
+      <div
+        className={cn(
+          'grid w-full grid-cols-1 gap-0',
+          isProjectRoute ? 'md:grid-cols-1' : 'md:grid-cols-[220px_1fr]'
+        )}
+      >
+        {!isProjectRoute ? (
+          <aside className="border-b border-border bg-card md:min-h-[calc(100vh-57px)] md:border-r md:border-b-0">
+            <nav className="flex flex-wrap gap-2 px-2 py-3 md:flex-col md:px-3 md:py-4">
+              <DashboardNavLink
+                exact
+                href={
+                  activeOrganization
+                    ? getOrgDashboardPath(activeOrganization.id)
+                    : DASHBOARD_HOME_PATH
+                }
+                icon={<LayoutDashboard />}
+                label="Overview"
+              />
+              <DashboardNavLink
+                href={
+                  activeOrganization
+                    ? getOrgProjectsPath(activeOrganization.id)
+                    : DASHBOARD_HOME_PATH
+                }
+                icon={<FolderKanban />}
+                label="Projects"
+              />
+              <DashboardNavLink
+                href={
+                  activeOrganization
+                    ? getOrgOnboardingPath(activeOrganization.id)
+                    : DASHBOARD_HOME_PATH
+                }
+                icon={<BarChart3 />}
+                label="Onboarding"
+              />
+              <DashboardNavLink
+                href={
+                  activeOrganization
+                    ? getOrgSettingsPath(activeOrganization.id)
+                    : DASHBOARD_HOME_PATH
+                }
+                icon={<Settings />}
+                label="Settings"
+              />
+            </nav>
+          </aside>
+        ) : null}
 
         <main className="min-h-[calc(100vh-57px)]">{children}</main>
       </div>
