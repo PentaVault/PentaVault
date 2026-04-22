@@ -1,5 +1,7 @@
 import { apiClient } from '@/lib/api/client'
 import type {
+  BatchIssueTokensInput,
+  BatchIssueTokensResponse,
   IssueTokenInput,
   IssueTokenResponse,
   ProjectTokensResponse,
@@ -17,6 +19,17 @@ export const tokensApi = {
 
   async issueToken(input: IssueTokenInput): Promise<IssueTokenResponse> {
     const response = await apiClient.post<IssueTokenResponse>('/v1/tokens', input)
+    return response.data
+  },
+
+  async batchIssueTokens(input: BatchIssueTokensInput): Promise<BatchIssueTokensResponse> {
+    const response = await apiClient.post<BatchIssueTokensResponse>(
+      `/v1/projects/${input.projectId}/tokens/batch-issue`,
+      {
+        secretIds: input.secretIds,
+        ...(input.userId ? { userId: input.userId } : {}),
+      }
+    )
     return response.data
   },
 

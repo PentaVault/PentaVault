@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -29,42 +28,6 @@ import {
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useToast } from '@/lib/hooks/use-toast'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
-
-function AvatarGlyph() {
-  return (
-    <svg aria-hidden="true" className="profile-glyph h-4 w-4" fill="none" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.55" strokeWidth="1.2" />
-      <path
-        className="profile-glyph-lines"
-        d="M6 8h12M6 12h12M6 16h12"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeWidth="1.5"
-      />
-      <circle
-        className="profile-glyph-dot profile-glyph-dot-1"
-        cx="8"
-        cy="8"
-        fill="currentColor"
-        r="1.1"
-      />
-      <circle
-        className="profile-glyph-dot profile-glyph-dot-2"
-        cx="16"
-        cy="12"
-        fill="currentColor"
-        r="1.1"
-      />
-      <circle
-        className="profile-glyph-dot profile-glyph-dot-3"
-        cx="10"
-        cy="16"
-        fill="currentColor"
-        r="1.1"
-      />
-    </svg>
-  )
-}
 
 export function ProfileMenu() {
   const router = useRouter()
@@ -92,14 +55,10 @@ export function ProfileMenu() {
       <DropdownMenuTrigger asChild>
         <Button
           aria-label="Open profile menu"
-          className="h-9 w-9 rounded-full p-0"
-          variant="outline"
+          className="h-9 w-9 overflow-hidden rounded-full border-border p-0"
+          variant="ghost"
         >
-          <Avatar className="h-8 w-8 rounded-full">
-            <AvatarFallback className="rounded-full bg-[#171717] text-[#fafafa]">
-              <AvatarGlyph />
-            </AvatarFallback>
-          </Avatar>
+          <span className="block h-full w-full rounded-full bg-[radial-gradient(circle_at_30%_25%,#7fffd4_0%,#00c573_42%,#0f3d2e_100%)]" />
         </Button>
       </DropdownMenuTrigger>
 

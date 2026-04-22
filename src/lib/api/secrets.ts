@@ -5,6 +5,8 @@ import type {
   ImportSecretsInput,
   ImportSecretsResponse,
   ProjectSecretsResponse,
+  UpdateSecretInput,
+  UpdateSecretResponse,
 } from '@/lib/types/api'
 
 export const secretsApi = {
@@ -25,11 +27,21 @@ export const secretsApi = {
     return response.data
   },
 
+  async updateSecret(input: UpdateSecretInput): Promise<UpdateSecretResponse> {
+    const response = await apiClient.patch<UpdateSecretResponse>(
+      `/v1/projects/${input.projectId}/secrets/${input.secretId}`,
+      {
+        plaintext: input.plaintext,
+      }
+    )
+    return response.data
+  },
+
   async deleteSecret(input: {
     projectId: string
     secretId: string
-  }): Promise<{ deleted: boolean }> {
-    const response = await apiClient.delete<{ deleted: boolean }>(
+  }): Promise<{ deleted: boolean; revokedTokenCount?: number }> {
+    const response = await apiClient.delete<{ deleted: boolean; revokedTokenCount?: number }>(
       `/v1/projects/${input.projectId}/secrets/${input.secretId}`
     )
     return response.data

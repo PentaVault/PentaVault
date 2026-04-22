@@ -18,6 +18,7 @@ import type {
 import type {
   AuthCreateOrganizationInput,
   AuthDeleteOrganizationInput,
+  AuthOrganizationMembersResponse,
   AuthOrganizationsResponse,
   AuthSetActiveOrganizationInput,
   AuthSetActiveOrganizationResponse,
@@ -121,6 +122,35 @@ export const authApi = {
 
       throw error
     }
+  },
+
+  async listOrganizationMembers(organizationId: string): Promise<AuthOrganizationMembersResponse> {
+    if (isMockAuthEnabled()) {
+      return {
+        members: [
+          {
+            membership: {
+              id: 'org_member_mock_1',
+              userId: 'mock-user-1',
+              role: 'owner',
+              memberType: 'member',
+              expiresAt: null,
+            },
+            user: {
+              id: 'mock-user-1',
+              name: 'Mock User',
+              email: env.mockAuthEmail,
+              image: null,
+            },
+          },
+        ],
+      }
+    }
+
+    const response = await apiClient.get<AuthOrganizationMembersResponse>(
+      `/v1/organizations/${organizationId}/members`
+    )
+    return response.data
   },
 
   async setActiveOrganization(

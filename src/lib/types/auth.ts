@@ -40,6 +40,26 @@ export interface AuthOrganizationsResponse {
   organizations: AuthOrganizationMembership[]
 }
 
+export interface AuthOrganizationMember {
+  membership: {
+    id: string
+    userId: string
+    role: string
+    memberType: string | null
+    expiresAt: string | null
+  }
+  user: {
+    id: string
+    name: string | null
+    email: string | null
+    image: string | null
+  }
+}
+
+export interface AuthOrganizationMembersResponse {
+  members: AuthOrganizationMember[]
+}
+
 export interface AuthSetActiveOrganizationInput {
   organizationId?: string | null
   organizationSlug?: string | null

@@ -84,8 +84,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-20 border-b border-border bg-[var(--header-glass)] backdrop-blur">
+    <div className="flex h-screen flex-col overflow-hidden bg-background">
+      <header className="z-20 flex-shrink-0 border-b border-border bg-[var(--header-glass)] backdrop-blur">
         <div className="flex w-full flex-col gap-3 px-2 py-3 sm:px-3 lg:px-4">
           <div className="flex w-full items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2.5">
@@ -102,8 +102,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 <OrgSwitcher onCreateOrganization={() => setIsCreateOrgOpen(true)} />
               ) : null}
             </div>
-
-            <ProfileMenu />
+            {auth.status === 'authenticated' ? <ProfileMenu /> : null}
           </div>
         </div>
       </header>
@@ -163,13 +162,13 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
       <div
         className={cn(
-          'grid w-full grid-cols-1 gap-0',
+          'grid min-h-0 flex-1 w-full grid-cols-1 gap-0 overflow-hidden',
           isProjectRoute ? 'md:grid-cols-1' : 'md:grid-cols-[220px_1fr]'
         )}
       >
         {!isProjectRoute ? (
-          <aside className="border-b border-border bg-card md:min-h-[calc(100vh-57px)] md:border-r md:border-b-0">
-            <nav className="flex flex-wrap gap-2 px-2 py-3 md:flex-col md:px-3 md:py-4">
+          <aside className="flex h-full flex-col overflow-y-auto border-b border-border bg-card md:border-r md:border-b-0">
+            <nav className="flex flex-1 flex-wrap gap-2 px-2 py-3 md:flex-col md:px-3 md:py-4">
               <DashboardNavLink
                 exact
                 href={
@@ -198,6 +197,9 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 icon={<BarChart3 />}
                 label="Onboarding"
               />
+            </nav>
+
+            <div className="border-t border-border p-2">
               <DashboardNavLink
                 href={
                   activeOrganization
@@ -207,11 +209,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 icon={<Settings />}
                 label="Settings"
               />
-            </nav>
+            </div>
           </aside>
         ) : null}
 
-        <main className="min-h-[calc(100vh-57px)]">{children}</main>
+        <main className="min-h-0 overflow-y-auto">{children}</main>
       </div>
     </div>
   )

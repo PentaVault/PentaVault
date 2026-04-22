@@ -31,27 +31,28 @@ export default function ProjectSecretsPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <div>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="min-w-0">
           <h2 className="text-lg font-semibold">Environment Variables</h2>
           <p className="text-sm text-muted-foreground">
             Store and manage your project secrets securely.
           </p>
         </div>
-        <Button onClick={() => setIsAddOpen(true)} type="button">
-          <Plus className="mr-2 h-4 w-4" />
-          Add variable
-        </Button>
-      </div>
-
-      <div className="relative mb-4">
-        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          className="pl-9"
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search variables..."
-          value={search}
-        />
+        <div className="flex flex-shrink-0 items-center gap-3">
+          <div className="relative w-[min(28rem,34vw)] min-w-64">
+            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="h-9 pl-9"
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search variables..."
+              value={search}
+            />
+          </div>
+          <Button onClick={() => setIsAddOpen(true)} type="button">
+            <Plus className="mr-2 h-4 w-4" />
+            Add variable
+          </Button>
+        </div>
       </div>
 
       <SecretsList projectId={projectId} search={search} />

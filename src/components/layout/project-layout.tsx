@@ -14,7 +14,7 @@ import {
   getOrgProjectSecretsPath,
   getOrgProjectSecurityPath,
   getOrgProjectSettingsPath,
-  getOrgProjectTokensPath,
+  getOrgProjectTeamPath,
   getOrgProjectUsagePath,
   getOrgProjectsPath,
   getProjectAuditPath,
@@ -22,7 +22,7 @@ import {
   getProjectSecretsPath,
   getProjectSecurityPath,
   getProjectSettingsPath,
-  getProjectTokensPath,
+  getProjectTeamPath,
   getProjectUsagePath,
 } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
@@ -50,7 +50,7 @@ export function ProjectLayout({ children }: ProjectLayoutProps) {
     ? [
         { href: getOrgProjectPath(activeOrgId, projectId), label: 'Overview', exact: true },
         { href: getOrgProjectSecretsPath(activeOrgId, projectId), label: 'Secrets' },
-        { href: getOrgProjectTokensPath(activeOrgId, projectId), label: 'Tokens' },
+        { href: getOrgProjectTeamPath(activeOrgId, projectId), label: 'Team & Access' },
         { href: getOrgProjectAuditPath(activeOrgId, projectId), label: 'Audit log' },
         { href: getOrgProjectSecurityPath(activeOrgId, projectId), label: 'Security' },
         { href: getOrgProjectUsagePath(activeOrgId, projectId), label: 'Usage' },
@@ -58,7 +58,7 @@ export function ProjectLayout({ children }: ProjectLayoutProps) {
     : [
         { href: getProjectPath(projectId), label: 'Overview', exact: true },
         { href: getProjectSecretsPath(projectId), label: 'Secrets' },
-        { href: getProjectTokensPath(projectId), label: 'Tokens' },
+        { href: getProjectTeamPath(projectId), label: 'Team & Access' },
         { href: getProjectAuditPath(projectId), label: 'Audit log' },
         { href: getProjectSecurityPath(projectId), label: 'Security' },
         { href: getProjectUsagePath(projectId), label: 'Usage' },
@@ -69,8 +69,8 @@ export function ProjectLayout({ children }: ProjectLayoutProps) {
     : getProjectSettingsPath(projectId)
 
   return (
-    <div className="flex min-h-[calc(100vh-57px)] flex-col md:flex-row">
-      <aside className="flex w-full flex-shrink-0 flex-col border-b border-border bg-card md:w-56 md:border-r md:border-b-0">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden md:flex-row">
+      <aside className="flex h-full w-full flex-shrink-0 flex-col overflow-y-auto border-b border-border bg-card md:w-56 md:border-r md:border-b-0">
         <div className="border-b border-border p-3">
           <Link
             className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
@@ -92,7 +92,7 @@ export function ProjectLayout({ children }: ProjectLayoutProps) {
           )}
         </div>
 
-        <nav className="flex flex-col gap-1 p-2">
+        <nav className="flex flex-1 flex-col gap-1 p-2">
           {navItems.map((item) => (
             <DashboardNavLink
               exact={item.exact ?? false}
@@ -103,15 +103,15 @@ export function ProjectLayout({ children }: ProjectLayoutProps) {
           ))}
         </nav>
 
-        <div className="border-t border-border p-2 md:mt-auto">
+        <div className="w-full border-t border-border p-2 md:mt-auto">
           <p className="px-3 py-1 font-mono text-xs tracking-[0.12em] text-muted-foreground uppercase">
             Project
           </p>
-          <DashboardNavLink href={settingsHref} label="Settings" />
+          <DashboardNavLink className="w-full" href={settingsHref} label="Settings" />
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 overflow-auto">{children}</main>
+      <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</main>
     </div>
   )
 }

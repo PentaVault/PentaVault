@@ -27,13 +27,13 @@ export function OrgSwitcher({ onCreateOrganization }: OrgSwitcherProps) {
       <DropdownMenuTrigger asChild>
         <button
           aria-label="Switch organisation"
-          className="inline-flex h-8 min-w-[120px] max-w-[240px] cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 transition-colors duration-100 hover:border-border-strong hover:bg-card-elevated data-[state=open]:border-border-strong data-[state=open]:bg-card-elevated"
+          className="ml-3 inline-flex h-9 min-w-[180px] max-w-[300px] cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 outline-none transition-colors duration-100 hover:border-border-strong focus-visible:outline-none"
           type="button"
         >
           <span className="truncate text-sm font-medium">
             {activeOrganization?.name ?? 'Select organisation'}
           </span>
-          <ChevronsUpDown className="ml-1 h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+          <ChevronsUpDown className="ml-auto h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
 

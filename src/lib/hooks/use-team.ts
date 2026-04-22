@@ -19,6 +19,20 @@ export function useProjectMembers(projectId: string | null) {
   })
 }
 
+export function useOrganizationMembers(organizationId: string | null) {
+  return useQuery({
+    queryKey: ['organization-members', organizationId],
+    queryFn: async () => {
+      if (!organizationId) {
+        throw new Error('organizationId is required to list organization members')
+      }
+
+      return teamApi.listOrganizationMembers(organizationId)
+    },
+    enabled: Boolean(organizationId),
+  })
+}
+
 export function useAddProjectMember(projectId: string | null) {
   const queryClient = useQueryClient()
 

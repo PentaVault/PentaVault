@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 
-import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -20,28 +19,34 @@ import { getApiFriendlyMessage } from '@/lib/utils/errors'
 type TeamMemberRowProps = {
   projectId: string
   membership: ProjectMembership
+  assignedCount: number
 }
 
-export function TeamMemberRow({ projectId, membership }: TeamMemberRowProps) {
+type EditableRole = 'admin' | 'member'
+
+export function TeamMemberRow({ assignedCount, projectId, membership }: TeamMemberRowProps) {
   const updateMember = useUpdateProjectMember(projectId)
   const removeMember = useRemoveProjectMember(projectId)
   const { toast } = useToast()
 
-  const [role, setRole] = useState<'owner' | 'admin' | 'member'>(membership.role)
+  const [role, setRole] = useState<ProjectMembership['role']>(membership.role)
 
-  async function saveRole(): Promise<void> {
-    if (role === 'owner') {
+  async function updateRole(nextRole: EditableRole): Promise<void> {
+    if (membership.role === 'owner') {
       return
     }
+
+    const previousRole = role
+    setRole(nextRole)
 
     try {
       await updateMember.mutateAsync({
         userId: membership.userId,
-        input: { role },
+        input: { role: nextRole },
       })
       toast.success('Member role updated.')
     } catch (updateError) {
-      setRole(membership.role)
+      setRole(previousRole)
       toast.error(getApiFriendlyMessage(updateError, 'Unable to update member role.'))
     }
   }
@@ -60,20 +65,21 @@ export function TeamMemberRow({ projectId, membership }: TeamMemberRowProps) {
   }
 
   return (
-    <div className="grid gap-3 rounded-xl border border-border p-3 sm:grid-cols-[1fr_170px_180px] sm:items-center">
-      <div>
-        <p className="text-sm font-medium">{membership.userId}</p>
-        <p className="text-xs text-muted-foreground">membership id: {membership.id}</p>
-        <div className="mt-1">
-          <StatusBadge tone={membership.role === 'owner' ? 'warning' : 'neutral'}>
-            {membership.role}
-          </StatusBadge>
-        </div>
+    <div className="grid gap-3 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_150px_160px_96px] md:items-center">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{membership.user?.name ?? membership.userId}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {membership.user?.email ?? membership.userId}
+        </p>
       </div>
 
+      <p className="justify-self-start font-mono text-xs text-muted-foreground md:justify-self-center">
+        {assignedCount} variable{assignedCount === 1 ? '' : 's'}
+      </p>
+
       <Select
-        disabled={membership.role === 'owner'}
-        onValueChange={(value) => setRole(value as 'owner' | 'admin' | 'member')}
+        disabled={membership.role === 'owner' || updateMember.isPending}
+        onValueChange={(value) => void updateRole(value as EditableRole)}
         value={role}
       >
         <SelectTrigger aria-label="Member role">
@@ -81,27 +87,25 @@ export function TeamMemberRow({ projectId, membership }: TeamMemberRowProps) {
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            <SelectItem value="owner">owner</SelectItem>
+            <SelectItem disabled value="owner">
+              owner
+            </SelectItem>
             <SelectItem value="admin">admin</SelectItem>
             <SelectItem value="member">member</SelectItem>
           </SelectGroup>
         </SelectContent>
       </Select>
 
-      <div className="flex gap-2">
-        <Button onClick={() => void saveRole()} size="sm" type="button" variant="outline">
-          Save role
-        </Button>
-        <Button
-          onClick={() => void removeMemberRow()}
-          size="sm"
-          type="button"
-          variant="danger"
-          disabled={membership.role === 'owner'}
-        >
-          Remove
-        </Button>
-      </div>
+      <Button
+        className="justify-self-start md:justify-self-end"
+        disabled={membership.role === 'owner' || removeMember.isPending}
+        onClick={() => void removeMemberRow()}
+        size="sm"
+        type="button"
+        variant="danger"
+      >
+        Remove
+      </Button>
     </div>
   )
 }

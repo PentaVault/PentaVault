@@ -1,3 +1,4 @@
+import { authApi } from '@/lib/api/auth'
 import { apiClient } from '@/lib/api/client'
 import type {
   CreateProjectMemberInput,
@@ -8,6 +9,10 @@ import type {
 } from '@/lib/types/api'
 
 export const teamApi = {
+  async listOrganizationMembers(organizationId: string) {
+    return authApi.listOrganizationMembers(organizationId)
+  },
+
   async listMembers(projectId: string): Promise<ProjectMembersResponse> {
     const response = await apiClient.get<ProjectMembersResponse>(
       `/v1/projects/${projectId}/members`

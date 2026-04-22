@@ -27,19 +27,13 @@ export function useCreateSecrets() {
       projectId: string
       secrets: Array<{ key: string; value: string }>
     }) => {
-      const created = await Promise.all(
-        payload.secrets.map((row) =>
-          secretsApi.createSecret({
-            projectId: payload.projectId,
-            name: row.key,
-            plaintext: row.value,
-            environment: 'development',
-            mode: 'compatibility',
-          })
-        )
-      )
-
-      return created
+      return secretsApi.importSecrets({
+        projectId: payload.projectId,
+        environment: 'development',
+        mode: 'compatibility',
+        issueTokens: false,
+        secrets: Object.fromEntries(payload.secrets.map((row) => [row.key, row.value])),
+      })
     },
     onSuccess: async (_result, payload) => {
       await queryClient.invalidateQueries({ queryKey: ['project-secrets', payload.projectId] })
@@ -61,6 +55,17 @@ export function useDeleteSecret() {
   })
 }
 
+export function useUpdateSecret() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: secretsApi.updateSecret,
+    onSuccess: async (_result, input) => {
+      await queryClient.invalidateQueries({ queryKey: ['project-secrets', input.projectId] })
+    },
+  })
+}
+
 export function useSecrets() {
   const queryClient = useQueryClient()
 
@@ -73,6 +78,12 @@ export function useSecrets() {
     }),
     importSecrets: useMutation({
       mutationFn: secretsApi.importSecrets,
+      onSuccess: async (_result, input) => {
+        await queryClient.invalidateQueries({ queryKey: ['project-secrets', input.projectId] })
+      },
+    }),
+    updateSecret: useMutation({
+      mutationFn: secretsApi.updateSecret,
       onSuccess: async (_result, input) => {
         await queryClient.invalidateQueries({ queryKey: ['project-secrets', input.projectId] })
       },

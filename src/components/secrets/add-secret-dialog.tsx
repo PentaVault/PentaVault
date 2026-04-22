@@ -113,8 +113,28 @@ export function AddSecretDialog({
     }
 
     try {
-      await createSecrets.mutateAsync({ projectId, secrets: validRows })
-      toast.success(`Saved ${validRows.length} variable${validRows.length === 1 ? '' : 's'}.`)
+      const result = await createSecrets.mutateAsync({ projectId, secrets: validRows })
+      const addedCount = result.imported.length
+      const updatedCount = result.updated?.length ?? 0
+      const failedCount = result.failed?.length ?? 0
+
+      if (addedCount > 0 || updatedCount > 0) {
+        const parts = [
+          addedCount > 0 ? `${addedCount} added` : null,
+          updatedCount > 0 ? `${updatedCount} updated` : null,
+        ].filter(Boolean)
+        toast.success(`Saved variables: ${parts.join(', ')}.`)
+      }
+
+      if (failedCount > 0) {
+        const firstFailure = result.failed?.[0]
+        toast.error(
+          `${failedCount} variable${failedCount === 1 ? '' : 's'} could not be saved${
+            firstFailure ? `: ${firstFailure.name} - ${firstFailure.reason}` : '.'
+          }`
+        )
+      }
+
       onOpenChange(false)
       resetRows()
     } catch (error) {
@@ -158,11 +178,11 @@ export function AddSecretDialog({
     >
       <DialogPortal>
         <DialogOverlay className="fixed inset-0 bg-black/45" />
-        <DialogContent className="fixed top-1/2 left-1/2 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-5">
+        <DialogContent className="fixed top-1/2 left-1/2 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-visible rounded-lg border border-border bg-card p-6">
           <DialogTitle className="text-lg font-medium">Add environment variable</DialogTitle>
 
-          <form className="mt-4" onSubmit={(event) => void handleSubmit(event)}>
-            <div className="max-h-[52vh] space-y-3 overflow-y-auto pr-1">
+          <form className="mt-3 pt-2" onSubmit={(event) => void handleSubmit(event)}>
+            <div className="max-h-[52vh] space-y-3 overflow-y-auto p-1">
               {rows.map((row, index) => (
                 <div className="flex items-start gap-2" key={row.id}>
                   <div className="flex-1 space-y-2">

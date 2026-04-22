@@ -31,6 +31,7 @@ export interface CreateProjectInput {
 export interface UpdateProjectInput {
   name?: Project['name']
   status?: Project['status']
+  showAllVariablesToMembers?: Project['showAllVariablesToMembers']
 }
 
 export interface ListProjectsResponse {
@@ -115,6 +116,16 @@ export interface CreateSecretResponse {
   versionNumber: number
 }
 
+export interface UpdateSecretInput {
+  projectId: string
+  secretId: string
+  plaintext: string
+}
+
+export interface UpdateSecretResponse {
+  secret: Secret
+}
+
 export interface ImportSecretsInput {
   projectId: string
   environment?: string
@@ -129,6 +140,16 @@ export interface ImportSecretsResponse {
     secretId: string
     currentVersionId: string
     versionNumber: number
+  }>
+  updated?: Array<{
+    name: string
+    secretId: string
+    currentVersionId: string
+    versionNumber: number
+  }>
+  failed?: Array<{
+    name: string
+    reason: string
   }>
   tokens: Record<string, string>
 }
@@ -154,6 +175,21 @@ export interface IssueTokenResponse {
   expiresAt: string
 }
 
+export interface BatchIssueTokensInput {
+  projectId: string
+  secretIds: string[]
+  userId?: string
+}
+
+export interface BatchIssueTokensResponse {
+  tokens: Array<{
+    secretId: string
+    rawToken: string
+    tokenStart: string
+    createdAt: string
+  }>
+}
+
 export interface ResolveBulkInput {
   tokens: string[]
   activeSessionId?: string
@@ -175,10 +211,12 @@ export type RevokeTokenInput =
   | {
       token: string
       tokenHash?: never
+      projectId?: string
     }
   | {
       token?: never
       tokenHash: string
+      projectId?: string
     }
 
 export interface RevokeTokenResponse {

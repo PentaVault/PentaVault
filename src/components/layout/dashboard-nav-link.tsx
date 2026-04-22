@@ -11,6 +11,7 @@ type DashboardNavLinkProps = {
   icon?: React.ReactNode
   exact?: boolean
   collapsed?: boolean
+  className?: string
 }
 
 function isLinkActive(pathname: string, href: string, exact: boolean): boolean {
@@ -27,6 +28,7 @@ export function DashboardNavLink({
   icon,
   exact = false,
   collapsed = false,
+  className,
 }: DashboardNavLinkProps) {
   const pathname = usePathname()
   const active = isLinkActive(pathname, href, exact)
@@ -36,11 +38,12 @@ export function DashboardNavLink({
       aria-current={active ? 'page' : undefined}
       href={href}
       className={cn(
-        'inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
+        'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
         collapsed ? 'justify-center px-2' : 'justify-start',
         active
           ? 'bg-card-elevated font-medium text-foreground'
-          : 'text-muted-foreground hover:bg-card-elevated hover:text-foreground'
+          : 'text-muted-foreground hover:bg-card-elevated hover:text-foreground',
+        className
       )}
       title={collapsed ? label : undefined}
     >

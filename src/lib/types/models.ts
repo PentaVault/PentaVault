@@ -52,6 +52,7 @@ export interface Project {
   slug: string
   name: string
   visibility: ProjectVisibility
+  showAllVariablesToMembers: boolean
   status: ProjectStatus
   createdByUserId: string | null
   archivedAt: string | null
