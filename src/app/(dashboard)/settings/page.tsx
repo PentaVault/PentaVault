@@ -34,15 +34,6 @@ import { useAuth } from '@/lib/hooks/use-auth'
 import { useToast } from '@/lib/hooks/use-toast'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
 
-function slugifyOrganizationName(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-}
-
 type OrganizationSettingsCardProps = {
   activeOrg: NonNullable<ReturnType<typeof useAuth>['activeOrganization']>
 }
@@ -61,7 +52,10 @@ function OrganizationSettingsCard({ activeOrg }: OrganizationSettingsCardProps) 
   const currentName = activeOrg.organization.name
   const hasChanges = organizationName.trim() !== currentName
   const isValid = organizationName.trim().length >= 2 && organizationName.trim().length <= 50
-  const canDeleteOrg = !activeOrg.organization.isDefault
+  const defaultOrganizationId = auth.session?.user.defaultOrganizationId ?? null
+  const canDeleteOrg = defaultOrganizationId
+    ? activeOrg.organization.id !== defaultOrganizationId
+    : !activeOrg.organization.isDefault
   const orgUrl = `${env.appUrl}/org/${activeOrg.organization.slug}`
 
   async function handleSaveOrganization(): Promise<void> {
@@ -76,7 +70,6 @@ function OrganizationSettingsCard({ activeOrg }: OrganizationSettingsCardProps) 
         organizationId: activeOrg.organization.id,
         data: {
           name: organizationName.trim(),
-          slug: slugifyOrganizationName(organizationName),
         },
       })
       await auth.refresh()
@@ -132,7 +125,7 @@ function OrganizationSettingsCard({ activeOrg }: OrganizationSettingsCardProps) 
               value={organizationName}
             />
             <p className="text-xs text-muted-foreground">
-              Slug preview: /{slugifyOrganizationName(organizationName) || 'your-organization'}
+              The organisation URL is generated automatically and cannot be edited.
             </p>
             {hasChanges ? (
               <div className="flex justify-end">

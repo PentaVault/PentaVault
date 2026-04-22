@@ -1,9 +1,9 @@
 'use client'
 
-import Link from 'next/link'
 import { useState } from 'react'
 
 import axios from 'axios'
+import { MoreHorizontal } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -23,8 +23,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown'
 import { Input } from '@/components/ui/input'
-import { getOrgProjectPath, getProjectPath } from '@/lib/constants'
-import { useAuth } from '@/lib/hooks/use-auth'
 import {
   useArchiveProject,
   useDeleteProject,
@@ -44,17 +42,7 @@ type ProjectActionsMenuProps = {
   onArchived?: () => void
 }
 
-function normalizeSlugInput(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-}
-
 export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMenuProps) {
-  const auth = useAuth()
   const updateProject = useUpdateProject()
   const archiveProject = useArchiveProject()
   const unarchiveProject = useUnarchiveProject()
@@ -64,20 +52,17 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [name, setName] = useState(projectItem.project.name)
-  const [slug, setSlug] = useState(projectItem.project.slug)
-  const [deleteSlugInput, setDeleteSlugInput] = useState('')
+  const [deleteNameInput, setDeleteNameInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const isOwner = projectItem.membership?.role === 'owner'
-  const activeOrgId = auth.activeOrganization?.organization.id ?? null
 
   async function handleSave(): Promise<void> {
     setError(null)
     setFieldErrors({})
 
     const normalizedName = name.trim()
-    const normalizedSlug = normalizeSlugInput(slug)
 
     if (!normalizedName) {
       setFieldErrors({ name: 'Please enter a project name.' })
@@ -89,7 +74,6 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
         projectId: projectItem.project.id,
         input: {
           name: normalizedName,
-          slug: normalizedSlug,
         },
       })
       setIsEditOpen(false)
@@ -129,9 +113,9 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
     setError(null)
     setFieldErrors({})
 
-    if (deleteSlugInput.trim() !== projectItem.project.slug) {
+    if (deleteNameInput.trim() !== projectItem.project.name) {
       setFieldErrors({
-        deleteSlug: `That doesn't match the project slug. Type '${projectItem.project.slug}' to confirm deletion.`,
+        deleteName: `That doesn't match the project name. Type '${projectItem.project.name}' to confirm deletion.`,
       })
       return
     }
@@ -140,7 +124,7 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
       await deleteProject.mutateAsync(projectItem.project.id)
       setIsMenuOpen(false)
       setIsDeleteOpen(false)
-      setDeleteSlugInput('')
+      setDeleteNameInput('')
       onArchived?.()
     } catch (submitError) {
       if (axios.isAxiosError(submitError)) {
@@ -150,7 +134,7 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
         if (status === 404 || code === 'PROJECT_DELETE_FAILURE') {
           setIsMenuOpen(false)
           setIsDeleteOpen(false)
-          setDeleteSlugInput('')
+          setDeleteNameInput('')
           onArchived?.()
           return
         }
@@ -164,24 +148,12 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
     <div className="flex items-center gap-2">
       <DropdownMenu onOpenChange={setIsMenuOpen} open={isMenuOpen}>
         <DropdownMenuTrigger asChild>
-          <Button className="h-8 px-3" size="sm" variant="outline">
-            Manage
+          <Button aria-label="Project actions" className="h-8 w-8 p-0" size="sm" variant="ghost">
+            <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end" className="w-44">
-          <DropdownMenuItem asChild>
-            <Link
-              href={
-                activeOrgId
-                  ? getOrgProjectPath(activeOrgId, projectItem.project.id)
-                  : getProjectPath(projectItem.project.id)
-              }
-            >
-              Open
-            </Link>
-          </DropdownMenuItem>
-
           <Dialog onOpenChange={setIsEditOpen} open={isEditOpen}>
             <DialogTrigger asChild>
               <DropdownMenuItem
@@ -199,7 +171,8 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
               <DialogContent className="fixed top-1/2 left-1/2 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-5">
                 <DialogTitle className="text-xl">Modify project</DialogTitle>
                 <DialogDescription className="mt-1 text-sm text-muted-foreground">
-                  Update project name or slug.
+                  Update the project name. The URL slug is generated automatically and cannot be
+                  edited.
                 </DialogDescription>
 
                 <div className="mt-4 space-y-3">
@@ -222,33 +195,6 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
                     {fieldErrors.name ? (
                       <p className="text-sm text-danger">{fieldErrors.name}</p>
                     ) : null}
-                  </div>
-
-                  <div className="space-y-1">
-                    <label
-                      className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
-                      htmlFor={`project-slug-${projectItem.project.id}`}
-                    >
-                      Slug
-                    </label>
-                    <Input
-                      className={cn(fieldErrors.slug && 'border-danger focus-visible:ring-danger')}
-                      id={`project-slug-${projectItem.project.id}`}
-                      onChange={(event) => {
-                        setSlug(event.target.value)
-                        setFieldErrors((current) => ({ ...current, slug: '' }))
-                      }}
-                      value={slug}
-                    />
-                    <p
-                      className={cn(
-                        'text-xs',
-                        fieldErrors.slug ? 'text-danger' : 'text-muted-foreground'
-                      )}
-                    >
-                      {fieldErrors.slug ||
-                        'Use lowercase letters, numbers, and hyphens if you want a custom slug.'}
-                    </p>
                   </div>
 
                   {error ? <p className="text-sm text-danger">{error}</p> : null}
@@ -299,7 +245,7 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
             onSelect={(event) => {
               event.preventDefault()
               setError(null)
-              setDeleteSlugInput('')
+              setDeleteNameInput('')
               setIsMenuOpen(false)
               setIsDeleteOpen(true)
             }}
@@ -313,7 +259,7 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
         onOpenChange={(open) => {
           setIsDeleteOpen(open)
           if (!open) {
-            setDeleteSlugInput('')
+            setDeleteNameInput('')
             setError(null)
           }
         }}
@@ -325,7 +271,7 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
             <DialogTitle className="text-xl text-danger">Delete project permanently</DialogTitle>
             <DialogDescription className="mt-1 text-sm text-muted-foreground">
               This action is irreversible. Type{' '}
-              <span className="font-mono text-foreground">{projectItem.project.slug}</span> to
+              <span className="font-medium text-foreground">{projectItem.project.name}</span> to
               confirm permanent deletion.
             </DialogDescription>
 
@@ -335,22 +281,22 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
                   className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
                   htmlFor={`project-delete-confirm-${projectItem.project.id}`}
                 >
-                  Confirm slug
+                  Confirm project name
                 </label>
                 <Input
                   className={cn(
-                    fieldErrors.deleteSlug && 'border-danger focus-visible:ring-danger'
+                    fieldErrors.deleteName && 'border-danger focus-visible:ring-danger'
                   )}
                   id={`project-delete-confirm-${projectItem.project.id}`}
                   onChange={(event) => {
-                    setDeleteSlugInput(event.target.value)
-                    setFieldErrors((current) => ({ ...current, deleteSlug: '' }))
+                    setDeleteNameInput(event.target.value)
+                    setFieldErrors((current) => ({ ...current, deleteName: '' }))
                   }}
-                  placeholder={projectItem.project.slug}
-                  value={deleteSlugInput}
+                  placeholder={projectItem.project.name}
+                  value={deleteNameInput}
                 />
-                {fieldErrors.deleteSlug ? (
-                  <p className="text-sm text-danger">{fieldErrors.deleteSlug}</p>
+                {fieldErrors.deleteName ? (
+                  <p className="text-sm text-danger">{fieldErrors.deleteName}</p>
                 ) : null}
               </div>
 
@@ -367,7 +313,7 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
                 </Button>
                 <Button
                   disabled={
-                    deleteProject.isPending || deleteSlugInput.trim() !== projectItem.project.slug
+                    deleteProject.isPending || deleteNameInput.trim() !== projectItem.project.name
                   }
                   onClick={() => void handleDelete()}
                   size="sm"

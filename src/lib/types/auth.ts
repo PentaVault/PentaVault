@@ -11,6 +11,7 @@ export interface AuthSession {
     name: string | null
     image: string | null
     emailVerified: boolean
+    defaultOrganizationId?: string | null
   }
 }
 
@@ -51,7 +52,7 @@ export interface AuthSetActiveOrganizationResponse {
 
 export interface AuthCreateOrganizationInput {
   name: string
-  slug: string
+  slug?: string
   logo?: string
   metadata?: Record<string, unknown>
   keepCurrentActiveOrganization?: boolean

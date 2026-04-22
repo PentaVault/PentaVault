@@ -149,14 +149,14 @@ export const authApi = {
     input: AuthCreateOrganizationInput
   ): Promise<{ id?: string; slug?: string }> {
     if (isMockAuthEnabled()) {
-      return { id: 'org_mock_2', slug: input.slug }
+      return { id: 'org_mock_2', slug: input.slug ?? 'mock-projects-new' }
     }
 
     const response = await apiClient.post<{ id?: string; slug?: string }>(
       '/auth/organization/create',
       {
         name: input.name,
-        slug: input.slug,
+        ...(input.slug ? { slug: input.slug } : {}),
         logo: input.logo,
         metadata: input.metadata,
         keepCurrentActiveOrganization: input.keepCurrentActiveOrganization ?? false,

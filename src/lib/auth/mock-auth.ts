@@ -27,6 +27,7 @@ export function createMockSession(): AuthSession {
       name: env.mockAuthName,
       image: null,
       emailVerified: true,
+      defaultOrganizationId: 'org_mock_1',
     },
   }
 }
