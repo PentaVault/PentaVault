@@ -15,7 +15,13 @@ const HOP_BY_HOP_HEADERS = new Set([
 ])
 
 function buildTargetUrl(path: string[], request: NextRequest): URL {
-  const base = env.apiUrl.endsWith('/') ? env.apiUrl : `${env.apiUrl}/`
+  const parsedBase = new URL(env.apiUrl)
+  const trimmedPathname = parsedBase.pathname.replace(/\/+$/, '')
+  parsedBase.pathname = `${trimmedPathname.endsWith('/api') ? trimmedPathname : `${trimmedPathname}/api`}/`
+  parsedBase.search = ''
+  parsedBase.hash = ''
+
+  const base = parsedBase.toString()
   const upstream = new URL(path.join('/'), base)
   upstream.search = request.nextUrl.search
   return upstream

@@ -69,8 +69,8 @@ export function ProjectLayout({ children }: ProjectLayoutProps) {
     : getProjectSettingsPath(projectId)
 
   return (
-    <div className="flex min-h-[calc(100vh-57px)]">
-      <aside className="flex w-56 flex-shrink-0 flex-col border-r border-border bg-card">
+    <div className="flex min-h-[calc(100vh-57px)] flex-col md:flex-row">
+      <aside className="flex w-full flex-shrink-0 flex-col border-b border-border bg-card md:w-56 md:border-r md:border-b-0">
         <div className="border-b border-border p-3">
           <Link
             className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
@@ -92,7 +92,7 @@ export function ProjectLayout({ children }: ProjectLayoutProps) {
           )}
         </div>
 
-        <nav className="space-y-0.5 p-2">
+        <nav className="flex flex-col gap-1 p-2">
           {navItems.map((item) => (
             <DashboardNavLink
               exact={item.exact ?? false}
@@ -103,7 +103,7 @@ export function ProjectLayout({ children }: ProjectLayoutProps) {
           ))}
         </nav>
 
-        <div className="mt-auto border-t border-border p-2">
+        <div className="border-t border-border p-2 md:mt-auto">
           <p className="px-3 py-1 font-mono text-xs tracking-[0.12em] text-muted-foreground uppercase">
             Project
           </p>
