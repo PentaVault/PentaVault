@@ -9,6 +9,16 @@ export function formatDateTime(value: string | Date | null): string {
   }).format(new Date(value))
 }
 
+export function formatRelativeDate(value: string | Date | null): string {
+  if (!value) {
+    return 'N/A'
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+  }).format(new Date(value))
+}
+
 export function formatNumber(value: number | null): string {
   if (value === null) {
     return 'N/A'

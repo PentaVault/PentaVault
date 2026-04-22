@@ -26,12 +26,10 @@ export interface ApiErrorResponse {
 export interface CreateProjectInput {
   id?: string
   name: string
-  slug?: string
 }
 
 export interface UpdateProjectInput {
   name?: Project['name']
-  slug?: Project['slug']
   status?: Project['status']
 }
 
@@ -43,6 +41,14 @@ export type ProjectResponse = UserProject
 
 export interface ProjectMembersResponse {
   members: ProjectMembership[]
+}
+
+export interface ProjectSecretsResponse {
+  secrets: Secret[]
+}
+
+export interface ProjectTokensResponse {
+  tokens: ProxyToken[]
 }
 
 export interface CreateAccessRequestInput {
@@ -129,6 +135,7 @@ export interface ImportSecretsResponse {
 
 export interface IssueTokenInput {
   secretId: string
+  userId?: string
   mode: SecretMode
   expiresAt?: string
   activeSessionId?: string
@@ -140,6 +147,8 @@ export interface IssueTokenInput {
 export interface IssueTokenResponse {
   token: string
   tokenStart: string
+  tokenHash: string
+  userId: string | null
   secretId: string
   mode: SecretMode
   expiresAt: string

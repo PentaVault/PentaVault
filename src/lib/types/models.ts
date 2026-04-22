@@ -65,6 +65,12 @@ export interface ProjectMembership {
   userId: string
   role: ProjectRole
   createdAt: string
+  user?: {
+    id: string
+    name: string
+    email: string
+    image: string | null
+  }
 }
 
 export interface UserProject {
@@ -104,12 +110,16 @@ export interface ProxyToken {
   tokenStart: string
   mode: TokenMode
   secretId: string
+  userId: string | null
+  issuedByUserId: string | null
   expiresAt: string
   revokedAt: string | null
   activeSessionId: string | null
   rateLimitMax: number | null
   rateLimitRemaining: number | null
   rateLimitResetAt: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 export interface AuditEvent {

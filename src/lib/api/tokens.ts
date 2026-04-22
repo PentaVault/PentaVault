@@ -2,6 +2,7 @@ import { apiClient } from '@/lib/api/client'
 import type {
   IssueTokenInput,
   IssueTokenResponse,
+  ProjectTokensResponse,
   ResolveBulkInput,
   ResolveBulkResponse,
   RevokeTokenInput,
@@ -9,6 +10,11 @@ import type {
 } from '@/lib/types/api'
 
 export const tokensApi = {
+  async listProjectTokens(projectId: string): Promise<ProjectTokensResponse> {
+    const response = await apiClient.get<ProjectTokensResponse>(`/v1/projects/${projectId}/tokens`)
+    return response.data
+  },
+
   async issueToken(input: IssueTokenInput): Promise<IssueTokenResponse> {
     const response = await apiClient.post<IssueTokenResponse>('/v1/tokens', input)
     return response.data

@@ -4,9 +4,17 @@ import type {
   CreateSecretResponse,
   ImportSecretsInput,
   ImportSecretsResponse,
+  ProjectSecretsResponse,
 } from '@/lib/types/api'
 
 export const secretsApi = {
+  async listProjectSecrets(projectId: string): Promise<ProjectSecretsResponse> {
+    const response = await apiClient.get<ProjectSecretsResponse>(
+      `/v1/projects/${projectId}/secrets`
+    )
+    return response.data
+  },
+
   async createSecret(input: CreateSecretInput): Promise<CreateSecretResponse> {
     const response = await apiClient.post<CreateSecretResponse>('/v1/secrets', input)
     return response.data
@@ -14,6 +22,16 @@ export const secretsApi = {
 
   async importSecrets(input: ImportSecretsInput): Promise<ImportSecretsResponse> {
     const response = await apiClient.post<ImportSecretsResponse>('/v1/secrets/import', input)
+    return response.data
+  },
+
+  async deleteSecret(input: {
+    projectId: string
+    secretId: string
+  }): Promise<{ deleted: boolean }> {
+    const response = await apiClient.delete<{ deleted: boolean }>(
+      `/v1/projects/${input.projectId}/secrets/${input.secretId}`
+    )
     return response.data
   },
 }
