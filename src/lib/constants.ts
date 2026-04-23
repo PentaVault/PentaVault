@@ -10,13 +10,20 @@ export const AUTH_REVOKE_SESSION_PATH = `${API_V1_PREFIX}/auth/sessions/revoke`
 export const DASHBOARD_HOME_PATH = '/dashboard'
 export const PROJECTS_PATH = '/projects'
 export const SETTINGS_PATH = '/settings'
-export const SETTINGS_API_KEYS_PATH = '/settings/api-keys'
-export const SETTINGS_BILLING_PATH = '/settings/billing'
-export const SETTINGS_SESSIONS_PATH = '/settings/sessions'
+export const SETTINGS_ORGANIZATION_PATH = '/settings/organization'
+export const SETTINGS_ORGANIZATION_MEMBERS_PATH = '/settings/organization/members'
+export const SETTINGS_ORGANIZATION_ACCESS_PATH = '/settings/organization/access'
+export const SETTINGS_ORGANIZATION_BILLING_PATH = '/settings/organization/billing'
 export const SETTINGS_ACCOUNT_PATH = '/settings/account'
+export const SETTINGS_ACCOUNT_SESSIONS_PATH = '/settings/account/sessions'
+export const SETTINGS_ACCOUNT_API_KEYS_PATH = '/settings/account/api-keys'
+export const SETTINGS_API_KEYS_PATH = SETTINGS_ACCOUNT_API_KEYS_PATH
+export const SETTINGS_BILLING_PATH = SETTINGS_ORGANIZATION_BILLING_PATH
+export const SETTINGS_SESSIONS_PATH = SETTINGS_ACCOUNT_SESSIONS_PATH
 export const ONBOARDING_PATH = '/onboarding'
 export const LOGIN_PATH = '/login'
 export const REGISTER_PATH = '/register'
+export const FORGOT_PASSWORD_PATH = '/forgot-password'
 export const DEVICE_PATH = '/device'
 export const AUTH_PROTECTED_PATH_PREFIXES = [
   DASHBOARD_HOME_PATH,
@@ -66,19 +73,23 @@ export function getOrgProjectSettingsPath(orgId: string, projectId: string): str
 }
 
 export function getOrgSettingsPath(orgId: string): string {
-  return `${getOrgDashboardPath(orgId)}/settings`
+  void orgId
+  return SETTINGS_ORGANIZATION_PATH
 }
 
 export function getOrgSettingsApiKeysPath(orgId: string): string {
-  return `${getOrgSettingsPath(orgId)}/api-keys`
+  void orgId
+  return SETTINGS_ACCOUNT_API_KEYS_PATH
 }
 
 export function getOrgSettingsBillingPath(orgId: string): string {
-  return `${getOrgSettingsPath(orgId)}/billing`
+  void orgId
+  return SETTINGS_ORGANIZATION_BILLING_PATH
 }
 
 export function getOrgSettingsSessionsPath(orgId: string): string {
-  return `${getOrgSettingsPath(orgId)}/sessions`
+  void orgId
+  return SETTINGS_ACCOUNT_SESSIONS_PATH
 }
 
 export function getOrgOnboardingPath(orgId: string): string {

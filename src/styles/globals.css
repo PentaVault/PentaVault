@@ -90,6 +90,18 @@ a:focus-visible {
   box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
+[data-radix-dialog-overlay] {
+  z-index: 100;
+}
+
+[data-radix-dialog-content] {
+  z-index: 101;
+}
+
+[data-radix-dropdown-menu-content] {
+  z-index: 50;
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;

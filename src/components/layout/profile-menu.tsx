@@ -17,7 +17,7 @@ import {
   LOGIN_PATH,
   PROJECTS_PATH,
   SETTINGS_API_KEYS_PATH,
-  SETTINGS_PATH,
+  SETTINGS_ORGANIZATION_PATH,
   SETTINGS_SESSIONS_PATH,
   getOrgDashboardPath,
   getOrgProjectsPath,
@@ -93,7 +93,9 @@ export function ProfileMenu() {
           asChild
           className="bg-transparent hover:bg-card-elevated focus:bg-card-elevated"
         >
-          <Link href={activeOrgId ? getOrgSettingsPath(activeOrgId) : SETTINGS_PATH}>Settings</Link>
+          <Link href={activeOrgId ? getOrgSettingsPath(activeOrgId) : SETTINGS_ORGANIZATION_PATH}>
+            Organisation
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuItem
           asChild

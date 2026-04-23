@@ -2,100 +2,146 @@
 
 import Link from 'next/link'
 
-import { PageWrapper } from '@/components/layout/page-wrapper'
-import { StatusBadge } from '@/components/ui/badge'
+import { FolderOpen, Plus, UserPlus } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { PROJECTS_PATH, getOrgProjectsPath } from '@/lib/constants'
+import {
+  PROJECTS_PATH,
+  SETTINGS_ORGANIZATION_MEMBERS_PATH,
+  getProjectPath,
+} from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useProjectsQuery } from '@/lib/hooks/use-projects'
+import { useOrganizationMembers } from '@/lib/hooks/use-team'
 
-function getAuthTone(status: 'loading' | 'authenticated' | 'unauthenticated') {
-  if (status === 'authenticated') {
-    return 'success'
-  }
+function formatToday() {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date())
+}
 
-  if (status === 'loading') {
-    return 'warning'
-  }
+function StatCard({
+  description,
+  href,
+  label,
+  value,
+}: {
+  description: string
+  href?: string
+  label: string
+  value: number
+}) {
+  const content = (
+    <Card className={href ? 'transition-colors hover:border-border-strong hover:bg-card-elevated' : undefined}>
+      <CardHeader>
+        <CardTitle>{label}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p className="text-4xl leading-none tracking-tight">{value}</p>
+      </CardContent>
+    </Card>
+  )
 
-  return 'danger'
+  return href ? <Link href={href}>{content}</Link> : content
 }
 
 export function DashboardOverview() {
   const auth = useAuth()
   const projectsQuery = useProjectsQuery()
-  const activeOrgId = auth.activeOrganization?.organization.id ?? null
-
-  const projectCount = projectsQuery.data?.projects.length ?? 0
-  const archivedCount = projectsQuery.data?.projects.filter(
-    ({ project }) => project.status === 'archived'
-  ).length
+  const activeOrg = auth.activeOrganization?.organization
+  const membersQuery = useOrganizationMembers(activeOrg?.id ?? null)
+  const projects = projectsQuery.data?.projects ?? []
+  const activeProjects = projects.filter(({ project }) => project.status === 'active')
+  const archivedProjects = projects.filter(({ project }) => project.status === 'archived')
+  const firstName = auth.session?.user.name?.split(' ')[0] || 'there'
 
   return (
-    <PageWrapper>
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <StatusBadge tone="neutral">Security Console</StatusBadge>
-          <h1 className="text-4xl leading-[1.08] tracking-tight">Dashboard overview</h1>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Session-aware project security console. Authentication UI remains deferred, but this
-            shell is Better Auth ready.
-          </p>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <CardTitle>Total projects</CardTitle>
-              <CardDescription>Workspaces available to your account.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl leading-none tracking-tight">{projectCount}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Archived projects</CardTitle>
-              <CardDescription>Projects currently in archived state.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl leading-none tracking-tight">{archivedCount ?? 0}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Session status</CardTitle>
-              <CardDescription>Derived from `/api/v1/auth/session`.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <StatusBadge tone={getAuthTone(auth.status)} className="capitalize">
-                  {auth.status}
-                </StatusBadge>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Next actions</CardTitle>
-            <CardDescription>
-              Continue with project, secret, token, and audit workflows.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link
-              href={activeOrgId ? getOrgProjectsPath(activeOrgId) : PROJECTS_PATH}
-              className="inline-flex h-9 items-center rounded-md border border-accent/35 px-8 py-2 text-sm font-medium text-accent transition-colors hover:border-accent/50 hover:text-accent-strong"
-            >
-              Open projects
-            </Link>
-          </CardContent>
-        </Card>
+    <div className="space-y-6 p-6">
+      <div>
+        <h1 className="text-xl font-semibold">Welcome back, {firstName}</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          {activeOrg?.name ?? 'Organisation'} - {formatToday()}
+        </p>
       </div>
-    </PageWrapper>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <StatCard
+          description="Projects in this organisation"
+          href={PROJECTS_PATH}
+          label="Active projects"
+          value={activeProjects.length}
+        />
+        <StatCard
+          description="Projects currently archived"
+          label="Archived"
+          value={archivedProjects.length}
+        />
+        <StatCard
+          description="Members in this organisation"
+          href={SETTINGS_ORGANIZATION_MEMBERS_PATH}
+          label="Team members"
+          value={membersQuery.data?.members.length ?? 0}
+        />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick actions</CardTitle>
+          <CardDescription>Jump into common workspace tasks.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link href={PROJECTS_PATH}>
+              <FolderOpen className="mr-2 h-4 w-4" />
+              View projects
+            </Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link href={PROJECTS_PATH}>
+              <Plus className="mr-2 h-4 w-4" />
+              New project
+            </Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link href={SETTINGS_ORGANIZATION_MEMBERS_PATH}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Invite member
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      {activeProjects.length > 0 ? (
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-medium">Recent projects</h2>
+            <Link
+              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+              href={PROJECTS_PATH}
+            >
+              View all
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {activeProjects.slice(0, 3).map((item) => (
+              <Link
+                className="block rounded-lg border border-border px-4 py-3 transition-colors hover:border-border-strong hover:bg-card-elevated"
+                href={getProjectPath(item.project.id)}
+                key={item.project.id}
+              >
+                <p className="text-sm font-medium">{item.project.name}</p>
+                <p className="mt-0.5 text-xs font-mono text-muted-foreground">
+                  /{item.project.slug}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
   )
 }

@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { projectsApi } from '@/lib/api/projects'
+import { useAuth } from '@/lib/hooks/use-auth'
 import type {
   CreateAccessRequestInput,
   CreateProjectInput,
@@ -10,9 +11,13 @@ import type {
 } from '@/lib/types/api'
 
 export function useProjectsQuery() {
+  const auth = useAuth()
+  const activeOrgId = auth.activeOrganization?.organization.id ?? null
+
   return useQuery({
-    queryKey: ['projects'],
+    queryKey: ['projects', activeOrgId],
     queryFn: () => projectsApi.listProjects(),
+    enabled: auth.status === 'authenticated' && Boolean(activeOrgId),
   })
 }
 

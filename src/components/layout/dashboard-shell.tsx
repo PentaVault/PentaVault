@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 
-import { BarChart3, FolderKanban, LayoutDashboard, Settings } from 'lucide-react'
+import { BarChart3, Building2, FolderKanban, LayoutDashboard, User } from 'lucide-react'
 
 import { DashboardNavLink } from '@/components/layout/dashboard-nav-link'
 import { OrgSwitcher } from '@/components/layout/org-switcher'
@@ -24,10 +24,11 @@ import { authApi } from '@/lib/api/auth'
 import {
   APP_NAME,
   DASHBOARD_HOME_PATH,
+  SETTINGS_ACCOUNT_PATH,
+  SETTINGS_ORGANIZATION_PATH,
   getOrgDashboardPath,
   getOrgOnboardingPath,
   getOrgProjectsPath,
-  getOrgSettingsPath,
 } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useToast } from '@/lib/hooks/use-toast'
@@ -44,6 +45,9 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const { toast } = useToast()
   const activeOrganization = auth.activeOrganization?.organization
   const isProjectRoute = /\/projects\/[^/]+/.test(pathname)
+  const isSettingsContextRoute =
+    pathname.startsWith(SETTINGS_ORGANIZATION_PATH) || pathname.startsWith(SETTINGS_ACCOUNT_PATH)
+  const shouldUseContextSidebar = isProjectRoute || isSettingsContextRoute
   const [isCreateOrgOpen, setIsCreateOrgOpen] = useState(false)
   const [organizationName, setOrganizationName] = useState('')
   const [isCreatingOrganization, setIsCreatingOrganization] = useState(false)
@@ -163,10 +167,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
       <div
         className={cn(
           'grid min-h-0 flex-1 w-full grid-cols-1 gap-0 overflow-hidden',
-          isProjectRoute ? 'md:grid-cols-1' : 'md:grid-cols-[220px_1fr]'
+          shouldUseContextSidebar ? 'md:grid-cols-1' : 'md:grid-cols-[220px_1fr]'
         )}
       >
-        {!isProjectRoute ? (
+        {!shouldUseContextSidebar ? (
           <aside className="flex h-full flex-col overflow-y-auto border-b border-border bg-card md:border-r md:border-b-0">
             <nav className="flex flex-1 flex-wrap gap-2 px-2 py-3 md:flex-col md:px-3 md:py-4">
               <DashboardNavLink
@@ -201,13 +205,14 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
             <div className="border-t border-border p-2">
               <DashboardNavLink
-                href={
-                  activeOrganization
-                    ? getOrgSettingsPath(activeOrganization.id)
-                    : DASHBOARD_HOME_PATH
-                }
-                icon={<Settings />}
-                label="Settings"
+                href={SETTINGS_ORGANIZATION_PATH}
+                icon={<Building2 />}
+                label="Organisation"
+              />
+              <DashboardNavLink
+                href={SETTINGS_ACCOUNT_PATH}
+                icon={<User />}
+                label="Account"
               />
             </div>
           </aside>

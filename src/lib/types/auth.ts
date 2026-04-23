@@ -11,6 +11,7 @@ export interface AuthSession {
     name: string | null
     image: string | null
     emailVerified: boolean
+    twoFactorEnabled: boolean
     defaultOrganizationId?: string | null
   }
 }

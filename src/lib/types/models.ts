@@ -53,6 +53,8 @@ export interface Project {
   name: string
   visibility: ProjectVisibility
   showAllVariablesToMembers: boolean
+  requireAccessRequest: boolean
+  autoJoinForOrgMembers: boolean
   status: ProjectStatus
   createdByUserId: string | null
   archivedAt: string | null

@@ -1,5 +1,7 @@
-import SettingsPage from '@/app/(dashboard)/settings/page'
+import { redirect } from 'next/navigation'
 
-export default function OrgSettingsPage() {
-  return <SettingsPage />
+import { SETTINGS_ORGANIZATION_PATH } from '@/lib/constants'
+
+export default function OrgSettingsPage(): never {
+  redirect(SETTINGS_ORGANIZATION_PATH)
 }
