@@ -1,9 +1,10 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 
-import { PageWrapper } from '@/components/layout/page-wrapper'
+import { InlineEditField } from '@/components/settings/inline-edit-field'
+import { MfaSettingsCard } from '@/components/settings/mfa-settings-card'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -17,21 +18,54 @@ import {
 import { Input } from '@/components/ui/input'
 import { authApi } from '@/lib/api/auth'
 import { clearClientAuthHint } from '@/lib/auth/token'
-import { REGISTER_PATH } from '@/lib/constants'
+import { REGISTER_PATH, SETTINGS_ACCOUNT_PATH } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useToast } from '@/lib/hooks/use-toast'
+import { cn } from '@/lib/utils/cn'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
 
 export default function AccountSettingsPage() {
   const auth = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
-  const [name, setName] = useState(auth.session?.user.name ?? '')
   const [emailInput, setEmailInput] = useState('')
+  const [totpCode, setTotpCode] = useState('')
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [hasDismissedRecoveryPrompt, setHasDismissedRecoveryPrompt] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isSavingName, setIsSavingName] = useState(false)
 
   const user = auth.session?.user
+  const hasRecoveryPrompt = searchParams.get('mfaRecoveryUsed') === '1'
+  const isRecoveryPromptOpen = hasRecoveryPrompt && !hasDismissedRecoveryPrompt
+
+  function clearRecoveryPrompt() {
+    setHasDismissedRecoveryPrompt(true)
+    router.replace(SETTINGS_ACCOUNT_PATH, { scroll: false })
+  }
+
+  function focusMfaCard() {
+    clearRecoveryPrompt()
+    document.getElementById('account-mfa-settings')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    })
+  }
+
+  async function handleSaveName(name: string): Promise<void> {
+    setIsSavingName(true)
+
+    try {
+      await authApi.updateUserName({ name })
+      await auth.refresh()
+      toast.success('Account name updated successfully.')
+    } catch (error) {
+      toast.error(getApiFriendlyMessage(error, 'Unable to update your account name right now.'))
+    } finally {
+      setIsSavingName(false)
+    }
+  }
 
   async function handleDeleteAccount(): Promise<void> {
     if (!user?.email || emailInput !== user.email) {
@@ -41,7 +75,10 @@ export default function AccountSettingsPage() {
     setIsDeleting(true)
 
     try {
-      await authApi.deleteAccount({ email: user.email })
+      await authApi.deleteAccount({
+        email: user.email,
+        ...(user.twoFactorEnabled ? { totpCode } : {}),
+      })
       clearClientAuthHint()
       auth.clear()
       document.cookie = 'better-auth.session_token=; path=/; max-age=0'
@@ -60,8 +97,12 @@ export default function AccountSettingsPage() {
     }
   }
 
+  if (auth.status === 'loading' || !user?.id) {
+    return <AccountPageSkeleton />
+  }
+
   return (
-    <PageWrapper>
+    <div className="p-6">
       <div className="space-y-6">
         <Card>
           <CardHeader>
@@ -69,25 +110,33 @@ export default function AccountSettingsPage() {
             <CardDescription>Manage your personal account details.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="account-name">
-                Full name
-              </label>
-              <Input
-                id="account-name"
-                onChange={(event) => setName(event.target.value)}
-                value={name}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="account-email">
-                Email
-              </label>
-              <Input disabled id="account-email" value={user?.email ?? ''} />
-              <p className="text-xs text-muted-foreground">Email changes are not yet supported.</p>
-            </div>
+            <InlineEditField
+              isPending={isSavingName}
+              key={`name-${user.id}`}
+              label="Full name"
+              onSave={(name) => void handleSaveName(name)}
+              value={user.name ?? ''}
+            />
+            <InlineEditField
+              disabled
+              disabledReason="Email changes are not yet supported."
+              key={`email-${user.id}`}
+              label="Email"
+              onSave={() => undefined}
+              value={user.email ?? ''}
+            />
           </CardContent>
         </Card>
+
+        <div
+          className={cn(
+            'rounded-xl transition-shadow',
+            hasRecoveryPrompt && 'ring-1 ring-[#00c573]/35 shadow-[0_0_0_1px_rgba(0,197,115,0.14)]'
+          )}
+          id="account-mfa-settings"
+        >
+          <MfaSettingsCard onChanged={auth.refresh} user={user} />
+        </div>
 
         <Card className="border-danger/40">
           <CardHeader>
@@ -105,12 +154,20 @@ export default function AccountSettingsPage() {
         </Card>
       </div>
 
-      <Dialog onOpenChange={setIsDeleteDialogOpen} open={isDeleteDialogOpen}>
+      <Dialog
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open)
+          if (!open) {
+            setTotpCode('')
+          }
+        }}
+        open={isDeleteDialogOpen}
+      >
         <DialogPortal>
           <DialogOverlay className="fixed inset-0 bg-black/45" />
           <DialogContent
             aria-describedby="delete-account-description"
-            className="fixed top-1/2 left-1/2 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-5"
+            className="fixed top-1/2 left-1/2 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-visible rounded-xl border border-border bg-card p-5"
           >
             <DialogTitle className="text-danger">Delete your account permanently</DialogTitle>
             <DialogDescription
@@ -124,7 +181,7 @@ export default function AccountSettingsPage() {
               <li>All your API keys and active sessions</li>
               <li>Your complete audit history</li>
             </ul>
-            <div className="mt-4 space-y-2">
+            <div className="mt-4 space-y-2 pt-1">
               <p className="text-sm">Type your email address to confirm:</p>
               <Input
                 onChange={(event) => setEmailInput(event.target.value)}
@@ -133,9 +190,28 @@ export default function AccountSettingsPage() {
                 value={emailInput}
               />
             </div>
+            {user.twoFactorEnabled ? (
+              <div className="mt-4 space-y-2">
+                <p className="text-sm">Enter your authenticator code:</p>
+                <Input
+                  autoComplete="one-time-code"
+                  className="h-11 text-center font-mono text-base tracking-[0.4em]"
+                  inputMode="numeric"
+                  maxLength={6}
+                  onChange={(event) =>
+                    setTotpCode(event.target.value.replace(/\D/g, '').slice(0, 6))
+                  }
+                  placeholder="000000"
+                  value={totpCode}
+                />
+              </div>
+            ) : null}
             <div className="mt-5 flex justify-end gap-2">
               <Button
-                onClick={() => setIsDeleteDialogOpen(false)}
+                onClick={() => {
+                  setIsDeleteDialogOpen(false)
+                  setTotpCode('')
+                }}
                 size="sm"
                 type="button"
                 variant="outline"
@@ -143,7 +219,11 @@ export default function AccountSettingsPage() {
                 Cancel
               </Button>
               <Button
-                disabled={emailInput !== user?.email || isDeleting}
+                disabled={
+                  emailInput !== user?.email ||
+                  isDeleting ||
+                  (user.twoFactorEnabled && totpCode.length !== 6)
+                }
                 onClick={() => void handleDeleteAccount()}
                 size="sm"
                 type="button"
@@ -155,6 +235,59 @@ export default function AccountSettingsPage() {
           </DialogContent>
         </DialogPortal>
       </Dialog>
-    </PageWrapper>
+
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) {
+            clearRecoveryPrompt()
+          }
+        }}
+        open={isRecoveryPromptOpen}
+      >
+        <DialogPortal>
+          <DialogOverlay className="fixed inset-0 bg-black/45" />
+          <DialogContent
+            aria-describedby="mfa-recovery-review-description"
+            className="fixed top-1/2 left-1/2 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-visible rounded-xl border border-border bg-card p-5"
+          >
+            <DialogTitle>Review your MFA setup</DialogTitle>
+            <DialogDescription
+              className="mt-2 text-sm text-muted-foreground"
+              id="mfa-recovery-review-description"
+            >
+              You signed in with a recovery code. For safety, replace your authenticator setup now
+              by disabling MFA with an email code and setting it up again.
+            </DialogDescription>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button onClick={clearRecoveryPrompt} type="button" variant="outline">
+                Later
+              </Button>
+              <Button onClick={focusMfaCard} type="button">
+                Review MFA
+              </Button>
+            </div>
+          </DialogContent>
+        </DialogPortal>
+      </Dialog>
+    </div>
+  )
+}
+
+function AccountPageSkeleton() {
+  return (
+    <div className="p-6">
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="h-7 w-28 animate-pulse rounded bg-background-secondary" />
+            <div className="h-4 w-64 animate-pulse rounded bg-background-secondary" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="h-12 animate-pulse rounded bg-background-secondary" />
+            <div className="h-12 animate-pulse rounded bg-background-secondary" />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   )
 }

@@ -15,10 +15,28 @@ type ApiErrorPayload = {
 const API_ERROR_MESSAGES_BY_CODE: Record<string, string> = {
   AUTH_INVALID_CREDENTIALS: 'Incorrect email or password. Please try again.',
   AUTH_EMAIL_ALREADY_EXISTS: 'An account with this email already exists. Try signing in.',
-  AUTH_PASSWORD_TOO_WEAK: 'Password must be at least 8 characters and include one number.',
+  AUTH_PASSWORD_TOO_WEAK:
+    'Use at least 8 characters with uppercase, lowercase, number, and special characters.',
   AUTH_EMAIL_INVALID: 'Please enter a valid email address.',
   AUTH_NAME_TOO_SHORT: 'Your name must be at least 2 characters.',
-  AUTH_EMAIL_NOT_VERIFIED: 'Please verify your email address before signing in.',
+  AUTH_EMAIL_NOT_VERIFIED: 'Verify your email before signing in.',
+  AUTH_VERIFICATION_CODE_INVALID: 'The verification code is invalid. Check the code and try again.',
+  AUTH_VERIFICATION_CODE_EXPIRED: 'This verification code has expired. Request a new code.',
+  AUTH_VERIFICATION_CODE_LOCKED:
+    'Too many incorrect verification attempts. Request a new code and try again.',
+  AUTH_VERIFICATION_TOO_MANY_ATTEMPTS:
+    'Too many incorrect verification attempts. Request a new code and try again.',
+  AUTH_MFA_CODE_INVALID: 'The authentication code is invalid. Check the code and try again.',
+  AUTH_MFA_NOT_ENABLED: 'Multi-factor authentication is not enabled for this account.',
+  AUTH_MFA_TOO_MANY_ATTEMPTS: 'Too many MFA attempts. Start the sign-in flow again.',
+  AUTH_MFA_DISABLE_FLOW_REQUIRED: 'Use the account security flow to disable MFA.',
+  AUTH_MFA_DISABLE_CODE_NOT_FOUND: 'That disable request expired. Start again to get a new code.',
+  AUTH_MFA_DISABLE_CODE_EXPIRED: 'That disable code expired. Request a new one.',
+  AUTH_MFA_DISABLE_CODE_INVALID: 'The email code is invalid. Check it and try again.',
+  AUTH_MFA_DISABLE_CODE_LOCKED:
+    'Too many incorrect disable-code attempts. Request a new code and try again.',
+  AUTH_MFA_DISABLE_FAILURE: 'Unable to update MFA right now. Please try again.',
+  AUTH_PASSWORD_INVALID: 'The password you entered is incorrect.',
   UNAUTHORIZED: 'Your session has expired. Please sign in again.',
   AUTH_FAILURE: 'Authentication service is temporarily unavailable. Please try again.',
   SESSION_NOT_FOUND: 'Session not found. It may have already expired or been revoked.',
@@ -65,7 +83,10 @@ const API_ERROR_MESSAGES_BY_CODE: Record<string, string> = {
   SECRET_IMPORT_INVALID_FORMAT: 'Could not parse the secrets. Use KEY=VALUE format, one per line.',
   SECRET_IMPORT_EMPTY: 'No secrets to import. Add at least one KEY=VALUE pair.',
   SECRET_CREATE_FAILURE: 'Unable to create secret. Please try again.',
+  SECRET_DELETE_FAILURE:
+    'The server could not finish deleting this variable. It may have already been removed; refresh and try again.',
   SECRET_IMPORT_FAILURE: 'Unable to import secrets. Please try again.',
+  SECRET_UPDATE_FAILURE: 'Unable to update this variable. Please try again.',
   SECRET_NOT_RESOLVABLE: 'One or more tokens cannot be resolved with current policy.',
   TOKEN_NOT_FOUND: 'Token not found. It may have already been revoked.',
   TOKEN_ALREADY_REVOKED: 'This token has already been revoked.',
@@ -83,6 +104,8 @@ const API_ERROR_MESSAGES_BY_CODE: Record<string, string> = {
   ORG_FORBIDDEN: 'You do not have permission to perform this action here.',
   ORG_SLUG_CONFLICT: 'That organisation URL is already taken.',
   ACCOUNT_DELETE_EMAIL_MISMATCH: 'The email you entered does not match your account.',
+  AUTH_PENDING_REGISTRATION_NOT_FOUND:
+    'This registration session expired. Start again to get a new code.',
   ACCOUNT_DELETE_FAILURE: 'Account deletion failed. No data was deleted. Please try again.',
   RATE_LIMITED: 'Too many requests. Please wait a moment before trying again.',
   REQUEST_TOO_LARGE: 'Your request is too large. Try reducing the amount of data.',

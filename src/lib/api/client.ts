@@ -89,6 +89,20 @@ function getErrorMeta(error: unknown): Record<string, unknown> {
   }
 }
 
+function formatErrorMeta(meta: Record<string, unknown>): string {
+  if (meta.kind !== 'axios') {
+    return String(meta.message ?? 'Unknown error')
+  }
+
+  const method = String(meta.method ?? 'UNKNOWN')
+  const url = String(meta.url ?? 'UNKNOWN_URL')
+  const status = String(meta.status ?? 'NO_RESPONSE')
+  const responseCode = String(meta.responseCode ?? 'UNKNOWN_CODE')
+  const responseError = String(meta.responseError ?? 'UNKNOWN_ERROR')
+
+  return `${method} ${url} failed with ${status} ${responseCode}: ${responseError}`
+}
+
 function shouldSuppressDevErrorLog(error: unknown): boolean {
   if (!axios.isAxiosError(error) || !isBrowser) {
     return false
@@ -115,6 +129,9 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     error.response?.status === 404
 
   const errorCode = (error.response?.data as { code?: string } | undefined)?.code
+  const isExpectedEmailNotVerified =
+    error.response?.status === 403 && errorCode === 'AUTH_EMAIL_NOT_VERIFIED'
+
   const isProjectCreateSlugConflict =
     error.config?.method?.toLowerCase() === 'post' &&
     isProjectCreateRequest(error.config?.url) &&
@@ -155,7 +172,8 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     isProjectCreateKnownFailure ||
     isAuthOrganizationsUnauthorized ||
     isAuthSetActiveKnownFailure ||
-    isOrgDeleteGuardedFailure
+    isOrgDeleteGuardedFailure ||
+    isExpectedEmailNotVerified
   )
 }
 
@@ -216,7 +234,8 @@ apiClient.interceptors.response.use(
     }
 
     if (env.isDev && !shouldSuppressDevErrorLog(error)) {
-      console.error('[API Error]', getErrorMeta(error))
+      const meta = getErrorMeta(error)
+      console.error(`[API Error] ${formatErrorMeta(meta)}`, meta)
     }
 
     return Promise.reject(error)

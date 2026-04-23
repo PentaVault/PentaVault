@@ -60,6 +60,20 @@ describe('getApiFriendlyMessage', () => {
     ).toBe('Project not found. It may have been deleted or you may not have access.')
   })
 
+  it('returns static registry message for MFA disable code expiry', () => {
+    expect(
+      getApiFriendlyMessage(
+        createAxiosError({
+          status: 400,
+          data: {
+            code: 'AUTH_MFA_DISABLE_CODE_EXPIRED',
+            error: 'server message that should be ignored here',
+          },
+        })
+      )
+    ).toBe('That disable code expired. Request a new one.')
+  })
+
   it('returns fallback for unknown error code', () => {
     expect(
       getApiFriendlyMessage(

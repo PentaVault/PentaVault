@@ -32,6 +32,8 @@ export interface UpdateProjectInput {
   name?: Project['name']
   status?: Project['status']
   showAllVariablesToMembers?: Project['showAllVariablesToMembers']
+  requireAccessRequest?: Project['requireAccessRequest']
+  autoJoinForOrgMembers?: Project['autoJoinForOrgMembers']
 }
 
 export interface ListProjectsResponse {
@@ -259,6 +261,74 @@ export interface AuthSignUpWithEmailInput {
   name: string
   email: string
   password: string
+}
+
+export interface AuthStartRegistrationInput {
+  name: string
+  email: string
+  password: string
+}
+
+export interface AuthCompleteRegistrationInput {
+  email: string
+  otp: string
+}
+
+export interface AuthSignInWithEmailResponse {
+  twoFactorRedirect?: boolean
+  twoFactorMethods?: string[]
+}
+
+export interface AuthVerifyEmailOtpInput {
+  email: string
+  otp: string
+}
+
+export interface AuthRequestPasswordResetOtpInput {
+  email: string
+}
+
+export interface AuthResetPasswordWithOtpInput {
+  email: string
+  otp: string
+  password: string
+  totpCode?: string
+}
+
+export interface AuthResetPasswordWithOtpResponse {
+  success?: boolean
+  requiresMfa?: boolean
+}
+
+export interface AuthEnableMfaInput {
+  password: string
+}
+
+export interface AuthEnableMfaResponse {
+  totpURI: string
+  backupCodes: string[]
+}
+
+export interface AuthVerifyTotpInput {
+  code: string
+  trustDevice?: boolean
+}
+
+export interface AuthVerifyBackupCodeInput {
+  code: string
+  trustDevice?: boolean
+}
+
+export interface AuthStartMfaDisableInput {
+  password: string
+}
+
+export interface AuthStartMfaDisableResponse {
+  email: string
+}
+
+export interface AuthCompleteMfaDisableInput {
+  code: string
 }
 
 export interface AuthSessionRevokeResponse {

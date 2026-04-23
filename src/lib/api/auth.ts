@@ -6,14 +6,27 @@ import { clearClientAuthHint, hasAuthCookieHint, setClientAuthHint } from '@/lib
 import { AUTH_REVOKE_SESSION_PATH, AUTH_SESSIONS_PATH, AUTH_SESSION_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
 import type {
+  AuthCompleteMfaDisableInput,
+  AuthCompleteRegistrationInput,
   AuthCreateApiKeyRequest,
   AuthCreateApiKeyResponse,
+  AuthEnableMfaInput,
+  AuthEnableMfaResponse,
+  AuthRequestPasswordResetOtpInput,
+  AuthResetPasswordWithOtpInput,
+  AuthResetPasswordWithOtpResponse,
   AuthSessionListApiResponse,
   AuthSessionResponse,
   AuthSessionRevokeRequest,
   AuthSessionRevokeResponse,
   AuthSignInWithEmailInput,
-  AuthSignUpWithEmailInput,
+  AuthSignInWithEmailResponse,
+  AuthStartMfaDisableInput,
+  AuthStartMfaDisableResponse,
+  AuthStartRegistrationInput,
+  AuthVerifyBackupCodeInput,
+  AuthVerifyEmailOtpInput,
+  AuthVerifyTotpInput,
 } from '@/lib/types/api'
 import type {
   AuthCreateOrganizationInput,
@@ -211,7 +224,15 @@ export const authApi = {
     await apiClient.delete(`/v1/organizations/${input.organizationId}`)
   },
 
-  async deleteAccount(input: { email: string }): Promise<{ deleted: true }> {
+  async updateUserName(input: { name: string }): Promise<void> {
+    if (isMockAuthEnabled()) {
+      return
+    }
+
+    await apiClient.post('/auth/update-user', input)
+  },
+
+  async deleteAccount(input: { email: string; totpCode?: string }): Promise<{ deleted: true }> {
     if (isMockAuthEnabled()) {
       clearClientAuthHint()
       return { deleted: true }
@@ -263,21 +284,23 @@ export const authApi = {
     return response.data
   },
 
-  async signInWithEmail(input: AuthSignInWithEmailInput): Promise<void> {
+  async signInWithEmail(input: AuthSignInWithEmailInput): Promise<AuthSignInWithEmailResponse> {
     if (isMockAuthEnabled()) {
       if (!isMockCredential(input.email, input.password)) {
         throw new Error('Invalid email or password for mock account.')
       }
 
       setClientAuthHint()
-      return
+      return {}
     }
 
-    await apiClient.post('/auth/sign-in/email', {
+    const response = await apiClient.post<AuthSignInWithEmailResponse>('/auth/sign-in/email', {
       email: input.email,
       password: input.password,
       rememberMe: true,
     })
+
+    return response.data ?? {}
   },
 
   async signOut(): Promise<void> {
@@ -290,7 +313,7 @@ export const authApi = {
     clearClientAuthHint()
   },
 
-  async signUpWithEmail(input: AuthSignUpWithEmailInput): Promise<void> {
+  async startRegistration(input: AuthStartRegistrationInput): Promise<void> {
     if (isMockAuthEnabled()) {
       if (input.email.trim().toLowerCase() !== env.mockAuthEmail.trim().toLowerCase()) {
         throw new Error(`Use mock email ${env.mockAuthEmail} for UI-only mode.`)
@@ -300,11 +323,134 @@ export const authApi = {
       return
     }
 
-    await apiClient.post('/auth/sign-up/email', {
+    await apiClient.post('/v1/auth/register/start', {
       name: input.name,
       email: input.email,
       password: input.password,
     })
+  },
+
+  async resendRegistrationCode(input: { email: string }): Promise<void> {
+    if (isMockAuthEnabled()) {
+      return
+    }
+
+    await apiClient.post('/v1/auth/register/resend', {
+      email: input.email,
+    })
+  },
+
+  async completeRegistration(input: AuthCompleteRegistrationInput): Promise<void> {
+    if (isMockAuthEnabled()) {
+      return
+    }
+
+    await apiClient.post('/v1/auth/register/verify', input)
+  },
+
+  async sendEmailVerificationOtp(input: { email: string }): Promise<void> {
+    if (isMockAuthEnabled()) {
+      return
+    }
+
+    await apiClient.post('/auth/email-otp/send-verification-otp', {
+      email: input.email,
+      type: 'email-verification',
+    })
+  },
+
+  async verifyEmailOtp(input: AuthVerifyEmailOtpInput): Promise<void> {
+    if (isMockAuthEnabled()) {
+      return
+    }
+
+    await apiClient.post('/auth/email-otp/verify-email', input)
+  },
+
+  async requestPasswordResetOtp(input: AuthRequestPasswordResetOtpInput): Promise<void> {
+    if (isMockAuthEnabled()) {
+      return
+    }
+
+    await apiClient.post('/auth/email-otp/request-password-reset', input)
+  },
+
+  async resetPasswordWithOtp(
+    input: AuthResetPasswordWithOtpInput
+  ): Promise<AuthResetPasswordWithOtpResponse> {
+    if (isMockAuthEnabled()) {
+      return { success: true }
+    }
+
+    const response = await apiClient.post<AuthResetPasswordWithOtpResponse>(
+      '/auth/email-otp/reset-password',
+      input
+    )
+    return response.data ?? { success: true }
+  },
+
+  async enableMfa(input: AuthEnableMfaInput): Promise<AuthEnableMfaResponse> {
+    if (isMockAuthEnabled()) {
+      return {
+        totpURI:
+          'otpauth://totp/PentaVault:mock@example.com?secret=JBSWY3DPEHPK3PXP&issuer=PentaVault',
+        backupCodes: ['mock-backup-1', 'mock-backup-2'],
+      }
+    }
+
+    const response = await apiClient.post<AuthEnableMfaResponse>('/auth/two-factor/enable', input)
+    return response.data
+  },
+
+  async verifyTotp(input: AuthVerifyTotpInput): Promise<void> {
+    if (isMockAuthEnabled()) {
+      return
+    }
+
+    await apiClient.post('/auth/two-factor/verify-totp', input)
+  },
+
+  async verifyBackupCode(input: AuthVerifyBackupCodeInput): Promise<void> {
+    if (isMockAuthEnabled()) {
+      return
+    }
+
+    await apiClient.post('/auth/two-factor/verify-backup-code', input)
+  },
+
+  async startDisableMfa(input: AuthStartMfaDisableInput): Promise<AuthStartMfaDisableResponse> {
+    if (isMockAuthEnabled()) {
+      return {
+        email: env.mockAuthEmail,
+      }
+    }
+
+    const response = await apiClient.post<AuthStartMfaDisableResponse>(
+      '/v1/auth/mfa/disable/start',
+      input
+    )
+    return response.data
+  },
+
+  async resendDisableMfaCode(): Promise<AuthStartMfaDisableResponse> {
+    if (isMockAuthEnabled()) {
+      return {
+        email: env.mockAuthEmail,
+      }
+    }
+
+    const response = await apiClient.post<AuthStartMfaDisableResponse>(
+      '/v1/auth/mfa/disable/resend'
+    )
+    return response.data
+  },
+
+  async confirmDisableMfa(input: AuthCompleteMfaDisableInput): Promise<void> {
+    if (isMockAuthEnabled()) {
+      return
+    }
+
+    await apiClient.post('/v1/auth/mfa/disable/verify', input)
   },
 
   async approveDevice(userCode: string): Promise<void> {
