@@ -40,10 +40,12 @@ export const secretsApi = {
   async deleteSecret(input: {
     projectId: string
     secretId: string
-  }): Promise<{ deleted: boolean; revokedTokenCount?: number }> {
-    const response = await apiClient.delete<{ deleted: boolean; revokedTokenCount?: number }>(
-      `/v1/projects/${input.projectId}/secrets/${input.secretId}`
-    )
+  }): Promise<{ deleted: boolean; alreadyDeleted?: boolean; revokedTokenCount?: number }> {
+    const response = await apiClient.delete<{
+      deleted: boolean
+      alreadyDeleted?: boolean
+      revokedTokenCount?: number
+    }>(`/v1/projects/${input.projectId}/secrets/${input.secretId}`)
     return response.data
   },
 }

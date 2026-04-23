@@ -38,7 +38,7 @@ import { useToast } from '@/lib/hooks/use-toast'
 import { useProjectTokens } from '@/lib/hooks/use-tokens'
 import type { Secret } from '@/lib/types/models'
 import { cn } from '@/lib/utils/cn'
-import { getApiFriendlyMessage } from '@/lib/utils/errors'
+import { getApiFriendlyMessageWithRef } from '@/lib/utils/errors'
 import { formatRelativeDate } from '@/lib/utils/format'
 
 export function SecretsList({ projectId, search }: { projectId: string; search: string }) {
@@ -124,12 +124,19 @@ export function SecretsList({ projectId, search }: { projectId: string; search: 
       setDeleteImpactTarget(null)
       handleSelect(secret.id, false)
       toast.success(
-        result.revokedTokenCount
-          ? `Variable deleted and ${result.revokedTokenCount} token${result.revokedTokenCount === 1 ? '' : 's'} revoked.`
-          : 'Variable deleted.'
+        result.alreadyDeleted
+          ? 'Variable was already deleted. The list has been refreshed.'
+          : result.revokedTokenCount
+            ? `Variable deleted and ${result.revokedTokenCount} token${result.revokedTokenCount === 1 ? '' : 's'} revoked.`
+            : 'Variable deleted.'
       )
     } catch (error) {
-      toast.error(getApiFriendlyMessage(error, 'Unable to delete this variable right now.'))
+      toast.error(
+        getApiFriendlyMessageWithRef(
+          error,
+          'Unable to delete this variable right now. The server did not return a specific reason.'
+        )
+      )
     }
   }
 
@@ -162,7 +169,12 @@ export function SecretsList({ projectId, search }: { projectId: string; search: 
       setIsBulkDeleteOpen(false)
       toast.success(`Deleted ${targets.length} variable${targets.length === 1 ? '' : 's'}.`)
     } catch (error) {
-      toast.error(getApiFriendlyMessage(error, 'Unable to delete selected variables right now.'))
+      toast.error(
+        getApiFriendlyMessageWithRef(
+          error,
+          'Unable to delete selected variables right now. The server did not return a specific reason.'
+        )
+      )
     }
   }
 
@@ -490,7 +502,12 @@ function EditSecretDialog({
       toast.success(`Updated ${updates.length} variable${updates.length === 1 ? '' : 's'}.`)
       onOpenChange(false)
     } catch (error) {
-      toast.error(getApiFriendlyMessage(error, 'Unable to update selected variables right now.'))
+      toast.error(
+        getApiFriendlyMessageWithRef(
+          error,
+          'Unable to update selected variables right now. The server did not return a specific reason.'
+        )
+      )
     }
   }
 
