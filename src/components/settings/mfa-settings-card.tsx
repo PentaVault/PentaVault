@@ -1,9 +1,9 @@
 'use client'
 
 import Image from 'next/image'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { Check, Copy, KeyRound, QrCode, ShieldCheck, ShieldOff } from 'lucide-react'
+import { Check, Copy, KeyRound, QrCode, RefreshCcw, ShieldCheck, ShieldOff } from 'lucide-react'
 import QRCode from 'qrcode'
 
 import { CopyButton } from '@/components/shared/copy-button'
@@ -12,7 +12,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { authApi } from '@/lib/api/auth'
-import { useEmailCooldown } from '@/lib/hooks/use-email-cooldown'
 import { useToast } from '@/lib/hooks/use-toast'
 import type { AuthSession } from '@/lib/types/auth'
 import { cn } from '@/lib/utils/cn'
@@ -33,38 +32,107 @@ type SetupState = {
   backupCodes: string[]
 }
 
-type DisableFlowStep = 'idle' | 'verify'
+type EnabledAction = 'disable' | 'change' | null
+type VerificationMethod = 'totp' | 'recovery'
+
+function RecoveryCodeInputs({
+  value,
+  onChange,
+  error,
+  idPrefix,
+}: {
+  value: string[]
+  onChange: (next: string[]) => void
+  error?: string
+  idPrefix: string
+}) {
+  const refs = useRef<Array<HTMLInputElement | null>>([])
+
+  function updateAt(index: number, raw: string) {
+    const character = raw
+      .replace(/[^A-Za-z0-9]/g, '')
+      .slice(-1)
+      .toUpperCase()
+    const next = [...value]
+    next[index] = character
+    onChange(next)
+    if (character && index < 9) {
+      refs.current[index + 1]?.focus()
+    }
+  }
+
+  function handlePaste(raw: string) {
+    const normalized = raw
+      .replace(/[^A-Za-z0-9]/g, '')
+      .slice(0, 10)
+      .toUpperCase()
+    onChange(Array.from({ length: 10 }, (_, index) => normalized[index] ?? ''))
+  }
+
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+        Recovery code
+      </label>
+      <div className="grid grid-cols-10 gap-1">
+        {Array.from({ length: 10 }, (_, index) => (
+          <Input
+            key={`${idPrefix}-${index}`}
+            id={`${idPrefix}-${index}`}
+            ref={(element) => {
+              refs.current[index] = element
+            }}
+            autoComplete={index === 0 ? 'one-time-code' : 'off'}
+            className={cn(
+              'h-11 px-0 text-center font-mono text-sm',
+              error && 'border-danger focus-visible:ring-danger'
+            )}
+            inputMode="text"
+            maxLength={1}
+            value={value[index] ?? ''}
+            onChange={(event) => updateAt(index, event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Backspace' && !value[index] && index > 0) {
+                refs.current[index - 1]?.focus()
+              }
+            }}
+            onPaste={(event) => {
+              event.preventDefault()
+              handlePaste(event.clipboardData.getData('text'))
+            }}
+          />
+        ))}
+      </div>
+      <p className={cn('min-h-5 text-sm', error ? 'text-danger' : 'text-muted-foreground')}>
+        {error ?? '\u00A0'}
+      </p>
+    </div>
+  )
+}
 
 export function MfaSettingsCard({ user, onChanged }: MfaSettingsCardProps) {
   const { toast } = useToast()
-  const [password, setPassword] = useState('')
-  const [disablePassword, setDisablePassword] = useState('')
-  const [disableCode, setDisableCode] = useState('')
-  const [disableEmail, setDisableEmail] = useState(user?.email ?? '')
-  const [disableFlowStep, setDisableFlowStep] = useState<DisableFlowStep>('idle')
-  const [code, setCode] = useState('')
   const [setup, setSetup] = useState<SetupState | null>(null)
   const [qrDataUrl, setQrDataUrl] = useState('')
   const [copiedUri, setCopiedUri] = useState(false)
   const [isStartingSetup, setIsStartingSetup] = useState(false)
-  const [isStartingDisable, setIsStartingDisable] = useState(false)
-  const [isResendingDisable, setIsResendingDisable] = useState(false)
-  const [isVerifying, setIsVerifying] = useState(false)
-  const [isDisabling, setIsDisabling] = useState(false)
+  const [isVerifyingSetup, setIsVerifyingSetup] = useState(false)
+  const [enabledAction, setEnabledAction] = useState<EnabledAction>(null)
+  const [verificationMethod, setVerificationMethod] = useState<VerificationMethod>('totp')
+  const [password, setPassword] = useState('')
+  const [totpCode, setTotpCode] = useState('')
+  const [recoveryCode, setRecoveryCode] = useState<string[]>(Array.from({ length: 10 }, () => ''))
+  const [setupCode, setSetupCode] = useState('')
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const disableCooldown = useEmailCooldown()
 
   const backupCodesText = useMemo(() => setup?.backupCodes.join('\n') ?? '', [setup])
-  const disableDestinationEmail = disableEmail || user?.email || ''
-  const disablePasswordHelperText =
-    fieldErrors.disablePassword ?? (disableFlowStep === 'verify' ? 'Password confirmed.' : '\u00A0')
-  const disableCodeHelperText =
-    fieldErrors.disableCode ?? (disableFlowStep === 'verify' ? 'Enter the 6-digit code.' : '\u00A0')
+  const recoveryCodeJoined = recoveryCode.join('')
 
   useEffect(() => {
     let cancelled = false
 
-    async function renderQrCode(): Promise<void> {
+    async function renderQrCode() {
       if (!setup?.totpURI) {
         setQrDataUrl('')
         return
@@ -84,7 +152,7 @@ export function MfaSettingsCard({ user, onChanged }: MfaSettingsCardProps) {
       } catch {
         if (!cancelled) {
           setQrDataUrl('')
-          toast.error('Unable to render the authenticator QR code. Use the setup key instead.')
+          toast.error('Unable to render the authenticator QR code right now.')
         }
       }
     }
@@ -96,11 +164,19 @@ export function MfaSettingsCard({ user, onChanged }: MfaSettingsCardProps) {
     }
   }, [setup?.totpURI, toast])
 
-  async function handleStartSetup(): Promise<void> {
+  function resetActionState(nextAction: EnabledAction = null) {
+    setEnabledAction(nextAction)
+    setVerificationMethod('totp')
+    setPassword('')
+    setTotpCode('')
+    setRecoveryCode(Array.from({ length: 10 }, () => ''))
     setFieldErrors({})
+  }
 
+  async function handleStartFreshSetup() {
+    setFieldErrors({})
     if (!password) {
-      setFieldErrors({ password: 'Enter your current password to enable MFA.' })
+      setFieldErrors({ password: 'Enter your current password.' })
       return
     }
 
@@ -108,12 +184,13 @@ export function MfaSettingsCard({ user, onChanged }: MfaSettingsCardProps) {
       setIsStartingSetup(true)
       const response = await authApi.enableMfa({ password })
       setSetup(response)
-      setCode('')
-      toast.success('Authenticator setup created. Scan the QR code and enter a code to verify.')
+      setSetupCode('')
+      setPassword('')
+      toast.success('Authenticator setup created.')
     } catch (error) {
       const fields = getApiFieldErrors(error)
-      if (fields && Object.keys(fields).length > 0) {
-        setFieldErrors(fields)
+      if (fields?.password) {
+        setFieldErrors({ password: fields.password })
         return
       }
 
@@ -128,146 +205,118 @@ export function MfaSettingsCard({ user, onChanged }: MfaSettingsCardProps) {
     }
   }
 
-  async function handleVerifySetup(): Promise<void> {
+  async function handleStartChangeOrDisable() {
     setFieldErrors({})
+    if (!password) {
+      setFieldErrors({ password: 'Enter your current password.' })
+      return
+    }
 
-    const normalizedCode = code.trim()
-    if (!normalizedCode) {
-      setFieldErrors({ code: 'Enter the 6-digit code from your authenticator app.' })
+    if (enabledAction === 'disable') {
+      if (totpCode.length !== 6) {
+        setFieldErrors({ code: 'Enter a valid 6-digit authenticator code.' })
+        return
+      }
+    } else if (verificationMethod === 'totp') {
+      if (totpCode.length !== 6) {
+        setFieldErrors({ code: 'Enter a valid 6-digit authenticator code.' })
+        return
+      }
+    } else if (recoveryCodeJoined.length !== 10) {
+      setFieldErrors({ recoveryCode: 'Enter all 10 characters from one recovery code.' })
       return
     }
 
     try {
-      setIsVerifying(true)
-      await authApi.verifyTotp({ code: normalizedCode })
-      await onChanged()
-      setPassword('')
-      setCode('')
-      setSetup(null)
-      toast.success('Multi-factor authentication is now enabled.')
-    } catch (error) {
-      const payload = getApiErrorPayload(error)
-      if (payload?.code === 'AUTH_MFA_CODE_INVALID') {
-        setFieldErrors({ code: 'The authenticator code is invalid.' })
+      setIsSubmittingAction(true)
+
+      if (enabledAction === 'disable') {
+        await authApi.disableMfa({ password, code: totpCode })
+        await onChanged()
+        resetActionState()
+        toast.success('Multi-factor authentication has been disabled.')
+        return
       }
 
-      toast.error(
-        getApiFriendlyMessageWithRef(error, 'Unable to verify this authenticator code right now.')
-      )
-    } finally {
-      setIsVerifying(false)
-    }
-  }
-
-  async function handleStartDisable(): Promise<void> {
-    setFieldErrors({})
-
-    if (!disablePassword) {
-      setFieldErrors({ disablePassword: 'Enter your current password.' })
-      return
-    }
-
-    try {
-      setIsStartingDisable(true)
-      const response = await authApi.startDisableMfa({ password: disablePassword })
-      setDisableFlowStep('verify')
-      setDisableEmail(response.email)
-      setDisablePassword('')
-      setDisableCode('')
-      disableCooldown.startCooldown(60)
-      toast.success('Disable code sent.')
+      const response = await authApi.startMfaChange({
+        password,
+        verificationMethod,
+        code:
+          verificationMethod === 'totp'
+            ? totpCode
+            : `${recoveryCodeJoined.slice(0, 5)}-${recoveryCodeJoined.slice(5)}`,
+      })
+      setSetup(response)
+      setSetupCode('')
+      resetActionState()
+      toast.success('Scan the new QR code and verify it to finish changing MFA.')
     } catch (error) {
       const fields = getApiFieldErrors(error)
-      if (fields && Object.keys(fields).length > 0) {
+      if (fields?.password || fields?.code) {
         setFieldErrors({
-          ...(fields.password ? { disablePassword: fields.password } : {}),
+          ...(fields?.password ? { password: fields.password } : {}),
+          ...(fields?.code ? { code: fields.code } : {}),
         })
         return
       }
 
       const payload = getApiErrorPayload(error)
       if (payload?.code === 'AUTH_PASSWORD_INVALID') {
-        setFieldErrors({ disablePassword: 'The password you entered is incorrect.' })
-      }
-      if (payload?.code === 'RATE_LIMITED' && typeof payload.retryAfter === 'number') {
-        disableCooldown.startCooldown(payload.retryAfter)
+        setFieldErrors({ password: 'The password you entered is incorrect.' })
+      } else if (payload?.code === 'AUTH_MFA_CODE_INVALID') {
+        setFieldErrors(
+          verificationMethod === 'recovery'
+            ? { recoveryCode: 'Enter a valid recovery code.' }
+            : { code: 'Enter a valid 6-digit authenticator code.' }
+        )
       }
 
-      toast.error(getApiFriendlyMessageWithRef(error, 'Unable to send a disable code right now.'))
+      toast.error(
+        getApiFriendlyMessageWithRef(
+          error,
+          enabledAction === 'disable'
+            ? 'Unable to disable MFA right now.'
+            : 'Unable to start MFA rotation right now.'
+        )
+      )
     } finally {
-      setIsStartingDisable(false)
+      setIsSubmittingAction(false)
     }
   }
 
-  async function handleResendDisableCode(): Promise<void> {
-    if (disableCooldown.isOnCooldown || disableFlowStep !== 'verify') {
-      return
-    }
-
-    try {
-      setIsResendingDisable(true)
-      const response = await authApi.resendDisableMfaCode()
-      setDisableEmail(response.email)
-      disableCooldown.startCooldown(60)
-      toast.success('Disable code sent.')
-    } catch (error) {
-      const payload = getApiErrorPayload(error)
-      if (payload?.code === 'RATE_LIMITED' && typeof payload.retryAfter === 'number') {
-        disableCooldown.startCooldown(payload.retryAfter)
-      }
-
-      toast.error(getApiFriendlyMessageWithRef(error, 'Unable to resend the disable code.'))
-    } finally {
-      setIsResendingDisable(false)
-    }
-  }
-
-  async function handleDisable(): Promise<void> {
+  async function handleVerifySetup() {
     setFieldErrors({})
-
-    if (disableFlowStep === 'idle') {
-      await handleStartDisable()
-      return
-    }
-
-    if (disableCode.length !== 6) {
-      setFieldErrors({ disableCode: 'Enter the 6-digit code.' })
+    if (setupCode.length !== 6) {
+      setFieldErrors({ setupCode: 'Enter a valid 6-digit authenticator code.' })
       return
     }
 
     try {
-      setIsDisabling(true)
-      await authApi.confirmDisableMfa({ code: disableCode })
+      setIsVerifyingSetup(true)
+      await authApi.verifyTotp({ code: setupCode })
       await onChanged()
-      setDisableFlowStep('idle')
-      setDisableCode('')
-      setDisablePassword('')
-      setDisableEmail(user?.email ?? '')
-      toast.success('Multi-factor authentication has been disabled.')
+      setSetup(null)
+      setSetupCode('')
+      toast.success(
+        user?.twoFactorEnabled
+          ? 'Multi-factor authentication updated.'
+          : 'Multi-factor authentication enabled.'
+      )
     } catch (error) {
-      const fields = getApiFieldErrors(error)
-      if (fields && Object.keys(fields).length > 0) {
-        setFieldErrors({
-          ...(fields.code ? { disableCode: fields.code } : {}),
-        })
-        return
-      }
-
       const payload = getApiErrorPayload(error)
-      if (payload?.code === 'AUTH_MFA_DISABLE_CODE_INVALID') {
-        setFieldErrors({ disableCode: 'The email code is invalid.' })
-      }
-      if (payload?.code === 'RATE_LIMITED' && typeof payload.retryAfter === 'number') {
-        disableCooldown.startCooldown(payload.retryAfter)
+      if (payload?.code === 'AUTH_MFA_CODE_INVALID') {
+        setFieldErrors({ setupCode: 'The authenticator code is invalid.' })
       }
 
-      toast.error(getApiFriendlyMessageWithRef(error, 'Unable to disable MFA right now.'))
+      toast.error(
+        getApiFriendlyMessageWithRef(error, 'Unable to verify this authenticator code right now.')
+      )
     } finally {
-      setIsDisabling(false)
+      setIsVerifyingSetup(false)
     }
   }
 
-  async function copySetupUri(): Promise<void> {
+  async function copySetupUri() {
     if (!setup?.totpURI) {
       return
     }
@@ -312,134 +361,7 @@ export function MfaSettingsCard({ user, onChanged }: MfaSettingsCardProps) {
       </CardHeader>
 
       <CardContent className="space-y-5">
-        {user?.twoFactorEnabled ? (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              You will be asked for an authenticator code when signing in on new devices.
-            </p>
-            <div className="min-h-5 text-xs text-muted-foreground">
-              {disableFlowStep === 'verify'
-                ? `Code sent to ${disableDestinationEmail}.`
-                : 'Enter your current password to get a disable code by email.'}
-            </div>
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto] lg:items-start">
-              <div className="grid gap-1 lg:grid-rows-[auto_44px_20px]">
-                <label
-                  className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
-                  htmlFor="disable-mfa-password"
-                >
-                  Current password
-                </label>
-                {disableFlowStep === 'verify' ? (
-                  <Input
-                    className="h-11 cursor-not-allowed bg-card-elevated text-muted-foreground"
-                    disabled
-                    id="disable-mfa-password"
-                    placeholder="Password confirmed"
-                    value=""
-                  />
-                ) : (
-                  <PasswordInput
-                    autoComplete="current-password"
-                    className={cn(
-                      'h-11',
-                      fieldErrors.disablePassword && 'border-danger focus-visible:ring-danger'
-                    )}
-                    id="disable-mfa-password"
-                    onChange={(event) => {
-                      setDisablePassword(event.target.value)
-                      setFieldErrors((current) => ({ ...current, disablePassword: '' }))
-                    }}
-                    placeholder="Enter your password"
-                    value={disablePassword}
-                  />
-                )}
-                <p
-                  className={cn(
-                    'min-h-5 text-sm',
-                    fieldErrors.disablePassword ? 'text-danger' : 'text-muted-foreground'
-                  )}
-                >
-                  {disablePasswordHelperText}
-                </p>
-              </div>
-
-              <div className="grid gap-1 lg:grid-rows-[auto_44px_20px]">
-                <label
-                  className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
-                  htmlFor="disable-mfa-code"
-                >
-                  Email code
-                </label>
-                <Input
-                  autoComplete="one-time-code"
-                  className={cn(
-                    'h-11 text-center font-mono text-base tracking-[0.4em]',
-                    fieldErrors.disableCode && 'border-danger focus-visible:ring-danger'
-                  )}
-                  disabled={disableFlowStep !== 'verify'}
-                  id="disable-mfa-code"
-                  inputMode="numeric"
-                  maxLength={6}
-                  onChange={(event) => {
-                    setDisableCode(event.target.value.replace(/\D/g, '').slice(0, 6))
-                    setFieldErrors((current) => ({ ...current, disableCode: '' }))
-                  }}
-                  placeholder="000000"
-                  value={disableCode}
-                />
-                <p
-                  className={cn(
-                    'min-h-5 text-sm',
-                    fieldErrors.disableCode ? 'text-danger' : 'text-muted-foreground'
-                  )}
-                >
-                  {disableCodeHelperText}
-                </p>
-              </div>
-
-              <div className="grid gap-1 lg:grid-rows-[auto_44px_20px]">
-                <span className="text-xs font-mono uppercase tracking-[0.12em] text-transparent">
-                  Action
-                </span>
-                <Button
-                  className="h-11 px-5"
-                  disabled={isStartingDisable || isDisabling}
-                  onClick={() => void handleDisable()}
-                  type="button"
-                  variant="danger"
-                >
-                  {disableFlowStep === 'verify'
-                    ? isDisabling
-                      ? 'Disabling...'
-                      : 'Disable MFA'
-                    : isStartingDisable
-                      ? 'Sending...'
-                      : 'Send code'}
-                </Button>
-                <span aria-hidden="true" className="min-h-5 text-sm text-transparent">
-                  {'\u00A0'}
-                </span>
-              </div>
-            </div>
-            <div className="min-h-5">
-              {disableFlowStep === 'verify' ? (
-                <button
-                  className="text-sm text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={isResendingDisable || disableCooldown.isOnCooldown}
-                  onClick={() => void handleResendDisableCode()}
-                  type="button"
-                >
-                  {disableCooldown.isOnCooldown
-                    ? `Resend in ${disableCooldown.secondsLeft}s`
-                    : isResendingDisable
-                      ? 'Sending...'
-                      : 'Resend code'}
-                </button>
-              ) : null}
-            </div>
-          </div>
-        ) : setup ? (
+        {setup ? (
           <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
             <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-background-secondary p-4">
               {qrDataUrl ? (
@@ -477,7 +399,7 @@ export function MfaSettingsCard({ user, onChanged }: MfaSettingsCardProps) {
                     value={backupCodesText}
                   />
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 rounded-md bg-background-deep p-3 font-mono text-xs text-foreground sm:grid-cols-5">
+                <div className="mt-3 grid grid-cols-5 gap-2 rounded-md bg-background-deep p-3 font-mono text-xs text-foreground">
                   {setup.backupCodes.map((backupCode, index) => (
                     <span
                       className="rounded border border-border bg-background px-2 py-1 text-center"
@@ -497,47 +419,207 @@ export function MfaSettingsCard({ user, onChanged }: MfaSettingsCardProps) {
                   Authenticator code
                 </label>
                 <Input
-                  autoComplete="one-time-code"
-                  className={cn(
-                    'h-11 text-center font-mono text-base tracking-[0.4em]',
-                    fieldErrors.code && 'border-danger focus-visible:ring-danger'
-                  )}
                   id="mfa-setup-code"
+                  autoComplete="one-time-code"
                   inputMode="numeric"
                   maxLength={6}
+                  className={cn(
+                    'h-11 text-center font-mono text-base tracking-[0.4em]',
+                    fieldErrors.setupCode && 'border-danger focus-visible:ring-danger'
+                  )}
+                  value={setupCode}
                   onChange={(event) => {
-                    setCode(event.target.value.replace(/\D/g, '').slice(0, 6))
-                    setFieldErrors((current) => ({ ...current, code: '' }))
+                    setSetupCode(event.target.value.replace(/\D/g, '').slice(0, 6))
+                    setFieldErrors((current) => ({ ...current, setupCode: '' }))
                   }}
                   placeholder="000000"
-                  value={code}
                 />
-                {fieldErrors.code ? (
-                  <p className="text-sm text-danger">{fieldErrors.code}</p>
-                ) : null}
+                <p
+                  className={cn(
+                    'min-h-5 text-sm',
+                    fieldErrors.setupCode ? 'text-danger' : 'text-muted-foreground'
+                  )}
+                >
+                  {fieldErrors.setupCode ?? '\u00A0'}
+                </p>
               </div>
 
               <div className="flex flex-wrap justify-end gap-2">
                 <Button
-                  onClick={() => {
-                    setSetup(null)
-                    setCode('')
-                    setFieldErrors({})
-                  }}
                   type="button"
                   variant="outline"
+                  onClick={() => {
+                    setSetup(null)
+                    setSetupCode('')
+                    setFieldErrors({})
+                  }}
                 >
                   Cancel
                 </Button>
                 <Button
-                  disabled={isVerifying}
+                  disabled={isVerifyingSetup}
                   onClick={() => void handleVerifySetup()}
                   type="button"
                 >
-                  {isVerifying ? 'Verifying...' : 'Verify and enable'}
+                  {isVerifyingSetup ? 'Verifying...' : 'Verify and enable'}
                 </Button>
               </div>
             </div>
+          </div>
+        ) : user?.twoFactorEnabled ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              You will be asked for an authenticator code when signing in on new devices.
+            </p>
+
+            {!enabledAction ? (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  className="gap-2"
+                  onClick={() => resetActionState('change')}
+                  type="button"
+                  variant="outline"
+                >
+                  <RefreshCcw className="h-4 w-4" />
+                  Change MFA
+                </Button>
+                <Button onClick={() => resetActionState('disable')} type="button" variant="danger">
+                  Disable MFA
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4 rounded-lg border border-border bg-background-secondary p-4">
+                {enabledAction === 'change' ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant={verificationMethod === 'totp' ? 'default' : 'outline'}
+                      onClick={() => {
+                        setVerificationMethod('totp')
+                        setFieldErrors({})
+                      }}
+                    >
+                      Use current MFA code
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={verificationMethod === 'recovery' ? 'default' : 'outline'}
+                      onClick={() => {
+                        setVerificationMethod('recovery')
+                        setFieldErrors({})
+                      }}
+                    >
+                      Use recovery code
+                    </Button>
+                  </div>
+                ) : null}
+
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px_auto] lg:items-start">
+                  <div className="grid gap-1 lg:grid-rows-[auto_44px_20px]">
+                    <label
+                      className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+                      htmlFor="mfa-password"
+                    >
+                      Current password
+                    </label>
+                    <PasswordInput
+                      id="mfa-password"
+                      autoComplete="current-password"
+                      className={cn(
+                        'h-11',
+                        fieldErrors.password && 'border-danger focus-visible:ring-danger'
+                      )}
+                      value={password}
+                      onChange={(event) => {
+                        setPassword(event.target.value)
+                        setFieldErrors((current) => ({ ...current, password: '' }))
+                      }}
+                      placeholder="Enter your password"
+                    />
+                    <p
+                      className={cn(
+                        'min-h-5 text-sm',
+                        fieldErrors.password ? 'text-danger' : 'text-muted-foreground'
+                      )}
+                    >
+                      {fieldErrors.password ?? '\u00A0'}
+                    </p>
+                  </div>
+
+                  {enabledAction === 'change' && verificationMethod === 'recovery' ? (
+                    <RecoveryCodeInputs
+                      value={recoveryCode}
+                      onChange={setRecoveryCode}
+                      error={fieldErrors.recoveryCode}
+                      idPrefix="mfa-change-recovery"
+                    />
+                  ) : (
+                    <div className="grid gap-1 lg:grid-rows-[auto_44px_20px]">
+                      <label
+                        className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+                        htmlFor="mfa-current-code"
+                      >
+                        Authenticator code
+                      </label>
+                      <Input
+                        id="mfa-current-code"
+                        autoComplete="one-time-code"
+                        inputMode="numeric"
+                        maxLength={6}
+                        className={cn(
+                          'h-11 text-center font-mono text-base tracking-[0.4em]',
+                          fieldErrors.code && 'border-danger focus-visible:ring-danger'
+                        )}
+                        value={totpCode}
+                        onChange={(event) => {
+                          setTotpCode(event.target.value.replace(/\D/g, '').slice(0, 6))
+                          setFieldErrors((current) => ({ ...current, code: '' }))
+                        }}
+                        placeholder="000000"
+                      />
+                      <p
+                        className={cn(
+                          'min-h-5 text-sm',
+                          fieldErrors.code ? 'text-danger' : 'text-muted-foreground'
+                        )}
+                      >
+                        {fieldErrors.code ?? '\u00A0'}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="grid gap-1 lg:grid-rows-[auto_44px_20px]">
+                    <span className="text-xs font-mono uppercase tracking-[0.12em] text-transparent">
+                      Action
+                    </span>
+                    <Button
+                      className="h-11 px-5"
+                      type="button"
+                      variant={enabledAction === 'disable' ? 'danger' : 'default'}
+                      disabled={isSubmittingAction}
+                      onClick={() => void handleStartChangeOrDisable()}
+                    >
+                      {isSubmittingAction
+                        ? enabledAction === 'disable'
+                          ? 'Disabling...'
+                          : 'Starting...'
+                        : enabledAction === 'disable'
+                          ? 'Disable MFA'
+                          : 'Change MFA'}
+                    </Button>
+                    <span className="min-h-5 text-sm text-transparent">{'\u00A0'}</span>
+                  </div>
+                </div>
+
+                <button
+                  className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                  onClick={() => resetActionState()}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
@@ -553,24 +635,29 @@ export function MfaSettingsCard({ user, onChanged }: MfaSettingsCardProps) {
                   Current password
                 </label>
                 <PasswordInput
+                  id="enable-mfa-password"
                   autoComplete="current-password"
                   className={cn(fieldErrors.password && 'border-danger focus-visible:ring-danger')}
-                  id="enable-mfa-password"
+                  value={password}
                   onChange={(event) => {
                     setPassword(event.target.value)
                     setFieldErrors((current) => ({ ...current, password: '' }))
                   }}
                   placeholder="Enter your password"
-                  value={password}
                 />
-                {fieldErrors.password ? (
-                  <p className="text-sm text-danger">{fieldErrors.password}</p>
-                ) : null}
+                <p
+                  className={cn(
+                    'min-h-5 text-sm',
+                    fieldErrors.password ? 'text-danger' : 'text-muted-foreground'
+                  )}
+                >
+                  {fieldErrors.password ?? '\u00A0'}
+                </p>
               </div>
               <Button
                 className="mt-0 gap-2 sm:mt-6"
                 disabled={isStartingSetup}
-                onClick={() => void handleStartSetup()}
+                onClick={() => void handleStartFreshSetup()}
                 type="button"
               >
                 <KeyRound className="h-4 w-4" />

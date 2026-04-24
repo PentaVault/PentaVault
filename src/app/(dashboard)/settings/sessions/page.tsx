@@ -13,16 +13,22 @@ import { useToast } from '@/lib/hooks/use-toast'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
 import { formatDateTime } from '@/lib/utils/format'
 
+type SessionItem = {
+  id: string
+  current: boolean
+  expiresAt: string | null
+  ipAddress: string | null
+  userAgent: string | null
+  browser?: string | null
+  os?: string | null
+  device?: string | null
+  location?: string | null
+}
+
 export default function SessionsPage() {
   const { toast } = useToast()
   const [isPending, setIsPending] = useState(false)
-  const [sessions, setSessions] = useState<Array<{
-    id: string
-    current: boolean
-    expiresAt: string | null
-    ipAddress: string | null
-    userAgent: string | null
-  }> | null>(null)
+  const [sessions, setSessions] = useState<SessionItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   async function refreshSessions(signal?: { cancelled: boolean }): Promise<void> {
@@ -35,17 +41,13 @@ export default function SessionsPage() {
       setError(null)
       const response = await authApi.listSessions()
 
-      if (signal?.cancelled) {
-        return
+      if (!signal?.cancelled) {
+        setSessions(response.sessions)
       }
-
-      setSessions(response.sessions)
     } catch (refreshError) {
-      if (signal?.cancelled) {
-        return
+      if (!signal?.cancelled) {
+        setError(getApiFriendlyMessage(refreshError, 'Unable to load sessions right now.'))
       }
-
-      setError(getApiFriendlyMessage(refreshError, 'Unable to load sessions right now.'))
     } finally {
       if (!signal?.cancelled) {
         setIsPending(false)
@@ -64,17 +66,13 @@ export default function SessionsPage() {
   }
 
   useEffect(() => {
-    const signal = {
-      cancelled: false,
-    }
-
-    async function bootstrapSessions(): Promise<void> {
-      await refreshSessions(signal)
-    }
-
-    void bootstrapSessions()
+    const signal = { cancelled: false }
+    const timer = window.setTimeout(() => {
+      void refreshSessions(signal)
+    }, 0)
 
     return () => {
+      window.clearTimeout(timer)
       signal.cancelled = true
     }
   }, [])
@@ -122,18 +120,25 @@ export default function SessionsPage() {
                 >
                   <div className="space-y-1">
                     <p className="text-sm font-medium">
-                      {session.current ? 'Current session' : 'Session'} • {session.id}
+                      {session.current ? 'Current session' : 'Session'} {'\u2022'} {session.id}
                     </p>
                     <StatusBadge tone={session.current ? 'success' : 'neutral'}>
                       {session.current ? 'active current' : 'active'}
                     </StatusBadge>
                     <p className="text-xs text-muted-foreground">
-                      expires: {formatDateTime(session.expiresAt)} • ip:{' '}
-                      {session.ipAddress ?? 'n/a'}
+                      expires: {formatDateTime(session.expiresAt)} {'\u2022'} IP:{' '}
+                      {session.ipAddress ?? 'Unavailable'}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      agent: {session.userAgent ?? 'n/a'}
+                      {session.browser ?? 'Unknown browser'} {'\u2022'} {session.os ?? 'Unknown OS'}{' '}
+                      {'\u2022'} {session.device ?? 'Unknown device'}
                     </p>
+                    <p className="text-xs text-muted-foreground">
+                      location: {session.location ?? 'Unavailable'}
+                    </p>
+                    {session.userAgent ? (
+                      <p className="text-xs text-muted-foreground">agent: {session.userAgent}</p>
+                    ) : null}
                   </div>
 
                   <Button

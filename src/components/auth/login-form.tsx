@@ -1,26 +1,26 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
+
+import { Copy, QrCode } from 'lucide-react'
+import QRCode from 'qrcode'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { authApi } from '@/lib/api/auth'
 import { normalizeNextPath } from '@/lib/auth/paths'
-import {
-  DASHBOARD_HOME_PATH,
-  FORGOT_PASSWORD_PATH,
-  REGISTER_PATH,
-  SETTINGS_ACCOUNT_PATH,
-} from '@/lib/constants'
+import { DASHBOARD_HOME_PATH, FORGOT_PASSWORD_PATH, REGISTER_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useEmailCooldown } from '@/lib/hooks/use-email-cooldown'
 import { useToast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils/cn'
+import { copyToClipboard } from '@/lib/utils/copy'
 import {
   getApiErrorPayload,
   getApiFieldErrors,
@@ -46,6 +46,12 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   const [verificationEmail, setVerificationEmail] = useState('')
   const [trustDevice, setTrustDevice] = useState(true)
   const [mfaRequired, setMfaRequired] = useState(false)
+  const [recoverySetup, setRecoverySetup] = useState<{
+    totpURI: string
+    backupCodes: string[]
+  } | null>(null)
+  const [recoverySetupCode, setRecoverySetupCode] = useState('')
+  const [recoveryQrDataUrl, setRecoveryQrDataUrl] = useState('')
   const [emailVerificationRequired, setEmailVerificationRequired] = useState(false)
   const [isPending, setIsPending] = useState(false)
   const [isResendingVerification, setIsResendingVerification] = useState(false)
@@ -78,6 +84,40 @@ export function LoginForm({ nextPath }: LoginFormProps) {
 
     return () => window.clearInterval(timer)
   }, [retryAfter])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function renderQr() {
+      if (!recoverySetup?.totpURI) {
+        setRecoveryQrDataUrl('')
+        return
+      }
+
+      try {
+        const dataUrl = await QRCode.toDataURL(recoverySetup.totpURI, {
+          errorCorrectionLevel: 'M',
+          margin: 1,
+          scale: 6,
+          width: 176,
+        })
+
+        if (!cancelled) {
+          setRecoveryQrDataUrl(dataUrl)
+        }
+      } catch {
+        if (!cancelled) {
+          setRecoveryQrDataUrl('')
+        }
+      }
+    }
+
+    void renderQr()
+
+    return () => {
+      cancelled = true
+    }
+  }, [recoverySetup?.totpURI])
 
   async function completeSignIn(): Promise<void> {
     try {
@@ -280,26 +320,16 @@ export function LoginForm({ nextPath }: LoginFormProps) {
           code: normalizedCode,
           trustDevice,
         })
-      }
-
-      try {
-        await refresh()
-      } catch (refreshError) {
-        if (env.isDev) {
-          console.error('[auth] MFA succeeded but session refresh failed', refreshError)
-        }
-      }
-
-      if (mfaMode === 'recovery') {
-        toast.success('Recovery code accepted. Review MFA now.')
-        router.replace(`${SETTINGS_ACCOUNT_PATH}?mfaRecoveryUsed=1`)
-        router.refresh()
+        const recoverySetupResponse = await authApi.completeRecoveryMfaSetup({ password })
+        setMfaRequired(false)
+        setRecoverySetup(recoverySetupResponse)
+        setRecoverySetupCode('')
+        setFieldErrors({})
+        toast.success('Recovery code accepted. Set up your new authenticator to finish.')
         return
       }
 
-      toast.success('Signed in successfully.')
-      router.replace(normalizeNextPath(nextPath) ?? DASHBOARD_HOME_PATH)
-      router.refresh()
+      await completeSignIn()
     } catch (submitError) {
       const payload = getApiErrorPayload(submitError)
       if (payload?.code === 'AUTH_MFA_CODE_INVALID') {
@@ -345,6 +375,48 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     setFieldErrors((current) => ({ ...current, recoveryCode: '' }))
     recoveryCodeInputsRef.current[Math.min(normalized.length, 9)]?.focus()
   }
+
+  async function handleRecoverySetupVerify(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setFieldErrors({})
+
+    if (recoverySetupCode.length !== 6) {
+      setFieldErrors({ recoverySetupCode: 'Enter a valid 6-digit authenticator code.' })
+      return
+    }
+
+    try {
+      setIsPending(true)
+      await authApi.verifyTotp({ code: recoverySetupCode, trustDevice })
+      await completeSignIn()
+    } catch (error) {
+      const payload = getApiErrorPayload(error)
+      if (payload?.code === 'AUTH_MFA_CODE_INVALID') {
+        setFieldErrors({ recoverySetupCode: 'The authenticator code is invalid.' })
+      }
+      toast.error(
+        getApiFriendlyMessageWithRef(error, 'Unable to verify this authenticator code right now.')
+      )
+    } finally {
+      setIsPending(false)
+    }
+  }
+
+  async function handleCopyRecoverySetupUri() {
+    if (!recoverySetup?.totpURI) {
+      return
+    }
+
+    const copied = await copyToClipboard(recoverySetup.totpURI)
+    if (!copied) {
+      toast.error('Clipboard access is not available in this browser context.')
+      return
+    }
+
+    toast.success('Authenticator setup URI copied.')
+  }
+
+  const recoveryCodesText = recoverySetup?.backupCodes.join('\n') ?? ''
 
   if (emailVerificationRequired) {
     return (
@@ -413,6 +485,94 @@ export function LoginForm({ nextPath }: LoginFormProps) {
             Back
           </button>
         </div>
+      </form>
+    )
+  }
+
+  if (recoverySetup) {
+    return (
+      <form className="space-y-4" onSubmit={(event) => void handleRecoverySetupVerify(event)}>
+        <div className="grid gap-4 rounded-lg border border-border bg-background-secondary p-4">
+          <div className="flex flex-col items-center gap-3">
+            {recoveryQrDataUrl ? (
+              <Image
+                alt="Authenticator QR code"
+                className="h-44 w-44 rounded-md bg-white p-2"
+                height={176}
+                src={recoveryQrDataUrl}
+                unoptimized
+                width={176}
+              />
+            ) : (
+              <div className="flex h-44 w-44 items-center justify-center rounded-md border border-border">
+                <QrCode className="h-8 w-8 text-muted-foreground" />
+              </div>
+            )}
+            <Button
+              className="gap-2"
+              onClick={() => void handleCopyRecoverySetupUri()}
+              type="button"
+              variant="outline"
+            >
+              <Copy className="h-4 w-4" />
+              Copy setup URI
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Backup codes</p>
+            <div className="grid grid-cols-5 gap-2 rounded-md border border-border bg-background p-3 font-mono text-xs">
+              {recoverySetup.backupCodes.map((backupCode, index) => (
+                <span
+                  className="rounded border border-border bg-background-secondary px-2 py-1 text-center"
+                  key={`${backupCode}-${index}`}
+                >
+                  {backupCode}
+                </span>
+              ))}
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => void copyToClipboard(recoveryCodesText)}
+              type="button"
+              variant="outline"
+            >
+              Copy backup codes
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <label
+            className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+            htmlFor="recovery-setup-code"
+          >
+            Authenticator code
+          </label>
+          <Input
+            id="recovery-setup-code"
+            autoComplete="one-time-code"
+            className={cn(
+              'h-11 text-center font-mono text-base tracking-[0.4em]',
+              fieldErrors.recoverySetupCode && 'border-danger focus-visible:ring-danger'
+            )}
+            inputMode="numeric"
+            maxLength={6}
+            value={recoverySetupCode}
+            onChange={(event) => {
+              setRecoverySetupCode(event.target.value.replace(/\D/g, '').slice(0, 6))
+              setFieldErrors((current) => ({ ...current, recoverySetupCode: '' }))
+            }}
+            placeholder="000000"
+          />
+          {fieldErrors.recoverySetupCode ? (
+            <p className="text-sm text-danger">{fieldErrors.recoverySetupCode}</p>
+          ) : null}
+        </div>
+
+        <Button className="w-full" disabled={isPending} type="submit">
+          {isPending ? 'Verifying...' : 'Verify and sign in'}
+        </Button>
       </form>
     )
   }
@@ -523,6 +683,8 @@ export function LoginForm({ nextPath }: LoginFormProps) {
             className="w-full text-center text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
             onClick={() => {
               setMfaRequired(false)
+              setRecoverySetup(null)
+              setRecoverySetupCode('')
               setMfaCode('')
               setRecoveryCode(Array.from({ length: 10 }, () => ''))
               setMfaMode('totp')

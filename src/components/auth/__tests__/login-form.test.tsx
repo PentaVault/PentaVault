@@ -1,8 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
-import { SETTINGS_ACCOUNT_PATH } from '@/lib/constants'
-
 import { LoginForm } from '../login-form'
 
 const routerReplace = jest.fn()
@@ -15,6 +13,7 @@ const toastWarning = jest.fn()
 const signInWithEmail = jest.fn()
 const verifyTotp = jest.fn()
 const verifyBackupCode = jest.fn()
+const completeRecoveryMfaSetup = jest.fn()
 const sendEmailVerificationOtp = jest.fn()
 const verifyEmailOtp = jest.fn()
 
@@ -55,6 +54,7 @@ jest.mock('@/lib/api/auth', () => ({
     signInWithEmail: (...args: unknown[]) => signInWithEmail(...args),
     verifyTotp: (...args: unknown[]) => verifyTotp(...args),
     verifyBackupCode: (...args: unknown[]) => verifyBackupCode(...args),
+    completeRecoveryMfaSetup: (...args: unknown[]) => completeRecoveryMfaSetup(...args),
     sendEmailVerificationOtp: (...args: unknown[]) => sendEmailVerificationOtp(...args),
     verifyEmailOtp: (...args: unknown[]) => verifyEmailOtp(...args),
   },
@@ -72,15 +72,20 @@ describe('LoginForm', () => {
     signInWithEmail.mockReset()
     verifyTotp.mockReset()
     verifyBackupCode.mockReset()
+    completeRecoveryMfaSetup.mockReset()
     sendEmailVerificationOtp.mockReset()
     verifyEmailOtp.mockReset()
   })
 
-  it('redirects to account settings after signing in with a recovery code', async () => {
+  it('starts fresh MFA setup before finishing sign-in with a recovery code', async () => {
     const user = userEvent.setup()
 
     signInWithEmail.mockResolvedValue({ twoFactorRedirect: true })
     verifyBackupCode.mockResolvedValue(undefined)
+    completeRecoveryMfaSetup.mockResolvedValue({
+      totpURI: 'otpauth://totp/PentaVault:test?secret=ABC123&issuer=PentaVault',
+      backupCodes: ['code-1', 'code-2'],
+    })
     authRefresh.mockResolvedValue(undefined)
 
     render(<LoginForm nextPath={null} />)
@@ -115,11 +120,17 @@ describe('LoginForm', () => {
         trustDevice: true,
       })
     })
-
     await waitFor(() => {
-      expect(routerReplace).toHaveBeenCalledWith(`${SETTINGS_ACCOUNT_PATH}?mfaRecoveryUsed=1`)
+      expect(completeRecoveryMfaSetup).toHaveBeenCalledWith({
+        password: 'SecurePass1!',
+      })
     })
-    expect(routerRefresh).toHaveBeenCalled()
-    expect(toastSuccess).toHaveBeenCalledWith('Recovery code accepted. Review MFA now.')
+    expect(screen.getByText('Backup codes')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Verify and sign in' })).toBeInTheDocument()
+    expect(routerReplace).not.toHaveBeenCalled()
+    expect(routerRefresh).not.toHaveBeenCalled()
+    expect(toastSuccess).toHaveBeenCalledWith(
+      'Recovery code accepted. Set up your new authenticator to finish.'
+    )
   })
 })

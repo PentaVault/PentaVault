@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { InlineEditField } from '@/components/settings/inline-edit-field'
@@ -18,40 +18,22 @@ import {
 import { Input } from '@/components/ui/input'
 import { authApi } from '@/lib/api/auth'
 import { clearClientAuthHint } from '@/lib/auth/token'
-import { REGISTER_PATH, SETTINGS_ACCOUNT_PATH } from '@/lib/constants'
+import { REGISTER_PATH } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useToast } from '@/lib/hooks/use-toast'
-import { cn } from '@/lib/utils/cn'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
 
 export default function AccountSettingsPage() {
   const auth = useAuth()
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { toast } = useToast()
   const [emailInput, setEmailInput] = useState('')
   const [totpCode, setTotpCode] = useState('')
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [hasDismissedRecoveryPrompt, setHasDismissedRecoveryPrompt] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSavingName, setIsSavingName] = useState(false)
 
   const user = auth.session?.user
-  const hasRecoveryPrompt = searchParams.get('mfaRecoveryUsed') === '1'
-  const isRecoveryPromptOpen = hasRecoveryPrompt && !hasDismissedRecoveryPrompt
-
-  function clearRecoveryPrompt() {
-    setHasDismissedRecoveryPrompt(true)
-    router.replace(SETTINGS_ACCOUNT_PATH, { scroll: false })
-  }
-
-  function focusMfaCard() {
-    clearRecoveryPrompt()
-    document.getElementById('account-mfa-settings')?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center',
-    })
-  }
 
   async function handleSaveName(name: string): Promise<void> {
     setIsSavingName(true)
@@ -128,13 +110,7 @@ export default function AccountSettingsPage() {
           </CardContent>
         </Card>
 
-        <div
-          className={cn(
-            'rounded-xl transition-shadow',
-            hasRecoveryPrompt && 'ring-1 ring-[#00c573]/35 shadow-[0_0_0_1px_rgba(0,197,115,0.14)]'
-          )}
-          id="account-mfa-settings"
-        >
+        <div className="rounded-xl transition-shadow" id="account-mfa-settings">
           <MfaSettingsCard onChanged={auth.refresh} user={user} />
         </div>
 
@@ -230,40 +206,6 @@ export default function AccountSettingsPage() {
                 variant="danger"
               >
                 {isDeleting ? 'Deleting account...' : 'Delete account permanently'}
-              </Button>
-            </div>
-          </DialogContent>
-        </DialogPortal>
-      </Dialog>
-
-      <Dialog
-        onOpenChange={(open) => {
-          if (!open) {
-            clearRecoveryPrompt()
-          }
-        }}
-        open={isRecoveryPromptOpen}
-      >
-        <DialogPortal>
-          <DialogOverlay className="fixed inset-0 bg-black/45" />
-          <DialogContent
-            aria-describedby="mfa-recovery-review-description"
-            className="fixed top-1/2 left-1/2 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-visible rounded-xl border border-border bg-card p-5"
-          >
-            <DialogTitle>Review your MFA setup</DialogTitle>
-            <DialogDescription
-              className="mt-2 text-sm text-muted-foreground"
-              id="mfa-recovery-review-description"
-            >
-              You signed in with a recovery code. For safety, replace your authenticator setup now
-              by disabling MFA with an email code and setting it up again.
-            </DialogDescription>
-            <div className="mt-5 flex justify-end gap-2">
-              <Button onClick={clearRecoveryPrompt} type="button" variant="outline">
-                Later
-              </Button>
-              <Button onClick={focusMfaCard} type="button">
-                Review MFA
               </Button>
             </div>
           </DialogContent>

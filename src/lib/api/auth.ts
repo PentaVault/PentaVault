@@ -6,10 +6,11 @@ import { clearClientAuthHint, hasAuthCookieHint, setClientAuthHint } from '@/lib
 import { AUTH_REVOKE_SESSION_PATH, AUTH_SESSIONS_PATH, AUTH_SESSION_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
 import type {
-  AuthCompleteMfaDisableInput,
+  AuthCompleteRecoveryMfaSetupInput,
   AuthCompleteRegistrationInput,
   AuthCreateApiKeyRequest,
   AuthCreateApiKeyResponse,
+  AuthDisableMfaInput,
   AuthEnableMfaInput,
   AuthEnableMfaResponse,
   AuthRequestPasswordResetOtpInput,
@@ -21,8 +22,7 @@ import type {
   AuthSessionRevokeResponse,
   AuthSignInWithEmailInput,
   AuthSignInWithEmailResponse,
-  AuthStartMfaDisableInput,
-  AuthStartMfaDisableResponse,
+  AuthStartMfaChangeInput,
   AuthStartRegistrationInput,
   AuthVerifyBackupCodeInput,
   AuthVerifyEmailOtpInput,
@@ -418,39 +418,43 @@ export const authApi = {
     await apiClient.post('/auth/two-factor/verify-backup-code', input)
   },
 
-  async startDisableMfa(input: AuthStartMfaDisableInput): Promise<AuthStartMfaDisableResponse> {
-    if (isMockAuthEnabled()) {
-      return {
-        email: env.mockAuthEmail,
-      }
-    }
-
-    const response = await apiClient.post<AuthStartMfaDisableResponse>(
-      '/v1/auth/mfa/disable/start',
-      input
-    )
-    return response.data
-  },
-
-  async resendDisableMfaCode(): Promise<AuthStartMfaDisableResponse> {
-    if (isMockAuthEnabled()) {
-      return {
-        email: env.mockAuthEmail,
-      }
-    }
-
-    const response = await apiClient.post<AuthStartMfaDisableResponse>(
-      '/v1/auth/mfa/disable/resend'
-    )
-    return response.data
-  },
-
-  async confirmDisableMfa(input: AuthCompleteMfaDisableInput): Promise<void> {
+  async disableMfa(input: AuthDisableMfaInput): Promise<void> {
     if (isMockAuthEnabled()) {
       return
     }
 
-    await apiClient.post('/v1/auth/mfa/disable/verify', input)
+    await apiClient.post('/v1/auth/mfa/disable', input)
+  },
+
+  async startMfaChange(input: AuthStartMfaChangeInput): Promise<AuthEnableMfaResponse> {
+    if (isMockAuthEnabled()) {
+      return {
+        totpURI:
+          'otpauth://totp/PentaVault:mock@example.com?secret=JBSWY3DPEHPK3PXP&issuer=PentaVault',
+        backupCodes: ['mock-backup-1', 'mock-backup-2'],
+      }
+    }
+
+    const response = await apiClient.post<AuthEnableMfaResponse>('/v1/auth/mfa/change/start', input)
+    return response.data
+  },
+
+  async completeRecoveryMfaSetup(
+    input: AuthCompleteRecoveryMfaSetupInput
+  ): Promise<AuthEnableMfaResponse> {
+    if (isMockAuthEnabled()) {
+      return {
+        totpURI:
+          'otpauth://totp/PentaVault:mock@example.com?secret=JBSWY3DPEHPK3PXP&issuer=PentaVault',
+        backupCodes: ['mock-backup-1', 'mock-backup-2'],
+      }
+    }
+
+    const response = await apiClient.post<AuthEnableMfaResponse>(
+      '/v1/auth/mfa/recovery/setup',
+      input
+    )
+    return response.data
   },
 
   async approveDevice(userCode: string): Promise<void> {

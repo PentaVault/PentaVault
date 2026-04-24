@@ -319,16 +319,19 @@ export interface AuthVerifyBackupCodeInput {
   trustDevice?: boolean
 }
 
-export interface AuthStartMfaDisableInput {
+export interface AuthDisableMfaInput {
   password: string
-}
-
-export interface AuthStartMfaDisableResponse {
-  email: string
-}
-
-export interface AuthCompleteMfaDisableInput {
   code: string
+}
+
+export interface AuthStartMfaChangeInput {
+  password: string
+  verificationMethod: 'totp' | 'recovery'
+  code: string
+}
+
+export interface AuthCompleteRecoveryMfaSetupInput {
+  password: string
 }
 
 export interface AuthSessionRevokeResponse {

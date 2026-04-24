@@ -99,6 +99,10 @@ export interface AuthSessionListItem {
   expiresAt: string | null
   ipAddress: string | null
   userAgent: string | null
+  browser?: string | null
+  os?: string | null
+  device?: string | null
+  location?: string | null
 }
 
 export interface AuthSessionListResponse {
