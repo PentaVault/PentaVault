@@ -74,7 +74,18 @@ async function handle(request: NextRequest, path: string[]): Promise<Response> {
     requestInit.body = await request.arrayBuffer()
   }
 
-  const upstreamResponse = await fetch(targetUrl, requestInit)
+  let upstreamResponse: Response
+  try {
+    upstreamResponse = await fetch(targetUrl, requestInit)
+  } catch {
+    return Response.json(
+      {
+        code: 'API_UPSTREAM_UNAVAILABLE',
+        error: 'The API service is temporarily unavailable. Please try again in a moment.',
+      },
+      { status: 503 }
+    )
+  }
 
   const responseHeaders = forwardResponseHeaders(upstreamResponse.headers)
 

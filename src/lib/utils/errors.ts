@@ -116,6 +116,8 @@ const API_ERROR_MESSAGES_BY_CODE: Record<string, string> = {
   ROUTE_NOT_FOUND: 'API endpoint not found.',
   INVALID_REQUEST: 'Invalid request. Check your input and try again.',
   INVALID_JSON: 'Request format error. Please reload and try again.',
+  API_UPSTREAM_UNAVAILABLE:
+    'The API service is temporarily unavailable. Please try again in a moment.',
 }
 
 const PREFER_SERVER_MESSAGE_CODES = new Set([
