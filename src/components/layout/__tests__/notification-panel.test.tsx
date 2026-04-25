@@ -9,9 +9,17 @@ const markAllReadMutate = jest.fn()
 const deleteNotificationMutate = jest.fn()
 const acceptInvitationMutateAsync = jest.fn()
 const rejectInvitationMutateAsync = jest.fn()
+const reviewAccessRequestMutateAsync = jest.fn()
+const routerPush = jest.fn()
 let notificationsData: unknown
 const setActiveOrganization = jest.fn()
 const refreshAuth = jest.fn()
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: routerPush,
+  }),
+}))
 
 jest.mock('@/lib/hooks/use-auth', () => ({
   useAuth: () => ({
@@ -43,6 +51,13 @@ jest.mock('@/lib/hooks/use-invitations', () => ({
   }),
   useRejectInvitationById: () => ({
     mutateAsync: rejectInvitationMutateAsync,
+    isPending: false,
+  }),
+}))
+
+jest.mock('@/lib/hooks/use-projects', () => ({
+  useReviewProjectAccessRequest: () => ({
+    mutateAsync: reviewAccessRequestMutateAsync,
     isPending: false,
   }),
 }))
@@ -80,6 +95,9 @@ describe('NotificationPanel', () => {
     acceptInvitationMutateAsync.mockClear()
     rejectInvitationMutateAsync.mockResolvedValue({})
     rejectInvitationMutateAsync.mockClear()
+    reviewAccessRequestMutateAsync.mockResolvedValue({})
+    reviewAccessRequestMutateAsync.mockClear()
+    routerPush.mockClear()
     notificationsData = {
       unreadCount: 1,
       nextCursor: null,
@@ -254,5 +272,79 @@ describe('NotificationPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete notification: Join Acme' }))
 
     expect(deleteNotificationMutate).toHaveBeenCalledWith('notification_1')
+  })
+
+  it('navigates project access request notifications to the team page', () => {
+    notificationsData = {
+      unreadCount: 1,
+      nextCursor: null,
+      notifications: [
+        {
+          id: 'notification_access',
+          userId: 'admin_1',
+          type: 'project_access_request',
+          title: 'Project access requested',
+          body: 'Member requested access to Vault.',
+          data: {
+            notificationAction: 'review_project_access',
+            requestId: 'access_request_1',
+            requestStatus: 'pending',
+            projectId: 'project_1',
+            organizationId: 'org_1',
+          },
+          readAt: null,
+          actionTaken: null,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    }
+
+    render(<NotificationPanel />)
+
+    fireEvent.click(screen.getByText('Project access requested'))
+
+    expect(markReadMutate).toHaveBeenCalledWith('notification_access')
+    expect(routerPush).toHaveBeenCalledWith('/dashboard/org/org_1/projects/project_1/team')
+  })
+
+  it('approves project access from the inline tick and then shows a status icon', async () => {
+    notificationsData = {
+      unreadCount: 1,
+      nextCursor: null,
+      notifications: [
+        {
+          id: 'notification_access',
+          userId: 'admin_1',
+          type: 'project_access_request',
+          title: 'Project access requested',
+          body: 'Member requested access to Vault.',
+          data: {
+            notificationAction: 'review_project_access',
+            requestId: 'access_request_1',
+            requestStatus: 'pending',
+            projectId: 'project_1',
+            organizationId: 'org_1',
+          },
+          readAt: null,
+          actionTaken: null,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    }
+
+    render(<NotificationPanel />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve project access request' }))
+
+    expect(reviewAccessRequestMutateAsync).toHaveBeenCalledWith({
+      requestId: 'access_request_1',
+      input: {
+        status: 'approved',
+        grantedRole: 'developer',
+      },
+    })
+    await waitFor(() => {
+      expect(screen.getByLabelText('Access request approved')).toBeInTheDocument()
+    })
   })
 })

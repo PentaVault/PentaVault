@@ -1,6 +1,7 @@
 import type { AuthSession, AuthSessionListResponse, RevokeSessionRequest } from '@/lib/types/auth'
 import type { OrgInvitation, OrgRole } from '@/lib/types/auth'
 import type {
+  AccessRequest,
   AuditEvent,
   Project,
   ProjectMembership,
@@ -61,19 +62,17 @@ export interface CreateAccessRequestInput {
 }
 
 export interface AccessRequestResponse {
-  request: {
-    id: string
-    projectId: string
-    organizationId: string
-    requesterId: string
-    requestedRole: 'developer' | 'readonly'
-    message: string | null
-    status: 'pending' | 'approved' | 'denied' | 'rejected' | 'cancelled'
-    reviewedBy: string | null
-    reviewerNote: string | null
-    createdAt: string
-    updatedAt: string
-  }
+  request: AccessRequest
+}
+
+export interface ListAccessRequestsResponse {
+  requests: AccessRequest[]
+}
+
+export interface ReviewAccessRequestInput {
+  status: 'approved' | 'rejected'
+  grantedRole?: 'developer' | 'readonly'
+  reviewerNote?: string
 }
 
 export interface SendOrgInvitationInput {

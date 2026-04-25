@@ -7,9 +7,17 @@ import { TeamMemberAddForm } from '@/components/dashboard/team-member-add-form'
 import { TeamMemberRow } from '@/components/dashboard/team-member-row'
 import { EmptyState } from '@/components/shared/empty-state'
 import { ErrorState } from '@/components/shared/error-state'
-import { useProject } from '@/lib/hooks/use-projects'
+import { StatusBadge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  useProject,
+  useProjectAccessRequests,
+  useReviewProjectAccessRequest,
+} from '@/lib/hooks/use-projects'
 import { useProjectMembers } from '@/lib/hooks/use-team'
+import { useToast } from '@/lib/hooks/use-toast'
 import { useProjectTokens } from '@/lib/hooks/use-tokens'
+import type { AccessRequest } from '@/lib/types/models'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
 
 export default function ProjectTeamPage() {
@@ -18,12 +26,41 @@ export default function ProjectTeamPage() {
   const projectQuery = useProject(projectId)
   const membersQuery = useProjectMembers(projectId)
   const tokensQuery = useProjectTokens(projectId)
+  const reviewRequest = useReviewProjectAccessRequest(projectId)
+  const { toast } = useToast()
 
   const projectName = projectQuery.data?.project.name ?? 'Project'
+  const effectiveRole = projectQuery.data?.membership?.role ?? projectQuery.data?.orgRole ?? null
+  const canReviewRequests = effectiveRole === 'owner' || effectiveRole === 'admin'
+  const requestsQuery = useProjectAccessRequests(projectId, 'pending', canReviewRequests)
   const members = useMemo(() => membersQuery.data?.members ?? [], [membersQuery.data?.members])
+  const pendingRequests = useMemo(
+    () => requestsQuery.data?.requests ?? [],
+    [requestsQuery.data?.requests]
+  )
   const tokens = tokensQuery.data ?? []
   const existingUserIds = useMemo(() => new Set(members.map((member) => member.userId)), [members])
   const organizationId = projectQuery.data?.project.organizationId ?? null
+
+  async function reviewAccessRequest(
+    request: AccessRequest,
+    status: 'approved' | 'rejected'
+  ): Promise<void> {
+    try {
+      await reviewRequest.mutateAsync({
+        requestId: request.id,
+        input: {
+          status,
+          ...(status === 'approved'
+            ? { grantedRole: request.requestedRole }
+            : { reviewerNote: 'Declined from project team review.' }),
+        },
+      })
+      toast.success(status === 'approved' ? 'Access request approved.' : 'Access request declined.')
+    } catch (error) {
+      toast.error(getApiFriendlyMessage(error, 'Unable to review access request right now.'))
+    }
+  }
 
   if (!projectId) {
     return (
@@ -58,6 +95,40 @@ export default function ProjectTeamPage() {
         />
       </div>
 
+      {canReviewRequests ? (
+        <div className="mb-6 overflow-hidden rounded-lg border border-border">
+          <div className="border-b border-border px-4 py-3">
+            <p className="text-sm font-medium">Pending access requests</p>
+          </div>
+
+          {requestsQuery.isLoading ? (
+            <p className="p-4 text-sm text-muted-foreground">Loading requests...</p>
+          ) : requestsQuery.isError ? (
+            <div className="p-4">
+              <ErrorState
+                title="Unable to load access requests"
+                message={getApiFriendlyMessage(
+                  requestsQuery.error,
+                  'Please try again in a moment.'
+                )}
+                onRetry={() => void requestsQuery.refetch()}
+              />
+            </div>
+          ) : pendingRequests.length === 0 ? (
+            <p className="p-4 text-sm text-muted-foreground">No pending access requests.</p>
+          ) : (
+            pendingRequests.map((request) => (
+              <AccessRequestRow
+                isPending={reviewRequest.isPending}
+                key={request.id}
+                onReview={(status) => void reviewAccessRequest(request, status)}
+                request={request}
+              />
+            ))
+          )}
+        </div>
+      ) : null}
+
       <div className="overflow-hidden rounded-lg border border-border">
         {membersQuery.isLoading ? (
           <p className="p-4 text-sm text-muted-foreground">Loading members...</p>
@@ -86,6 +157,51 @@ export default function ProjectTeamPage() {
             />
           ))
         )}
+      </div>
+    </div>
+  )
+}
+
+function AccessRequestRow({
+  isPending,
+  onReview,
+  request,
+}: {
+  isPending: boolean
+  onReview: (status: 'approved' | 'rejected') => void
+  request: AccessRequest
+}) {
+  const requesterLabel = request.requester?.name ?? request.requester?.email ?? request.requesterId
+  const requesterMeta =
+    request.requester?.email ?? request.requester?.username ?? request.requesterId
+
+  return (
+    <div className="grid gap-3 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_140px_180px] md:items-center">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{requesterLabel}</p>
+        <p className="truncate text-xs text-muted-foreground">{requesterMeta}</p>
+        {request.message ? (
+          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{request.message}</p>
+        ) : null}
+      </div>
+
+      <StatusBadge className="justify-self-start capitalize md:justify-self-center" tone="neutral">
+        {request.requestedRole}
+      </StatusBadge>
+
+      <div className="flex justify-start gap-2 md:justify-end">
+        <Button
+          disabled={isPending}
+          onClick={() => onReview('rejected')}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          Decline
+        </Button>
+        <Button disabled={isPending} onClick={() => onReview('approved')} size="sm" type="button">
+          Approve
+        </Button>
       </div>
     </div>
   )

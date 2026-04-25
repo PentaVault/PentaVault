@@ -85,6 +85,35 @@ export interface UserProject {
   canAccess: boolean
   pendingAccessRequest: boolean
   latestRequestStatus: AccessRequestStatus | null
+  latestAccessRequest: AccessRequest | null
+}
+
+export interface AccessRequest {
+  id: string
+  projectId: string
+  organizationId: string
+  requesterId: string
+  requestedRole: Extract<ProjectRole, 'developer' | 'readonly'>
+  message: string | null
+  status: AccessRequestStatus
+  reviewedBy: string | null
+  reviewerNote: string | null
+  createdAt: string
+  updatedAt: string
+  requester?: {
+    id: string
+    name: string | null
+    username?: string | null
+    email: string | null
+    image: string | null
+  } | null
+  reviewer?: {
+    id: string
+    name: string | null
+    username?: string | null
+    email: string | null
+    image: string | null
+  } | null
 }
 
 export interface Secret {

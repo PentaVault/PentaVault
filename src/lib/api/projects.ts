@@ -3,9 +3,11 @@ import type {
   AccessRequestResponse,
   CreateAccessRequestInput,
   CreateProjectInput,
+  ListAccessRequestsResponse,
   ListProjectsResponse,
   ProjectMembersResponse,
   ProjectResponse,
+  ReviewAccessRequestInput,
   UpdateProjectInput,
 } from '@/lib/types/api'
 
@@ -61,6 +63,30 @@ export const projectsApi = {
   ): Promise<AccessRequestResponse> {
     const response = await apiClient.post<AccessRequestResponse>(
       `/v1/projects/${projectId}/access-requests`,
+      input
+    )
+    return response.data
+  },
+
+  async listAccessRequests(
+    projectId: string,
+    status?: 'pending' | 'approved' | 'denied' | 'rejected' | 'cancelled'
+  ): Promise<ListAccessRequestsResponse> {
+    const response = await apiClient.get<ListAccessRequestsResponse>(
+      `/v1/projects/${projectId}/access-requests`,
+      {
+        params: status ? { status } : undefined,
+      }
+    )
+    return response.data
+  },
+
+  async reviewAccessRequest(
+    requestId: string,
+    input: ReviewAccessRequestInput
+  ): Promise<AccessRequestResponse> {
+    const response = await apiClient.patch<AccessRequestResponse>(
+      `/v1/access-requests/${requestId}`,
       input
     )
     return response.data

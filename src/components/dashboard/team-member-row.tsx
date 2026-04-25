@@ -24,12 +24,16 @@ type TeamMemberRowProps = {
 
 type EditableRole = 'admin' | 'member'
 
+function displayProjectRole(role: ProjectMembership['role']): 'owner' | EditableRole {
+  return role === 'owner' || role === 'admin' ? role : 'member'
+}
+
 export function TeamMemberRow({ assignedCount, projectId, membership }: TeamMemberRowProps) {
   const updateMember = useUpdateProjectMember(projectId)
   const removeMember = useRemoveProjectMember(projectId)
   const { toast } = useToast()
 
-  const [role, setRole] = useState<ProjectMembership['role']>(membership.role)
+  const [role, setRole] = useState<'owner' | EditableRole>(displayProjectRole(membership.role))
 
   async function updateRole(nextRole: EditableRole): Promise<void> {
     if (membership.role === 'owner') {

@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 
 import { formatDistanceToNow } from 'date-fns'
@@ -9,6 +10,7 @@ import { InvitationDialog } from '@/components/invitations/invitation-dialog'
 import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown'
+import { getOrgProjectTeamPath, getProjectTeamPath } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useAcceptInvitationById, useRejectInvitationById } from '@/lib/hooks/use-invitations'
 import {
@@ -17,6 +19,7 @@ import {
   useMarkNotificationRead,
   useNotifications,
 } from '@/lib/hooks/use-notifications'
+import { useReviewProjectAccessRequest } from '@/lib/hooks/use-projects'
 import { useToast } from '@/lib/hooks/use-toast'
 import type { NotificationRecord, VerifyInvitationResponse } from '@/lib/types/api'
 import { cn } from '@/lib/utils/cn'
@@ -33,6 +36,16 @@ type InvitationNotificationAction =
 type LocalInvitationAction = {
   notificationId: string
   action: InvitationNotificationAction
+}
+type ProjectAccessRequestNotificationAction =
+  | 'approved'
+  | 'rejected'
+  | 'denied'
+  | 'cancelled'
+  | null
+type LocalProjectAccessRequestAction = {
+  notificationId: string
+  action: ProjectAccessRequestNotificationAction
 }
 
 const EXPIRED_INVITATION_STATUSES = new Set(['expired', 'revoked', 'cancelled', 'canceled'])
@@ -150,6 +163,78 @@ function InvitationStatusBadge({
   return null
 }
 
+function getProjectAccessRequestAction(
+  notification: NotificationRecord,
+  localAction: ProjectAccessRequestNotificationAction
+): ProjectAccessRequestNotificationAction {
+  if (localAction) {
+    return localAction
+  }
+
+  if (
+    notification.actionTaken === 'approved' ||
+    notification.actionTaken === 'rejected' ||
+    notification.actionTaken === 'denied'
+  ) {
+    return notification.actionTaken
+  }
+
+  const status = getString(notification.data, 'requestStatus')
+  if (status === 'approved' || status === 'rejected' || status === 'denied') {
+    return status
+  }
+
+  if (status === 'cancelled') {
+    return 'cancelled'
+  }
+
+  return null
+}
+
+function getProjectAccessRequestHref(notification: NotificationRecord): string | null {
+  const projectId = getString(notification.data, 'projectId')
+  if (!projectId) {
+    return null
+  }
+
+  const organizationId = getString(notification.data, 'organizationId')
+  return organizationId
+    ? getOrgProjectTeamPath(organizationId, projectId)
+    : getProjectTeamPath(projectId)
+}
+
+function ProjectAccessRequestStatusIcon({
+  action,
+}: {
+  action: ProjectAccessRequestNotificationAction
+}) {
+  if (action === 'approved') {
+    return (
+      <span
+        aria-label="Access request approved"
+        className="flex h-8 w-8 items-center justify-center rounded-md border border-accent/30 text-accent"
+        title="Approved"
+      >
+        <Check className="h-4 w-4" />
+      </span>
+    )
+  }
+
+  if (action === 'rejected' || action === 'denied' || action === 'cancelled') {
+    return (
+      <span
+        aria-label="Access request declined"
+        className="flex h-8 w-8 items-center justify-center rounded-md border border-danger/30 text-danger"
+        title="Declined"
+      >
+        <X className="h-4 w-4" />
+      </span>
+    )
+  }
+
+  return null
+}
+
 function NotificationRow({
   notification,
   onRead,
@@ -159,10 +244,15 @@ function NotificationRow({
   onRead: () => void
   onDelete: () => void
 }) {
+  const router = useRouter()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [localAction, setLocalAction] = useState<LocalInvitationAction | null>(null)
+  const [localProjectAction, setLocalProjectAction] =
+    useState<LocalProjectAccessRequestAction | null>(null)
   const acceptInvitation = useAcceptInvitationById()
   const rejectInvitation = useRejectInvitationById()
+  const projectId = getString(notification.data, 'projectId')
+  const reviewProjectAccessRequest = useReviewProjectAccessRequest(projectId)
   const auth = useAuth()
   const { toast } = useToast()
   const invitation = getInvitationPayload(notification)
@@ -178,10 +268,29 @@ function NotificationRow({
     invitationId &&
     !invitationExpired &&
     !effectiveAction
-  const isActing = acceptInvitation.isPending || rejectInvitation.isPending
+  const requestId = getString(notification.data, 'requestId')
+  const projectRequestLocalAction =
+    localProjectAction?.notificationId === notification.id ? localProjectAction.action : null
+  const projectRequestAction = getProjectAccessRequestAction(
+    notification,
+    projectRequestLocalAction
+  )
+  const projectRequestHref = getProjectAccessRequestHref(notification)
+  const canReviewProjectRequest =
+    notification.type === 'project_access_request' &&
+    Boolean(requestId && projectId) &&
+    !projectRequestAction
+  const invitationIsActing = acceptInvitation.isPending || rejectInvitation.isPending
+  const projectRequestIsActing = reviewProjectAccessRequest.isPending
 
   function setNotificationLocalAction(action: Exclude<InvitationNotificationAction, null>) {
     setLocalAction({ notificationId: notification.id, action })
+  }
+
+  function setProjectRequestLocalAction(
+    action: Exclude<ProjectAccessRequestNotificationAction, null>
+  ) {
+    setLocalProjectAction({ notificationId: notification.id, action })
   }
 
   async function accept() {
@@ -227,6 +336,38 @@ function NotificationRow({
     }
   }
 
+  async function reviewProjectRequest(status: 'approved' | 'rejected'): Promise<void> {
+    if (!requestId) return
+
+    try {
+      await reviewProjectAccessRequest.mutateAsync({
+        requestId,
+        input: {
+          status,
+          ...(status === 'approved'
+            ? { grantedRole: 'developer' }
+            : { reviewerNote: 'Declined from notification review.' }),
+        },
+      })
+      setProjectRequestLocalAction(status)
+      toast.success(status === 'approved' ? 'Access request approved.' : 'Access request declined.')
+    } catch (error) {
+      toast.error(getApiFriendlyMessage(error, 'Unable to review this access request.'))
+    }
+  }
+
+  function openNotificationTarget() {
+    onRead()
+    if (canActOnInvitation) {
+      setDialogOpen(true)
+      return
+    }
+
+    if (projectRequestHref) {
+      router.push(projectRequestHref)
+    }
+  }
+
   return (
     <>
       <div
@@ -235,18 +376,12 @@ function NotificationRow({
           !notification.readAt && 'bg-accent/5'
         )}
         onClick={() => {
-          onRead()
-          if (canActOnInvitation) {
-            setDialogOpen(true)
-          }
+          openNotificationTarget()
         }}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault()
-            onRead()
-            if (canActOnInvitation) {
-              setDialogOpen(true)
-            }
+            openNotificationTarget()
           }
         }}
         role="button"
@@ -293,7 +428,7 @@ function NotificationRow({
             <Button
               aria-label="Decline invitation"
               className="h-8 w-8 border-danger/35 px-0 text-danger hover:border-danger"
-              disabled={isActing}
+              disabled={invitationIsActing}
               onClick={() => void reject()}
               size="sm"
               type="button"
@@ -304,7 +439,7 @@ function NotificationRow({
             <Button
               aria-label="Accept invitation"
               className="h-8 w-8 border-accent/35 px-0 text-accent hover:border-accent"
-              disabled={isActing}
+              disabled={invitationIsActing}
               onClick={() => void accept()}
               size="sm"
               type="button"
@@ -313,8 +448,41 @@ function NotificationRow({
               <Check className="h-4 w-4 text-accent" />
             </Button>
           </span>
+        ) : canReviewProjectRequest ? (
+          <span
+            className="flex flex-shrink-0 items-center gap-1"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <Button
+              aria-label="Decline project access request"
+              className="h-8 w-8 border-danger/35 px-0 text-danger hover:border-danger"
+              disabled={projectRequestIsActing}
+              onClick={() => void reviewProjectRequest('rejected')}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <X className="h-4 w-4 text-danger" />
+            </Button>
+            <Button
+              aria-label="Approve project access request"
+              className="h-8 w-8 border-accent/35 px-0 text-accent hover:border-accent"
+              disabled={projectRequestIsActing}
+              onClick={() => void reviewProjectRequest('approved')}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <Check className="h-4 w-4 text-accent" />
+            </Button>
+          </span>
         ) : (
-          <InvitationStatusBadge action={effectiveAction} expired={invitationExpired} />
+          <>
+            <InvitationStatusBadge action={effectiveAction} expired={invitationExpired} />
+            {notification.type === 'project_access_request' ? (
+              <ProjectAccessRequestStatusIcon action={projectRequestAction} />
+            ) : null}
+          </>
         )}
       </div>
 

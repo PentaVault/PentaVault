@@ -52,7 +52,11 @@ import {
 import { useToast } from '@/lib/hooks/use-toast'
 import type { Project, ProjectRole, ProjectStatus, UserProject } from '@/lib/types/models'
 import { cn } from '@/lib/utils/cn'
-import { getApiFriendlyMessage, getApiFriendlyMessageWithRef } from '@/lib/utils/errors'
+import {
+  getApiErrorPayload,
+  getApiFriendlyMessage,
+  getApiFriendlyMessageWithRef,
+} from '@/lib/utils/errors'
 
 function roleTone(role: ProjectRole | string) {
   return role === 'owner' ? 'warning' : role === 'admin' ? 'success' : 'neutral'
@@ -76,6 +80,23 @@ function slugPreviewFromName(name: string): string {
 
 function projectHref(projectId: string, activeOrgId: string | null): string {
   return activeOrgId ? getOrgProjectPath(activeOrgId, projectId) : getProjectPath(projectId)
+}
+
+function formatRetryAfter(seconds: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(seconds))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const remainingSeconds = totalSeconds % 60
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`
+  }
+
+  if (minutes > 0) {
+    return `${minutes}m ${remainingSeconds}s`
+  }
+
+  return `${remainingSeconds}s`
 }
 
 export default function ProjectsPage() {
@@ -256,6 +277,15 @@ export default function ProjectsPage() {
       })
       toast.success("Access request sent. You'll be notified when it's reviewed.")
     } catch (error) {
+      const payload = getApiErrorPayload(error)
+      if (
+        payload?.code === 'PROJECT_ACCESS_REQUEST_RETRY_COOLDOWN' &&
+        typeof payload.retryAfter === 'number'
+      ) {
+        toast.error(`Please wait ${formatRetryAfter(payload.retryAfter)} before requesting again.`)
+        return
+      }
+
       toast.error(getApiFriendlyMessage(error, 'Unable to request access right now.'))
     }
   }
