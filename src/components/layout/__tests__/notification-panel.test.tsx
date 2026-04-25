@@ -10,6 +10,15 @@ const deleteNotificationMutate = jest.fn()
 const acceptInvitationMutateAsync = jest.fn()
 const rejectInvitationMutateAsync = jest.fn()
 let notificationsData: unknown
+const setActiveOrganization = jest.fn()
+const refreshAuth = jest.fn()
+
+jest.mock('@/lib/hooks/use-auth', () => ({
+  useAuth: () => ({
+    setActiveOrganization,
+    refresh: refreshAuth,
+  }),
+}))
 
 jest.mock('@/lib/hooks/use-notifications', () => ({
   useNotifications: () => ({
@@ -63,6 +72,10 @@ describe('NotificationPanel', () => {
     markReadMutate.mockReset()
     markAllReadMutate.mockReset()
     deleteNotificationMutate.mockReset()
+    setActiveOrganization.mockResolvedValue(undefined)
+    setActiveOrganization.mockClear()
+    refreshAuth.mockResolvedValue(undefined)
+    refreshAuth.mockClear()
     acceptInvitationMutateAsync.mockResolvedValue({})
     acceptInvitationMutateAsync.mockClear()
     rejectInvitationMutateAsync.mockResolvedValue({})
@@ -139,6 +152,12 @@ describe('NotificationPanel', () => {
   })
 
   it('accepts invitations from the inline tick button', () => {
+    acceptInvitationMutateAsync.mockResolvedValue({
+      invitation: {
+        organizationId: 'org_1',
+      },
+    })
+
     render(<NotificationPanel />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Accept invitation' }))

@@ -435,7 +435,7 @@ export default function OrganizationMembersPage() {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">{invitation.email}</p>
                         <p className="truncate text-xs text-muted-foreground">
-                          Invited as {roleLabel(invitation.role)} · updated{' '}
+                          Invited as {roleLabel(invitation.role)} - updated{' '}
                           {formatDistanceToNow(new Date(invitation.updatedAt), {
                             addSuffix: true,
                           })}

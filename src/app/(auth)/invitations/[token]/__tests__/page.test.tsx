@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 import InvitationPage from '../page'
 
@@ -7,6 +7,7 @@ let authState: unknown
 let invitationState: unknown
 const acceptMutateAsync = jest.fn()
 const rejectMutateAsync = jest.fn()
+const setActiveOrganization = jest.fn()
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -66,7 +67,11 @@ describe('InvitationPage', () => {
     authState = {
       session: null,
       refresh: jest.fn(),
+      setActiveOrganization,
     }
+    setActiveOrganization.mockResolvedValue(undefined)
+    setActiveOrganization.mockClear()
+    acceptMutateAsync.mockResolvedValue({ invitation: { organizationId: 'org_1' } })
     invitationState = {
       data: validInvite,
       isLoading: false,
@@ -92,12 +97,33 @@ describe('InvitationPage', () => {
         },
       },
       refresh: jest.fn(),
+      setActiveOrganization,
     }
 
     render(<InvitationPage params={{ token: 'token_1' }} />)
 
     expect(screen.getByRole('button', { name: 'Accept invite' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Decline' })).toBeInTheDocument()
+  })
+
+  it('switches to the joined organisation after accepting', async () => {
+    authState = {
+      session: {
+        user: {
+          email: 'user@example.com',
+        },
+      },
+      refresh: jest.fn(),
+      setActiveOrganization,
+    }
+
+    render(<InvitationPage params={{ token: 'token_1' }} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Accept invite' }))
+
+    await waitFor(() => {
+      expect(setActiveOrganization).toHaveBeenCalledWith({ organizationId: 'org_1' })
+    })
   })
 
   it('shows a mismatch warning when signed in as a different email', () => {
@@ -108,6 +134,7 @@ describe('InvitationPage', () => {
         },
       },
       refresh: jest.fn(),
+      setActiveOrganization,
     }
 
     render(<InvitationPage params={{ token: 'token_1' }} />)

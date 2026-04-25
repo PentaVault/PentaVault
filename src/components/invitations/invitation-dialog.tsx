@@ -14,6 +14,7 @@ import {
   DialogPortal,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { useAuth } from '@/lib/hooks/use-auth'
 import {
   useAcceptInvitation,
   useAcceptInvitationById,
@@ -51,6 +52,7 @@ export function InvitationDialog({
   const acceptInvitationById = useAcceptInvitationById()
   const rejectInvitation = useRejectInvitation()
   const rejectInvitationById = useRejectInvitationById()
+  const auth = useAuth()
   const { toast } = useToast()
   const isMutating =
     acceptInvitation.isPending ||
@@ -60,12 +62,20 @@ export function InvitationDialog({
 
   async function accept() {
     try {
-      if (token) {
-        await acceptInvitation.mutateAsync(token)
-      } else if (invitationId) {
-        await acceptInvitationById.mutateAsync(invitationId)
-      } else {
+      const result = token
+        ? await acceptInvitation.mutateAsync(token)
+        : invitationId
+          ? await acceptInvitationById.mutateAsync(invitationId)
+          : null
+
+      if (!result) {
         throw new Error('Invitation action is missing an identifier.')
+      }
+
+      try {
+        await auth.setActiveOrganization({ organizationId: result.invitation.organizationId })
+      } catch {
+        await auth.refresh()
       }
       toast.success('Invitation accepted.')
       onAccepted?.()

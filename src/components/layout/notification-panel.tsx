@@ -9,6 +9,7 @@ import { InvitationDialog } from '@/components/invitations/invitation-dialog'
 import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown'
+import { useAuth } from '@/lib/hooks/use-auth'
 import { useAcceptInvitationById, useRejectInvitationById } from '@/lib/hooks/use-invitations'
 import {
   useDeleteNotification,
@@ -76,6 +77,7 @@ function NotificationRow({
   const [dialogOpen, setDialogOpen] = useState(false)
   const acceptInvitation = useAcceptInvitationById()
   const rejectInvitation = useRejectInvitationById()
+  const auth = useAuth()
   const { toast } = useToast()
   const invitation = getInvitationPayload(notification)
   const invitationId = getString(notification.data, 'invitationId')
@@ -91,7 +93,12 @@ function NotificationRow({
     if (!invitationId) return
 
     try {
-      await acceptInvitation.mutateAsync(invitationId)
+      const result = await acceptInvitation.mutateAsync(invitationId)
+      try {
+        await auth.setActiveOrganization({ organizationId: result.invitation.organizationId })
+      } catch {
+        await auth.refresh()
+      }
       toast.success('Invitation accepted.')
     } catch (error) {
       toast.error(getApiFriendlyMessage(error, 'Unable to accept this invitation.'))
