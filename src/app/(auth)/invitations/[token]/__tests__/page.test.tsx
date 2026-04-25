@@ -10,6 +10,9 @@ const rejectMutateAsync = jest.fn()
 const setActiveOrganization = jest.fn()
 
 jest.mock('next/navigation', () => ({
+  useParams: () => ({
+    token: 'token_1',
+  }),
   useRouter: () => ({
     replace: routerReplace,
   }),
@@ -52,6 +55,7 @@ const validInvite = {
   valid: true,
   expired: false,
   alreadyUsed: false,
+  status: 'pending',
   organizationName: 'Acme',
   invitedByName: 'Ada',
   role: 'developer',
@@ -80,7 +84,7 @@ describe('InvitationPage', () => {
   })
 
   it('shows auth options when the user is not signed in', () => {
-    render(<InvitationPage params={{ token: 'token_1' }} />)
+    render(<InvitationPage />)
 
     expect(screen.getByRole('link', { name: 'Sign in to accept' })).toHaveAttribute(
       'href',
@@ -100,7 +104,7 @@ describe('InvitationPage', () => {
       setActiveOrganization,
     }
 
-    render(<InvitationPage params={{ token: 'token_1' }} />)
+    render(<InvitationPage />)
 
     expect(screen.getByRole('button', { name: 'Accept invite' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Decline' })).toBeInTheDocument()
@@ -117,7 +121,7 @@ describe('InvitationPage', () => {
       setActiveOrganization,
     }
 
-    render(<InvitationPage params={{ token: 'token_1' }} />)
+    render(<InvitationPage />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Accept invite' }))
 
@@ -137,7 +141,7 @@ describe('InvitationPage', () => {
       setActiveOrganization,
     }
 
-    render(<InvitationPage params={{ token: 'token_1' }} />)
+    render(<InvitationPage />)
 
     expect(screen.getByText('Use the invited email')).toBeInTheDocument()
     expect(screen.getByText(/this invite is for user@example.com/i)).toBeInTheDocument()
@@ -154,9 +158,27 @@ describe('InvitationPage', () => {
       isError: false,
     }
 
-    render(<InvitationPage params={{ token: 'token_1' }} />)
+    render(<InvitationPage />)
 
     expect(screen.getByText('Invitation unavailable')).toBeInTheDocument()
     expect(screen.getByText(/this invitation expired/i)).toBeInTheDocument()
+  })
+
+  it('shows a specific message for already declined invitations', () => {
+    invitationState = {
+      data: {
+        ...validInvite,
+        valid: false,
+        alreadyUsed: true,
+        status: 'rejected',
+      },
+      isLoading: false,
+      isError: false,
+    }
+
+    render(<InvitationPage />)
+
+    expect(screen.getByText('Invitation unavailable')).toBeInTheDocument()
+    expect(screen.getByText(/already been declined/i)).toBeInTheDocument()
   })
 })

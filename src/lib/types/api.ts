@@ -90,6 +90,7 @@ export interface VerifyInvitationResponse {
   valid: boolean
   expired: boolean
   alreadyUsed: boolean
+  status: OrgInvitation['status'] | null
   organizationName: string | null
   invitedByName: string | null
   role: OrgRole | null

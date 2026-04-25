@@ -23,7 +23,7 @@ import {
 } from '@/lib/hooks/use-invitations'
 import { useToast } from '@/lib/hooks/use-toast'
 import type { VerifyInvitationResponse } from '@/lib/types/api'
-import { getApiFriendlyMessage } from '@/lib/utils/errors'
+import { getApiErrorCode, getApiFriendlyMessage } from '@/lib/utils/errors'
 
 type InvitationDialogProps = {
   invite: VerifyInvitationResponse
@@ -33,6 +33,7 @@ type InvitationDialogProps = {
   onOpenChange: (open: boolean) => void
   onAccepted?: () => void
   onRejected?: () => void
+  onUnavailable?: (reason: 'alreadyUsed' | 'expired') => void
 }
 
 function Field({ children }: { children: ReactNode }) {
@@ -47,6 +48,7 @@ export function InvitationDialog({
   onAccepted,
   onOpenChange,
   onRejected,
+  onUnavailable,
 }: InvitationDialogProps) {
   const acceptInvitation = useAcceptInvitation()
   const acceptInvitationById = useAcceptInvitationById()
@@ -81,6 +83,14 @@ export function InvitationDialog({
       onAccepted?.()
       onOpenChange(false)
     } catch (error) {
+      const code = getApiErrorCode(error)
+      if (code === 'INVITATION_EXPIRED') {
+        onUnavailable?.('expired')
+        onOpenChange(false)
+      } else if (code === 'INVITATION_ALREADY_USED') {
+        onUnavailable?.('alreadyUsed')
+        onOpenChange(false)
+      }
       toast.error(getApiFriendlyMessage(error, 'Unable to accept this invitation.'))
     }
   }
@@ -98,6 +108,14 @@ export function InvitationDialog({
       onRejected?.()
       onOpenChange(false)
     } catch (error) {
+      const code = getApiErrorCode(error)
+      if (code === 'INVITATION_EXPIRED') {
+        onUnavailable?.('expired')
+        onOpenChange(false)
+      } else if (code === 'INVITATION_ALREADY_USED') {
+        onUnavailable?.('alreadyUsed')
+        onOpenChange(false)
+      }
       toast.error(getApiFriendlyMessage(error, 'Unable to decline this invitation.'))
     }
   }

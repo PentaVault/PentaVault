@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { formatDistanceToNow } from 'date-fns'
@@ -46,32 +46,46 @@ function InvitationSummary({ invite }: { invite: VerifyInvitationResponse }) {
   )
 }
 
-export default function InvitationPage({ params }: { params: { token: string } }) {
+function invitationUnavailableMessage(invite: VerifyInvitationResponse | null | undefined): string {
+  if (!invite || (!invite.valid && !invite.expired && !invite.alreadyUsed)) {
+    return 'This invitation link is invalid.'
+  }
+
+  if (invite.expired) {
+    return `This invitation expired. Contact ${
+      invite.invitedByName ?? 'the sender'
+    } to request a new one.`
+  }
+
+  if (invite.status === 'accepted') {
+    return 'This invitation has already been accepted.'
+  }
+
+  if (invite.status === 'rejected') {
+    return 'This invitation has already been declined.'
+  }
+
+  if (invite.alreadyUsed) {
+    return 'This invitation has already been used.'
+  }
+
+  return 'This invitation is unavailable.'
+}
+
+export default function InvitationPage() {
   const router = useRouter()
+  const params = useParams<{ token?: string | string[] }>()
+  const token = Array.isArray(params.token) ? params.token[0] : (params.token ?? '')
   const [dialogOpen, setDialogOpen] = useState(true)
   const auth = useAuth()
-  const { data: invite, isLoading, isError } = useVerifyInvitation(params.token)
+  const { data: invite, isLoading, isError } = useVerifyInvitation(token)
 
   if (isLoading) {
     return <div className="mx-auto mt-16 h-52 max-w-md animate-pulse rounded-lg bg-card" />
   }
 
-  if (isError || !invite || (!invite.valid && !invite.expired && !invite.alreadyUsed)) {
-    return <InvitationError message="This invitation link is invalid or has already been used." />
-  }
-
-  if (invite.expired) {
-    return (
-      <InvitationError
-        message={`This invitation expired. Contact ${
-          invite.invitedByName ?? 'the sender'
-        } to request a new one.`}
-      />
-    )
-  }
-
-  if (invite.alreadyUsed) {
-    return <InvitationError message="This invitation has already been accepted or declined." />
+  if (isError || !invite || !invite.valid) {
+    return <InvitationError message={invitationUnavailableMessage(invite)} />
   }
 
   const currentEmail = auth.session?.user.email
@@ -82,14 +96,14 @@ export default function InvitationPage({ params }: { params: { token: string } }
         <div className="space-y-2 pt-2">
           <Button asChild className="w-full">
             <Link
-              href={`/login?invitation=${params.token}&email=${encodeURIComponent(invite.email ?? '')}`}
+              href={`/login?invitation=${token}&email=${encodeURIComponent(invite.email ?? '')}`}
             >
               Sign in to accept
             </Link>
           </Button>
           <Button asChild className="w-full" variant="outline">
             <Link
-              href={`/register?invitation=${params.token}&email=${encodeURIComponent(invite.email ?? '')}`}
+              href={`/register?invitation=${token}&email=${encodeURIComponent(invite.email ?? '')}`}
             >
               Create account to accept
             </Link>
@@ -125,7 +139,7 @@ export default function InvitationPage({ params }: { params: { token: string } }
         onOpenChange={setDialogOpen}
         onRejected={() => router.replace('/login')}
         open={dialogOpen}
-        token={params.token}
+        token={token}
       />
     </div>
   )

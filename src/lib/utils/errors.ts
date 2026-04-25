@@ -103,6 +103,10 @@ const API_ERROR_MESSAGES_BY_CODE: Record<string, string> = {
   ORG_NOT_FOUND: 'Organisation not found or you no longer have access.',
   ORG_FORBIDDEN: 'You do not have permission to perform this action here.',
   ORG_SLUG_CONFLICT: 'That organisation URL is already taken.',
+  INVITATION_ALREADY_USED: 'This invitation has already been accepted or declined.',
+  INVITATION_EXPIRED: 'This invitation is no longer active. Ask the sender for a new invite.',
+  INVITATION_NOT_FOUND: 'This invitation link is invalid or has been removed.',
+  INVITATION_EMAIL_MISMATCH: 'Sign in with the email address that received this invitation.',
   ACCOUNT_DELETE_EMAIL_MISMATCH: 'The email you entered does not match your account.',
   AUTH_PENDING_REGISTRATION_NOT_FOUND:
     'This registration session expired. Start again to get a new code.',

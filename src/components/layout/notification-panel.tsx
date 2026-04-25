@@ -20,9 +20,22 @@ import {
 import { useToast } from '@/lib/hooks/use-toast'
 import type { NotificationRecord, VerifyInvitationResponse } from '@/lib/types/api'
 import { cn } from '@/lib/utils/cn'
-import { getApiFriendlyMessage } from '@/lib/utils/errors'
+import { getApiErrorCode, getApiFriendlyMessage } from '@/lib/utils/errors'
 
 type NotificationTab = 'unread' | 'all'
+type InvitationNotificationAction =
+  | 'accepted'
+  | 'rejected'
+  | 'dismissed'
+  | 'expired'
+  | 'unavailable'
+  | null
+type LocalInvitationAction = {
+  notificationId: string
+  action: InvitationNotificationAction
+}
+
+const EXPIRED_INVITATION_STATUSES = new Set(['expired', 'revoked', 'cancelled', 'canceled'])
 
 function getString(data: Record<string, unknown>, key: string): string | null {
   const value = data[key]
@@ -38,6 +51,7 @@ function getInvitationPayload(notification: NotificationRecord): VerifyInvitatio
     valid: true,
     expired: Boolean(notification.data.expired),
     alreadyUsed: Boolean(notification.actionTaken),
+    status: getString(notification.data, 'invitationStatus') as VerifyInvitationResponse['status'],
     organizationName: getString(notification.data, 'organizationName'),
     invitedByName: getString(notification.data, 'invitedByName'),
     role: getString(notification.data, 'role') as VerifyInvitationResponse['role'],
@@ -65,6 +79,77 @@ function isActionableInvitationNotification(notification: NotificationRecord): b
   )
 }
 
+function getInvitationStatus(notification: NotificationRecord): string | null {
+  return getString(notification.data, 'invitationStatus')
+}
+
+function getEffectiveInvitationAction(
+  notification: NotificationRecord,
+  localAction: InvitationNotificationAction
+): InvitationNotificationAction {
+  if (localAction) {
+    return localAction
+  }
+
+  if (
+    notification.actionTaken === 'accepted' ||
+    notification.actionTaken === 'rejected' ||
+    notification.actionTaken === 'dismissed'
+  ) {
+    if (notification.actionTaken === 'dismissed') {
+      return isExpiredInvitationNotification(notification) ? 'expired' : 'unavailable'
+    }
+
+    return notification.actionTaken
+  }
+
+  const status = getInvitationStatus(notification)
+  if (status === 'accepted') {
+    return 'accepted'
+  }
+  if (status === 'rejected') {
+    return 'rejected'
+  }
+  if (status && EXPIRED_INVITATION_STATUSES.has(status)) {
+    return 'expired'
+  }
+
+  return null
+}
+
+function isExpiredInvitationNotification(notification: NotificationRecord): boolean {
+  const status = getInvitationStatus(notification)
+  return (
+    Boolean(notification.data.expired) || Boolean(status && EXPIRED_INVITATION_STATUSES.has(status))
+  )
+}
+
+function InvitationStatusBadge({
+  action,
+  expired,
+}: {
+  action: InvitationNotificationAction
+  expired: boolean
+}) {
+  if (action === 'accepted') {
+    return <StatusBadge tone="success">Joined</StatusBadge>
+  }
+
+  if (action === 'rejected') {
+    return <StatusBadge tone="neutral">Declined</StatusBadge>
+  }
+
+  if (expired || action === 'expired') {
+    return <StatusBadge tone="warning">Expired</StatusBadge>
+  }
+
+  if (action === 'dismissed' || action === 'unavailable') {
+    return <StatusBadge tone="neutral">Unavailable</StatusBadge>
+  }
+
+  return null
+}
+
 function NotificationRow({
   notification,
   onRead,
@@ -75,19 +160,29 @@ function NotificationRow({
   onDelete: () => void
 }) {
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [localAction, setLocalAction] = useState<LocalInvitationAction | null>(null)
   const acceptInvitation = useAcceptInvitationById()
   const rejectInvitation = useRejectInvitationById()
   const auth = useAuth()
   const { toast } = useToast()
   const invitation = getInvitationPayload(notification)
   const invitationId = getString(notification.data, 'invitationId')
+  const notificationLocalAction =
+    localAction?.notificationId === notification.id ? localAction.action : null
+  const effectiveAction = getEffectiveInvitationAction(notification, notificationLocalAction)
+  const invitationExpired =
+    isExpiredInvitationNotification(notification) || Boolean(invitation?.expired)
   const canActOnInvitation =
     isActionableInvitationNotification(notification) &&
     invitation &&
     invitationId &&
-    !invitation.expired &&
-    !notification.actionTaken
+    !invitationExpired &&
+    !effectiveAction
   const isActing = acceptInvitation.isPending || rejectInvitation.isPending
+
+  function setNotificationLocalAction(action: Exclude<InvitationNotificationAction, null>) {
+    setLocalAction({ notificationId: notification.id, action })
+  }
 
   async function accept() {
     if (!invitationId) return
@@ -99,8 +194,16 @@ function NotificationRow({
       } catch {
         await auth.refresh()
       }
+      setNotificationLocalAction('accepted')
+      setDialogOpen(false)
       toast.success('Invitation accepted.')
     } catch (error) {
+      const code = getApiErrorCode(error)
+      if (code === 'INVITATION_EXPIRED') {
+        setNotificationLocalAction('expired')
+      } else if (code === 'INVITATION_ALREADY_USED') {
+        setNotificationLocalAction('unavailable')
+      }
       toast.error(getApiFriendlyMessage(error, 'Unable to accept this invitation.'))
     }
   }
@@ -110,8 +213,16 @@ function NotificationRow({
 
     try {
       await rejectInvitation.mutateAsync(invitationId)
+      setNotificationLocalAction('rejected')
+      setDialogOpen(false)
       toast.success('Invitation declined.')
     } catch (error) {
+      const code = getApiErrorCode(error)
+      if (code === 'INVITATION_EXPIRED') {
+        setNotificationLocalAction('expired')
+      } else if (code === 'INVITATION_ALREADY_USED') {
+        setNotificationLocalAction('unavailable')
+      }
       toast.error(getApiFriendlyMessage(error, 'Unable to decline this invitation.'))
     }
   }
@@ -202,20 +313,21 @@ function NotificationRow({
               <Check className="h-4 w-4 text-accent" />
             </Button>
           </span>
-        ) : notification.actionTaken ? (
-          <StatusBadge tone={notification.actionTaken === 'accepted' ? 'success' : 'neutral'}>
-            {notification.actionTaken === 'accepted' ? 'Joined' : 'Declined'}
-          </StatusBadge>
-        ) : invitation?.expired ? (
-          <StatusBadge tone="warning">Expired</StatusBadge>
-        ) : null}
+        ) : (
+          <InvitationStatusBadge action={effectiveAction} expired={invitationExpired} />
+        )}
       </div>
 
       {canActOnInvitation ? (
         <InvitationDialog
           invite={invitation}
           invitationId={invitationId}
+          onAccepted={() => setNotificationLocalAction('accepted')}
           onOpenChange={setDialogOpen}
+          onRejected={() => setNotificationLocalAction('rejected')}
+          onUnavailable={(reason) =>
+            setNotificationLocalAction(reason === 'expired' ? 'expired' : 'unavailable')
+          }
           open={dialogOpen}
         />
       ) : null}

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 import { NotificationPanel } from '../notification-panel'
 
@@ -92,6 +92,7 @@ describe('NotificationPanel', () => {
           body: 'You were invited to Acme.',
           data: {
             notificationAction: 'respond',
+            invitationStatus: 'pending',
             invitationId: 'invitation_1',
             organizationName: 'Acme',
             invitedByName: 'Ada',
@@ -151,7 +152,7 @@ describe('NotificationPanel', () => {
     expect(markAllReadMutate).toHaveBeenCalled()
   })
 
-  it('accepts invitations from the inline tick button', () => {
+  it('accepts invitations from the inline tick button', async () => {
     acceptInvitationMutateAsync.mockResolvedValue({
       invitation: {
         organizationId: 'org_1',
@@ -163,6 +164,57 @@ describe('NotificationPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Accept invitation' }))
 
     expect(acceptInvitationMutateAsync).toHaveBeenCalledWith('invitation_1')
+    await waitFor(() => {
+      expect(screen.getByText('Joined')).toBeInTheDocument()
+    })
+  })
+
+  it('removes response actions immediately after declining an invitation', async () => {
+    render(<NotificationPanel />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Decline invitation' }))
+
+    expect(rejectInvitationMutateAsync).toHaveBeenCalledWith('invitation_1')
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Accept invitation' })).not.toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: 'Decline invitation' })).not.toBeInTheDocument()
+    expect(screen.getByText('Declined')).toBeInTheDocument()
+  })
+
+  it('does not show response actions for expired invitation notifications', () => {
+    notificationsData = {
+      unreadCount: 1,
+      nextCursor: null,
+      notifications: [
+        {
+          id: 'notification_expired',
+          userId: 'user_1',
+          type: 'org_invitation',
+          title: 'Join Acme',
+          body: 'You were invited to Acme.',
+          data: {
+            notificationAction: 'respond',
+            invitationStatus: 'revoked',
+            invitationId: 'invitation_1',
+            organizationName: 'Acme',
+            invitedByName: 'Ada',
+            email: 'user@example.com',
+            role: 'developer',
+            expired: true,
+          },
+          readAt: null,
+          actionTaken: 'dismissed',
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    }
+
+    render(<NotificationPanel />)
+
+    expect(screen.getByText('Expired')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Accept invitation' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Decline invitation' })).not.toBeInTheDocument()
   })
 
   it('does not show invitation response actions on inviter status notifications', () => {
