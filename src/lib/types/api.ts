@@ -1,4 +1,5 @@
 import type { AuthSession, AuthSessionListResponse, RevokeSessionRequest } from '@/lib/types/auth'
+import type { OrgInvitation, OrgRole } from '@/lib/types/auth'
 import type {
   AuditEvent,
   Project,
@@ -67,12 +68,63 @@ export interface AccessRequestResponse {
     requesterId: string
     requestedRole: 'developer' | 'readonly'
     message: string | null
-    status: 'pending' | 'approved' | 'denied' | 'cancelled'
+    status: 'pending' | 'approved' | 'denied' | 'rejected' | 'cancelled'
     reviewedBy: string | null
     reviewerNote: string | null
     createdAt: string
     updatedAt: string
   }
+}
+
+export interface SendOrgInvitationInput {
+  email: string
+  role: OrgRole
+}
+
+export interface OrgInvitationResponse {
+  invitation: OrgInvitation
+  emailSent?: boolean
+}
+
+export interface VerifyInvitationResponse {
+  valid: boolean
+  expired: boolean
+  alreadyUsed: boolean
+  organizationName: string | null
+  invitedByName: string | null
+  role: OrgRole | null
+  email: string | null
+  expiresAt: string | null
+}
+
+export interface UserSearchResult {
+  id: string
+  name: string | null
+  username: string | null
+  email: string | null
+  image?: string | null
+}
+
+export interface UserSearchResponse {
+  users: UserSearchResult[]
+}
+
+export interface NotificationRecord {
+  id: string
+  userId: string
+  type: string
+  title: string
+  body: string
+  data: Record<string, unknown>
+  readAt: string | null
+  actionTaken: string | null
+  createdAt: string
+}
+
+export interface NotificationListResponse {
+  notifications: NotificationRecord[]
+  unreadCount: number
+  nextCursor: string | null
 }
 
 export interface ProjectMembershipResponse {
@@ -330,8 +382,19 @@ export interface AuthStartMfaChangeInput {
   code: string
 }
 
-export interface AuthCompleteRecoveryMfaSetupInput {
+export interface AuthStartRecoveryMfaSetupInput {
   password: string
+  code: string
+}
+
+export interface AuthCompleteMfaSetupInput {
+  code: string
+}
+
+export interface AuthChangePasswordInput {
+  currentPassword: string
+  newPassword: string
+  totpCode?: string
 }
 
 export interface AuthSessionRevokeResponse {

@@ -13,7 +13,8 @@ const toastWarning = jest.fn()
 const signInWithEmail = jest.fn()
 const verifyTotp = jest.fn()
 const verifyBackupCode = jest.fn()
-const completeRecoveryMfaSetup = jest.fn()
+const startRecoveryMfaSetup = jest.fn()
+const completeMfaSetup = jest.fn()
 const sendEmailVerificationOtp = jest.fn()
 const verifyEmailOtp = jest.fn()
 
@@ -54,7 +55,8 @@ jest.mock('@/lib/api/auth', () => ({
     signInWithEmail: (...args: unknown[]) => signInWithEmail(...args),
     verifyTotp: (...args: unknown[]) => verifyTotp(...args),
     verifyBackupCode: (...args: unknown[]) => verifyBackupCode(...args),
-    completeRecoveryMfaSetup: (...args: unknown[]) => completeRecoveryMfaSetup(...args),
+    startRecoveryMfaSetup: (...args: unknown[]) => startRecoveryMfaSetup(...args),
+    completeMfaSetup: (...args: unknown[]) => completeMfaSetup(...args),
     sendEmailVerificationOtp: (...args: unknown[]) => sendEmailVerificationOtp(...args),
     verifyEmailOtp: (...args: unknown[]) => verifyEmailOtp(...args),
   },
@@ -72,7 +74,8 @@ describe('LoginForm', () => {
     signInWithEmail.mockReset()
     verifyTotp.mockReset()
     verifyBackupCode.mockReset()
-    completeRecoveryMfaSetup.mockReset()
+    startRecoveryMfaSetup.mockReset()
+    completeMfaSetup.mockReset()
     sendEmailVerificationOtp.mockReset()
     verifyEmailOtp.mockReset()
   })
@@ -81,8 +84,7 @@ describe('LoginForm', () => {
     const user = userEvent.setup()
 
     signInWithEmail.mockResolvedValue({ twoFactorRedirect: true })
-    verifyBackupCode.mockResolvedValue(undefined)
-    completeRecoveryMfaSetup.mockResolvedValue({
+    startRecoveryMfaSetup.mockResolvedValue({
       totpURI: 'otpauth://totp/PentaVault:test?secret=ABC123&issuer=PentaVault',
       backupCodes: ['code-1', 'code-2'],
     })
@@ -115,16 +117,12 @@ describe('LoginForm', () => {
     await user.click(screen.getByRole('button', { name: 'Verify' }))
 
     await waitFor(() => {
-      expect(verifyBackupCode).toHaveBeenCalledWith({
-        code: 'ABCDE-12345',
-        trustDevice: true,
-      })
-    })
-    await waitFor(() => {
-      expect(completeRecoveryMfaSetup).toHaveBeenCalledWith({
+      expect(startRecoveryMfaSetup).toHaveBeenCalledWith({
         password: 'SecurePass1!',
+        code: 'ABCDE-12345',
       })
     })
+    expect(verifyBackupCode).not.toHaveBeenCalled()
     expect(screen.getByText('Backup codes')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Verify and sign in' })).toBeInTheDocument()
     expect(routerReplace).not.toHaveBeenCalled()

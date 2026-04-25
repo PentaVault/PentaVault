@@ -49,10 +49,7 @@ function RecoveryCodeInputs({
   const refs = useRef<Array<HTMLInputElement | null>>([])
 
   function updateAt(index: number, raw: string) {
-    const character = raw
-      .replace(/[^A-Za-z0-9]/g, '')
-      .slice(-1)
-      .toUpperCase()
+    const character = raw.replace(/[^A-Za-z0-9]/g, '').slice(-1)
     const next = [...value]
     next[index] = character
     onChange(next)
@@ -62,10 +59,7 @@ function RecoveryCodeInputs({
   }
 
   function handlePaste(raw: string) {
-    const normalized = raw
-      .replace(/[^A-Za-z0-9]/g, '')
-      .slice(0, 10)
-      .toUpperCase()
+    const normalized = raw.replace(/[^A-Za-z0-9]/g, '').slice(0, 10)
     onChange(Array.from({ length: 10 }, (_, index) => normalized[index] ?? ''))
   }
 
@@ -113,6 +107,7 @@ function RecoveryCodeInputs({
 export function MfaSettingsCard({ user, onChanged }: MfaSettingsCardProps) {
   const { toast } = useToast()
   const [setup, setSetup] = useState<SetupState | null>(null)
+  const [setupMode, setSetupMode] = useState<'enable' | 'change'>('enable')
   const [qrDataUrl, setQrDataUrl] = useState('')
   const [copiedUri, setCopiedUri] = useState(false)
   const [isStartingSetup, setIsStartingSetup] = useState(false)
@@ -184,6 +179,7 @@ export function MfaSettingsCard({ user, onChanged }: MfaSettingsCardProps) {
       setIsStartingSetup(true)
       const response = await authApi.enableMfa({ password })
       setSetup(response)
+      setSetupMode('enable')
       setSetupCode('')
       setPassword('')
       toast.success('Authenticator setup created.')
@@ -247,6 +243,7 @@ export function MfaSettingsCard({ user, onChanged }: MfaSettingsCardProps) {
             : `${recoveryCodeJoined.slice(0, 5)}-${recoveryCodeJoined.slice(5)}`,
       })
       setSetup(response)
+      setSetupMode('change')
       setSetupCode('')
       resetActionState()
       toast.success('Scan the new QR code and verify it to finish changing MFA.')
@@ -293,7 +290,11 @@ export function MfaSettingsCard({ user, onChanged }: MfaSettingsCardProps) {
 
     try {
       setIsVerifyingSetup(true)
-      await authApi.verifyTotp({ code: setupCode })
+      if (setupMode === 'change') {
+        await authApi.completeMfaSetup({ code: setupCode })
+      } else {
+        await authApi.verifyTotp({ code: setupCode })
+      }
       await onChanged()
       setSetup(null)
       setSetupCode('')
@@ -399,10 +400,10 @@ export function MfaSettingsCard({ user, onChanged }: MfaSettingsCardProps) {
                     value={backupCodesText}
                   />
                 </div>
-                <div className="mt-3 grid grid-cols-5 gap-2 rounded-md bg-background-deep p-3 font-mono text-xs text-foreground">
+                <div className="mt-3 grid grid-cols-2 gap-2 rounded-md bg-background-deep p-3 font-mono text-[11px] text-foreground sm:grid-cols-5">
                   {setup.backupCodes.map((backupCode, index) => (
                     <span
-                      className="rounded border border-border bg-background px-2 py-1 text-center"
+                      className="min-w-0 overflow-hidden rounded border border-border bg-background px-1.5 py-1 text-center leading-tight break-all"
                       key={`${backupCode}-${index}`}
                     >
                       {backupCode}

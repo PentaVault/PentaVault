@@ -14,9 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useAddProjectMember, useOrganizationMembers } from '@/lib/hooks/use-team'
+import { useAddProjectMember } from '@/lib/hooks/use-team'
 import { useToast } from '@/lib/hooks/use-toast'
-import type { AuthOrganizationMember } from '@/lib/types/auth'
+import { useUserSearch } from '@/lib/hooks/use-user-search'
+import type { UserSearchResult } from '@/lib/types/api'
+import type { ProjectRole } from '@/lib/types/models'
 import { cn } from '@/lib/utils/cn'
 import { getApiFieldErrors, getApiFriendlyMessageWithRef } from '@/lib/utils/errors'
 
@@ -32,15 +34,15 @@ export function TeamMemberAddForm({
   projectId,
 }: TeamMemberAddFormProps) {
   const addMember = useAddProjectMember(projectId)
-  const organizationMembersQuery = useOrganizationMembers(organizationId)
   const { toast } = useToast()
   const userPickerRef = useRef<HTMLDivElement>(null)
 
-  const [selectedUser, setSelectedUser] = useState<AuthOrganizationMember | null>(null)
+  const [selectedUser, setSelectedUser] = useState<UserSearchResult | null>(null)
   const [userSearch, setUserSearch] = useState('')
   const [isUserPickerOpen, setIsUserPickerOpen] = useState(false)
-  const [role, setRole] = useState<'admin' | 'member'>('member')
+  const [role, setRole] = useState<Exclude<ProjectRole, 'owner'>>('developer')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const userSearchQuery = useUserSearch(userSearch, organizationId)
 
   useEffect(() => {
     if (!isUserPickerOpen) {
@@ -58,21 +60,8 @@ export function TeamMemberAddForm({
   }, [isUserPickerOpen])
 
   const availableMembers = useMemo(() => {
-    const query = userSearch.trim().toLowerCase()
-    return (organizationMembersQuery.data?.members ?? [])
-      .filter((member) => !existingUserIds.has(member.user.id))
-      .filter((member) => {
-        if (!query) {
-          return true
-        }
-
-        return (
-          member.user.name?.toLowerCase().includes(query) ||
-          member.user.email?.toLowerCase().includes(query) ||
-          member.user.id.toLowerCase().includes(query)
-        )
-      })
-  }, [existingUserIds, organizationMembersQuery.data?.members, userSearch])
+    return (userSearchQuery.data?.users ?? []).filter((user) => !existingUserIds.has(user.id))
+  }, [existingUserIds, userSearchQuery.data?.users])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
@@ -84,7 +73,7 @@ export function TeamMemberAddForm({
     }
 
     try {
-      await addMember.mutateAsync({ userId: selectedUser.user.id, role })
+      await addMember.mutateAsync({ userId: selectedUser.id, role })
       toast.success('Member added successfully.')
       setSelectedUser(null)
       setUserSearch('')
@@ -118,7 +107,7 @@ export function TeamMemberAddForm({
             <Search className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
             <span className={cn('truncate', !selectedUser && 'text-muted-foreground')}>
               {selectedUser
-                ? (selectedUser.user.name ?? selectedUser.user.email ?? selectedUser.user.id)
+                ? (selectedUser.name ?? selectedUser.email ?? selectedUser.id)
                 : 'Search organisation members...'}
             </span>
           </button>
@@ -129,32 +118,36 @@ export function TeamMemberAddForm({
                 autoFocus
                 className="h-8 w-full rounded-md border border-border bg-background-elevated px-2 text-sm outline-none focus:border-border-strong focus:ring-2 focus:ring-focus-ring"
                 onChange={(event) => setUserSearch(event.target.value)}
-                placeholder="Search by name or email"
+                placeholder="Search by name or @username"
                 value={userSearch}
               />
               <div className="mt-2 max-h-56 overflow-y-auto">
-                {organizationMembersQuery.isLoading ? (
-                  <p className="px-2 py-2 text-xs text-muted-foreground">Loading members...</p>
+                {userSearch.trim().length < 2 ? (
+                  <p className="px-2 py-2 text-xs text-muted-foreground">
+                    Type at least 2 characters to search.
+                  </p>
+                ) : userSearchQuery.isLoading ? (
+                  <p className="px-2 py-2 text-xs text-muted-foreground">Searching members...</p>
                 ) : availableMembers.length === 0 ? (
                   <p className="px-2 py-2 text-xs text-muted-foreground">
                     No available organisation members.
                   </p>
                 ) : (
-                  availableMembers.map((member) => (
+                  availableMembers.map((user) => (
                     <button
                       className="flex w-full flex-col rounded-md px-2 py-2 text-left transition-colors hover:bg-card-elevated"
-                      key={member.user.id}
+                      key={user.id}
                       onClick={() => {
-                        setSelectedUser(member)
+                        setSelectedUser(user)
                         setUserSearch('')
                         setIsUserPickerOpen(false)
                         setFieldErrors((current) => ({ ...current, userId: '' }))
                       }}
                       type="button"
                     >
-                      <span className="truncate text-sm">{member.user.name ?? member.user.id}</span>
+                      <span className="truncate text-sm">{user.name ?? user.id}</span>
                       <span className="truncate text-xs text-muted-foreground">
-                        {member.user.email ?? member.user.id}
+                        {user.username ? `@${user.username}` : (user.email ?? user.id)}
                       </span>
                     </button>
                   ))
@@ -164,13 +157,17 @@ export function TeamMemberAddForm({
           ) : null}
         </div>
 
-        <Select onValueChange={(value) => setRole(value as 'admin' | 'member')} value={role}>
+        <Select
+          onValueChange={(value) => setRole(value as Exclude<ProjectRole, 'owner'>)}
+          value={role}
+        >
           <SelectTrigger aria-label="Member role" className="lg:w-36">
             <SelectValue placeholder="Select role" />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectItem value="member">member</SelectItem>
+              <SelectItem value="developer">developer</SelectItem>
+              <SelectItem value="readonly">readonly</SelectItem>
               <SelectItem value="admin">admin</SelectItem>
             </SelectGroup>
           </SelectContent>

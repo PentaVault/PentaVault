@@ -7,10 +7,33 @@ import type {
   RemoveProjectMemberResponse,
   UpdateProjectMemberInput,
 } from '@/lib/types/api'
+import type { AuthOrganizationMember, OrgRole } from '@/lib/types/auth'
 
 export const teamApi = {
   async listOrganizationMembers(organizationId: string) {
     return authApi.listOrganizationMembers(organizationId)
+  },
+
+  async updateOrganizationMember(
+    organizationId: string,
+    userId: string,
+    input: { role: OrgRole }
+  ): Promise<{ member: AuthOrganizationMember }> {
+    const response = await apiClient.patch<{ member: AuthOrganizationMember }>(
+      `/v1/organizations/${organizationId}/members/${userId}`,
+      input
+    )
+    return response.data
+  },
+
+  async removeOrganizationMember(
+    organizationId: string,
+    userId: string
+  ): Promise<{ removed: true; userId: string }> {
+    const response = await apiClient.delete<{ removed: true; userId: string }>(
+      `/v1/organizations/${organizationId}/members/${userId}`
+    )
+    return response.data
   },
 
   async listMembers(projectId: string): Promise<ProjectMembersResponse> {

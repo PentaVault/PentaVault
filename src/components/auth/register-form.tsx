@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import type { FormEvent } from 'react'
 import { useEffect, useState } from 'react'
 
@@ -25,11 +25,14 @@ import {
 
 export function RegisterForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const auth = useAuth()
   const { toast } = useToast()
+  const invitationToken = searchParams.get('invitation')
+  const invitationEmail = searchParams.get('email') ?? ''
 
   const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(invitationEmail)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [verificationCode, setVerificationCode] = useState('')
@@ -41,12 +44,15 @@ export function RegisterForm() {
   const [isPasswordFocused, setIsPasswordFocused] = useState(false)
   const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] = useState(false)
   const emailCooldown = useEmailCooldown()
-
   useEffect(() => {
     if (auth.status === 'authenticated') {
-      router.replace(DASHBOARD_HOME_PATH)
+      router.replace(
+        invitationToken
+          ? `/invitations/${encodeURIComponent(invitationToken)}`
+          : DASHBOARD_HOME_PATH
+      )
     }
-  }, [auth.status, router])
+  }, [auth.status, invitationToken, router])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
@@ -132,7 +138,13 @@ export function RegisterForm() {
       })
 
       toast.success('Email verified. Sign in to continue.')
-      router.replace(LOGIN_PATH)
+      router.replace(
+        invitationToken
+          ? `${LOGIN_PATH}?invitation=${encodeURIComponent(invitationToken)}&email=${encodeURIComponent(
+              verificationEmail
+            )}`
+          : LOGIN_PATH
+      )
       router.refresh()
     } catch (verifyError) {
       const fields = getApiFieldErrors(verifyError)
@@ -283,6 +295,7 @@ export function RegisterForm() {
             setFieldErrors((current) => ({ ...current, email: '' }))
           }}
           placeholder="you@example.com"
+          readOnly={Boolean(invitationEmail)}
           type="email"
           value={email}
         />

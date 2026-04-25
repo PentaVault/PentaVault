@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { teamApi } from '@/lib/api/team'
 import type { CreateProjectMemberInput, UpdateProjectMemberInput } from '@/lib/types/api'
+import type { OrgRole } from '@/lib/types/auth'
 
 export function useProjectMembers(projectId: string | null) {
   return useQuery({
@@ -30,6 +31,42 @@ export function useOrganizationMembers(organizationId: string | null) {
       return teamApi.listOrganizationMembers(organizationId)
     },
     enabled: Boolean(organizationId),
+  })
+}
+
+export function useUpdateOrganizationMember(organizationId: string | null) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: { userId: string; role: OrgRole }) => {
+      if (!organizationId) {
+        throw new Error('organizationId is required to update organization members')
+      }
+
+      return teamApi.updateOrganizationMember(organizationId, payload.userId, {
+        role: payload.role,
+      })
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['organization-members', organizationId] })
+    },
+  })
+}
+
+export function useRemoveOrganizationMember(organizationId: string | null) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      if (!organizationId) {
+        throw new Error('organizationId is required to remove organization members')
+      }
+
+      return teamApi.removeOrganizationMember(organizationId, userId)
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['organization-members', organizationId] })
+    },
   })
 }
 

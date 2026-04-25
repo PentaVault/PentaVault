@@ -9,6 +9,7 @@ const disableMfa = jest.fn()
 const startMfaChange = jest.fn()
 const enableMfa = jest.fn()
 const verifyTotp = jest.fn()
+const completeMfaSetup = jest.fn()
 
 jest.mock('@/lib/hooks/use-toast', () => ({
   useToast: () => ({
@@ -25,6 +26,7 @@ jest.mock('@/lib/api/auth', () => ({
     startMfaChange: (...args: unknown[]) => startMfaChange(...args),
     enableMfa: (...args: unknown[]) => enableMfa(...args),
     verifyTotp: (...args: unknown[]) => verifyTotp(...args),
+    completeMfaSetup: (...args: unknown[]) => completeMfaSetup(...args),
   },
 }))
 
@@ -36,6 +38,7 @@ describe('MfaSettingsCard', () => {
     startMfaChange.mockReset()
     enableMfa.mockReset()
     verifyTotp.mockReset()
+    completeMfaSetup.mockReset()
   })
 
   it('disables MFA with password and authenticator code', async () => {
@@ -104,14 +107,14 @@ describe('MfaSettingsCard', () => {
 
     const firstRecoveryInput = document.querySelector('#mfa-change-recovery-0') as HTMLInputElement
     await user.click(firstRecoveryInput)
-    await user.paste('ABCDE12345')
+    await user.paste('AbCdE12345')
     await user.click(screen.getByRole('button', { name: 'Change MFA' }))
 
     await waitFor(() => {
       expect(startMfaChange).toHaveBeenCalledWith({
         password: 'SecurePass1!',
         verificationMethod: 'recovery',
-        code: 'ABCDE-12345',
+        code: 'AbCdE-12345',
       })
     })
   })

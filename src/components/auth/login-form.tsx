@@ -36,8 +36,10 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   const searchParams = useSearchParams()
   const { refresh } = useAuth()
   const { toast } = useToast()
+  const invitationToken = searchParams.get('invitation')
+  const invitationEmail = searchParams.get('email') ?? ''
 
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(invitationEmail)
   const [password, setPassword] = useState('')
   const [mfaCode, setMfaCode] = useState('')
   const [recoveryCode, setRecoveryCode] = useState<string[]>(Array.from({ length: 10 }, () => ''))
@@ -59,7 +61,6 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   const [retryAfter, setRetryAfter] = useState<number | null>(null)
   const verificationCooldown = useEmailCooldown()
   const recoveryCodeInputsRef = useRef<Array<HTMLInputElement | null>>([])
-
   useEffect(() => {
     if (searchParams.get('expired') === '1') {
       toast.warning('Your session has expired. Please sign in again.')
@@ -129,7 +130,11 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     }
 
     toast.success('Signed in successfully.')
-    router.replace(normalizeNextPath(nextPath) ?? DASHBOARD_HOME_PATH)
+    router.replace(
+      invitationToken
+        ? `/invitations/${encodeURIComponent(invitationToken)}`
+        : (normalizeNextPath(nextPath) ?? DASHBOARD_HOME_PATH)
+    )
     router.refresh()
   }
 
@@ -316,11 +321,10 @@ export function LoginForm({ nextPath }: LoginFormProps) {
           trustDevice,
         })
       } else {
-        await authApi.verifyBackupCode({
+        const recoverySetupResponse = await authApi.startRecoveryMfaSetup({
+          password,
           code: normalizedCode,
-          trustDevice,
         })
-        const recoverySetupResponse = await authApi.completeRecoveryMfaSetup({ password })
         setMfaRequired(false)
         setRecoverySetup(recoverySetupResponse)
         setRecoverySetupCode('')
@@ -387,7 +391,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
 
     try {
       setIsPending(true)
-      await authApi.verifyTotp({ code: recoverySetupCode, trustDevice })
+      await authApi.completeMfaSetup({ code: recoverySetupCode })
       await completeSignIn()
     } catch (error) {
       const payload = getApiErrorPayload(error)
@@ -414,6 +418,16 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     }
 
     toast.success('Authenticator setup URI copied.')
+  }
+
+  async function handleCopyRecoveryCodes() {
+    const copied = await copyToClipboard(recoveryCodesText)
+    if (!copied) {
+      toast.error('Clipboard access is not available in this browser context.')
+      return
+    }
+
+    toast.success('Backup codes copied.')
   }
 
   const recoveryCodesText = recoverySetup?.backupCodes.join('\n') ?? ''
@@ -521,10 +535,10 @@ export function LoginForm({ nextPath }: LoginFormProps) {
 
           <div className="space-y-2">
             <p className="text-sm font-medium">Backup codes</p>
-            <div className="grid grid-cols-5 gap-2 rounded-md border border-border bg-background p-3 font-mono text-xs">
+            <div className="grid grid-cols-2 gap-2 rounded-md border border-border bg-background p-3 font-mono text-[11px] sm:grid-cols-5">
               {recoverySetup.backupCodes.map((backupCode, index) => (
                 <span
-                  className="rounded border border-border bg-background-secondary px-2 py-1 text-center"
+                  className="min-w-0 overflow-hidden rounded border border-border bg-background-secondary px-1.5 py-1 text-center leading-tight break-all"
                   key={`${backupCode}-${index}`}
                 >
                   {backupCode}
@@ -533,7 +547,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
             </div>
             <Button
               className="w-full"
-              onClick={() => void copyToClipboard(recoveryCodesText)}
+              onClick={() => void handleCopyRecoveryCodes()}
               type="button"
               variant="outline"
             >
@@ -718,6 +732,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
             setFieldErrors((current) => ({ ...current, email: '' }))
           }}
           placeholder="you@example.com"
+          readOnly={Boolean(invitationEmail)}
           type="email"
           value={email}
         />

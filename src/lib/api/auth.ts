@@ -6,7 +6,8 @@ import { clearClientAuthHint, hasAuthCookieHint, setClientAuthHint } from '@/lib
 import { AUTH_REVOKE_SESSION_PATH, AUTH_SESSIONS_PATH, AUTH_SESSION_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
 import type {
-  AuthCompleteRecoveryMfaSetupInput,
+  AuthChangePasswordInput,
+  AuthCompleteMfaSetupInput,
   AuthCompleteRegistrationInput,
   AuthCreateApiKeyRequest,
   AuthCreateApiKeyResponse,
@@ -23,6 +24,7 @@ import type {
   AuthSignInWithEmailInput,
   AuthSignInWithEmailResponse,
   AuthStartMfaChangeInput,
+  AuthStartRecoveryMfaSetupInput,
   AuthStartRegistrationInput,
   AuthVerifyBackupCodeInput,
   AuthVerifyEmailOtpInput,
@@ -103,6 +105,8 @@ export const authApi = {
                   isDefault: true,
                   defaultProjectVisibility: 'private',
                   privateProjectDiscoverability: 'visible',
+                  membersCanSeeAllProjects: true,
+                  membersCanRequestProjectAccess: true,
                 },
                 membership: {
                   id: 'org_member_mock_1',
@@ -152,6 +156,7 @@ export const authApi = {
             user: {
               id: 'mock-user-1',
               name: 'Mock User',
+              username: 'mock-user',
               email: env.mockAuthEmail,
               image: null,
             },
@@ -214,6 +219,36 @@ export const authApi = {
     }
 
     await apiClient.post('/auth/organization/update', input)
+  },
+
+  async updateOrganizationAccessControl(
+    organizationId: string,
+    input: {
+      membersCanSeeAllProjects?: boolean
+      membersCanRequestProjectAccess?: boolean
+    }
+  ): Promise<{
+    organization: {
+      membersCanSeeAllProjects: boolean
+      membersCanRequestProjectAccess: boolean
+    }
+  }> {
+    if (isMockAuthEnabled()) {
+      return {
+        organization: {
+          membersCanSeeAllProjects: input.membersCanSeeAllProjects ?? true,
+          membersCanRequestProjectAccess: input.membersCanRequestProjectAccess ?? true,
+        },
+      }
+    }
+
+    const response = await apiClient.patch<{
+      organization: {
+        membersCanSeeAllProjects: boolean
+        membersCanRequestProjectAccess: boolean
+      }
+    }>(`/v1/organizations/${organizationId}/access-control`, input)
+    return response.data
   },
 
   async deleteOrganization(input: AuthDeleteOrganizationInput): Promise<void> {
@@ -439,8 +474,8 @@ export const authApi = {
     return response.data
   },
 
-  async completeRecoveryMfaSetup(
-    input: AuthCompleteRecoveryMfaSetupInput
+  async startRecoveryMfaSetup(
+    input: AuthStartRecoveryMfaSetupInput
   ): Promise<AuthEnableMfaResponse> {
     if (isMockAuthEnabled()) {
       return {
@@ -451,10 +486,26 @@ export const authApi = {
     }
 
     const response = await apiClient.post<AuthEnableMfaResponse>(
-      '/v1/auth/mfa/recovery/setup',
+      '/v1/auth/mfa/recovery/start',
       input
     )
     return response.data
+  },
+
+  async completeMfaSetup(input: AuthCompleteMfaSetupInput): Promise<void> {
+    if (isMockAuthEnabled()) {
+      return
+    }
+
+    await apiClient.post('/v1/auth/mfa/setup/verify', input)
+  },
+
+  async changePassword(input: AuthChangePasswordInput): Promise<void> {
+    if (isMockAuthEnabled()) {
+      return
+    }
+
+    await apiClient.post('/v1/auth/password/change', input)
   },
 
   async approveDevice(userCode: string): Promise<void> {
