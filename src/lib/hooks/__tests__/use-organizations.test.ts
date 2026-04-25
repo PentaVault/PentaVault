@@ -7,8 +7,8 @@ const cancelQueries = jest.fn()
 const removeQueries = jest.fn()
 const replace = jest.fn()
 const refresh = jest.fn()
+const setActiveOrganization = jest.fn()
 const toastError = jest.fn()
-const switchOrg = jest.fn()
 const useMutationMock = jest.fn()
 
 jest.mock('@tanstack/react-query', () => ({
@@ -21,17 +21,11 @@ jest.mock('next/navigation', () => ({
 }))
 
 jest.mock('@/lib/hooks/use-auth', () => ({
-  useAuth: () => ({ refresh }),
+  useAuth: () => ({ refresh, setActiveOrganization }),
 }))
 
 jest.mock('@/lib/hooks/use-toast', () => ({
   useToast: () => ({ toast: { error: toastError } }),
-}))
-
-jest.mock('@/lib/api/organizations', () => ({
-  organizationsApi: {
-    switch: (...args: unknown[]) => switchOrg(...args),
-  },
 }))
 
 function getMutationOptions(): Record<string, (...args: unknown[]) => unknown> {
@@ -49,19 +43,19 @@ describe('useSwitchOrganization', () => {
     replace.mockReset()
     refresh.mockReset()
     refresh.mockResolvedValue(undefined)
+    setActiveOrganization.mockReset()
+    setActiveOrganization.mockResolvedValue(undefined)
     toastError.mockReset()
-    switchOrg.mockReset()
-    switchOrg.mockResolvedValue({ activeOrganizationId: 'org_2', activeOrganizationSlug: 'acme' })
     useMutationMock.mockReset()
     useMutationMock.mockImplementation((options: unknown) => options)
   })
 
-  it('calls organizationsApi.switch with orgId', async () => {
+  it('uses the auth organisation switcher with orgId', async () => {
     const options = getMutationOptions()
 
     await options.mutationFn('org_2')
 
-    expect(switchOrg).toHaveBeenCalledWith('org_2')
+    expect(setActiveOrganization).toHaveBeenCalledWith({ organizationId: 'org_2' })
   })
 
   it('cancels active queries before switching', async () => {

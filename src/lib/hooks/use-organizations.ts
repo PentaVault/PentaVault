@@ -4,11 +4,10 @@ import { useRouter } from 'next/navigation'
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { organizationsApi } from '@/lib/api/organizations'
 import { DASHBOARD_HOME_PATH } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useToast } from '@/lib/hooks/use-toast'
-import { getApiFriendlyMessage } from '@/lib/utils/errors'
+import { getApiErrorCode, getApiFriendlyMessage } from '@/lib/utils/errors'
 
 export function useSwitchOrganization() {
   const queryClient = useQueryClient()
@@ -17,7 +16,7 @@ export function useSwitchOrganization() {
   const { toast } = useToast()
 
   return useMutation({
-    mutationFn: (organizationId: string) => organizationsApi.switch(organizationId),
+    mutationFn: (organizationId: string) => auth.setActiveOrganization({ organizationId }),
     onMutate: async () => {
       await queryClient.cancelQueries()
     },
@@ -36,7 +35,12 @@ export function useSwitchOrganization() {
       await queryClient.invalidateQueries({ queryKey: ['organization-members'] })
     },
     onError: (error) => {
-      toast.error(getApiFriendlyMessage(error, 'Unable to switch organisation right now.'))
+      const message =
+        getApiErrorCode(error) === 'ORG_NOT_FOUND'
+          ? 'You no longer have access to that organisation. Refresh and ask an owner to invite you again if needed.'
+          : getApiFriendlyMessage(error, 'Unable to switch organisation right now.')
+
+      toast.error(message)
     },
   })
 }
