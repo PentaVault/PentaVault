@@ -45,6 +45,25 @@ function getInvitationPayload(notification: NotificationRecord): VerifyInvitatio
   }
 }
 
+function isActionableInvitationNotification(notification: NotificationRecord): boolean {
+  if (notification.type !== 'org_invitation') {
+    return false
+  }
+
+  const notificationAction = getString(notification.data, 'notificationAction')
+  if (notificationAction) {
+    return notificationAction === 'respond'
+  }
+
+  return Boolean(
+    getString(notification.data, 'organizationName') &&
+    getString(notification.data, 'invitedByName') &&
+    getString(notification.data, 'role') &&
+    getString(notification.data, 'email') &&
+    getString(notification.data, 'expiresAt')
+  )
+}
+
 function NotificationRow({
   notification,
   onRead,
@@ -61,7 +80,11 @@ function NotificationRow({
   const invitation = getInvitationPayload(notification)
   const invitationId = getString(notification.data, 'invitationId')
   const canActOnInvitation =
-    invitation && invitationId && !invitation.expired && !notification.actionTaken
+    isActionableInvitationNotification(notification) &&
+    invitation &&
+    invitationId &&
+    !invitation.expired &&
+    !notification.actionTaken
   const isActing = acceptInvitation.isPending || rejectInvitation.isPending
 
   async function accept() {

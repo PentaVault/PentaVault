@@ -78,6 +78,7 @@ describe('NotificationPanel', () => {
           title: 'Join Acme',
           body: 'You were invited to Acme.',
           data: {
+            notificationAction: 'respond',
             invitationId: 'invitation_1',
             organizationName: 'Acme',
             invitedByName: 'Ada',
@@ -143,6 +144,37 @@ describe('NotificationPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Accept invitation' }))
 
     expect(acceptInvitationMutateAsync).toHaveBeenCalledWith('invitation_1')
+  })
+
+  it('does not show invitation response actions on inviter status notifications', () => {
+    notificationsData = {
+      unreadCount: 1,
+      nextCursor: null,
+      notifications: [
+        {
+          id: 'notification_status',
+          userId: 'admin_1',
+          type: 'org_invitation',
+          title: 'Invitation accepted',
+          body: 'user@example.com accepted your organisation invitation.',
+          data: {
+            notificationAction: 'status',
+            invitationId: 'invitation_1',
+            organizationId: 'org_1',
+            acceptedByUserId: 'user_1',
+          },
+          readAt: null,
+          actionTaken: null,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    }
+
+    render(<NotificationPanel />)
+
+    expect(screen.getByText('Invitation accepted')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Accept invitation' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Decline invitation' })).not.toBeInTheDocument()
   })
 
   it('deletes notifications from the row action', () => {
