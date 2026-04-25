@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
+import { Copy } from 'lucide-react'
+
 import { InlineEditField } from '@/components/settings/inline-edit-field'
 import { MfaSettingsCard } from '@/components/settings/mfa-settings-card'
 import { Button } from '@/components/ui/button'
@@ -16,12 +18,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { authApi } from '@/lib/api/auth'
 import { clearClientAuthHint } from '@/lib/auth/token'
 import { REGISTER_PATH } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useToast } from '@/lib/hooks/use-toast'
-import { getApiFriendlyMessage } from '@/lib/utils/errors'
+import { getApiErrorPayload, getApiFieldErrors, getApiFriendlyMessage } from '@/lib/utils/errors'
 
 export default function AccountSettingsPage() {
   const auth = useAuth()
@@ -32,6 +35,16 @@ export default function AccountSettingsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSavingName, setIsSavingName] = useState(false)
+  const [passwordMode, setPasswordMode] = useState<'current' | 'email'>('current')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [passwordTotpCode, setPasswordTotpCode] = useState('')
+  const [passwordOtp, setPasswordOtp] = useState('')
+  const [passwordOtpSent, setPasswordOtpSent] = useState(false)
+  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({})
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [isSendingPasswordOtp, setIsSendingPasswordOtp] = useState(false)
+  const [isCopyingUserId, setIsCopyingUserId] = useState(false)
 
   const user = auth.session?.user
 
@@ -79,6 +92,109 @@ export default function AccountSettingsPage() {
     }
   }
 
+  async function handleSendPasswordOtp(): Promise<void> {
+    if (!user?.email) {
+      return
+    }
+
+    try {
+      setIsSendingPasswordOtp(true)
+      setPasswordErrors({})
+      await authApi.requestPasswordResetOtp({ email: user.email })
+      setPasswordOtpSent(true)
+      toast.success('Password code sent. Check your email.')
+    } catch (error) {
+      toast.error(getApiFriendlyMessage(error, 'Unable to send a password code right now.'))
+    } finally {
+      setIsSendingPasswordOtp(false)
+    }
+  }
+
+  async function handleChangePassword(): Promise<void> {
+    if (!user?.email) {
+      return
+    }
+
+    const nextErrors: Record<string, string> = {}
+    if (passwordMode === 'current' && !currentPassword) {
+      nextErrors.currentPassword = 'Enter your current password.'
+    }
+    if (passwordMode === 'email' && passwordOtp.trim().length !== 6) {
+      nextErrors.otp = 'Enter the 6-digit email code.'
+    }
+    if (!newPassword) {
+      nextErrors.newPassword = 'Enter a new password.'
+    }
+    if (user.twoFactorEnabled && passwordTotpCode.length !== 6) {
+      nextErrors.totpCode = 'Enter your 6-digit authenticator code.'
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setPasswordErrors(nextErrors)
+      return
+    }
+
+    try {
+      setIsChangingPassword(true)
+      setPasswordErrors({})
+
+      if (passwordMode === 'current') {
+        await authApi.changePassword({
+          currentPassword,
+          newPassword,
+          ...(user.twoFactorEnabled ? { totpCode: passwordTotpCode } : {}),
+        })
+      } else {
+        await authApi.resetPasswordWithOtp({
+          email: user.email,
+          otp: passwordOtp,
+          password: newPassword,
+          ...(user.twoFactorEnabled ? { totpCode: passwordTotpCode } : {}),
+        })
+      }
+
+      setCurrentPassword('')
+      setNewPassword('')
+      setPasswordTotpCode('')
+      setPasswordOtp('')
+      setPasswordOtpSent(false)
+      toast.success('Password changed successfully.')
+    } catch (error) {
+      const fields = getApiFieldErrors(error)
+      if (fields && Object.keys(fields).length > 0) {
+        setPasswordErrors(fields)
+      }
+
+      const payload = getApiErrorPayload(error)
+      if (payload?.code === 'AUTH_MFA_CODE_INVALID') {
+        setPasswordErrors((current) => ({
+          ...current,
+          totpCode: 'The authenticator code is invalid.',
+        }))
+      }
+
+      toast.error(getApiFriendlyMessage(error, 'Unable to change your password right now.'))
+    } finally {
+      setIsChangingPassword(false)
+    }
+  }
+
+  async function handleCopyUserId(): Promise<void> {
+    if (!user?.id || typeof navigator === 'undefined' || !navigator.clipboard) {
+      return
+    }
+
+    try {
+      setIsCopyingUserId(true)
+      await navigator.clipboard.writeText(user.id)
+      toast.success('User ID copied.')
+    } catch {
+      toast.error('Unable to copy the user ID.')
+    } finally {
+      setIsCopyingUserId(false)
+    }
+  }
+
   if (auth.status === 'loading' || !user?.id) {
     return <AccountPageSkeleton />
   }
@@ -107,12 +223,179 @@ export default function AccountSettingsPage() {
               onSave={() => undefined}
               value={user.email ?? ''}
             />
+            <InlineEditField
+              disabled
+              disabledReason="Username changes are not yet supported."
+              key={`username-${user.id}`}
+              label="Username"
+              onSave={() => undefined}
+              value={user.username ? `@${user.username}` : ''}
+            />
+            <div className="rounded-lg border border-border bg-background-secondary/40 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                    User ID
+                  </p>
+                  <p className="mt-1 truncate font-mono text-sm text-foreground">{user.id}</p>
+                </div>
+                <Button
+                  aria-label="Copy user ID"
+                  className="h-9 w-9 flex-shrink-0 px-0"
+                  disabled={isCopyingUserId}
+                  onClick={() => void handleCopyUserId()}
+                  type="button"
+                  variant="outline"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
         <div className="rounded-xl transition-shadow" id="account-mfa-settings">
           <MfaSettingsCard onChanged={auth.refresh} user={user} />
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Password</CardTitle>
+            <CardDescription>
+              Change your password using your current password or an email code.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => {
+                  setPasswordMode('current')
+                  setPasswordErrors({})
+                }}
+                type="button"
+                variant={passwordMode === 'current' ? 'default' : 'outline'}
+              >
+                Current password
+              </Button>
+              <Button
+                onClick={() => {
+                  setPasswordMode('email')
+                  setPasswordErrors({})
+                }}
+                type="button"
+                variant={passwordMode === 'email' ? 'default' : 'outline'}
+              >
+                Email code
+              </Button>
+            </div>
+
+            {passwordMode === 'current' ? (
+              <div className="space-y-1">
+                <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                  Current password
+                </label>
+                <PasswordInput
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(event) => {
+                    setCurrentPassword(event.target.value)
+                    setPasswordErrors((current) => ({ ...current, currentPassword: '' }))
+                  }}
+                />
+                {passwordErrors.currentPassword ? (
+                  <p className="text-sm text-danger">{passwordErrors.currentPassword}</p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                <div className="space-y-1">
+                  <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                    Email code
+                  </label>
+                  <Input
+                    autoComplete="one-time-code"
+                    className="h-11 text-center font-mono text-base tracking-[0.4em]"
+                    inputMode="numeric"
+                    maxLength={6}
+                    onChange={(event) => {
+                      setPasswordOtp(event.target.value.replace(/\D/g, '').slice(0, 6))
+                      setPasswordErrors((current) => ({ ...current, otp: '' }))
+                    }}
+                    placeholder="000000"
+                    value={passwordOtp}
+                  />
+                  {passwordErrors.otp ? (
+                    <p className="text-sm text-danger">{passwordErrors.otp}</p>
+                  ) : null}
+                </div>
+                <Button
+                  disabled={isSendingPasswordOtp}
+                  onClick={() => void handleSendPasswordOtp()}
+                  type="button"
+                  variant="outline"
+                >
+                  {isSendingPasswordOtp
+                    ? 'Sending...'
+                    : passwordOtpSent
+                      ? 'Send again'
+                      : 'Send code'}
+                </Button>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                New password
+              </label>
+              <PasswordInput
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(event) => {
+                  setNewPassword(event.target.value)
+                  setPasswordErrors((current) => ({ ...current, newPassword: '', password: '' }))
+                }}
+              />
+              {passwordErrors.newPassword || passwordErrors.password ? (
+                <p className="text-sm text-danger">
+                  {passwordErrors.newPassword ?? passwordErrors.password}
+                </p>
+              ) : null}
+            </div>
+
+            {user.twoFactorEnabled ? (
+              <div className="space-y-1">
+                <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                  Authenticator code
+                </label>
+                <Input
+                  autoComplete="one-time-code"
+                  className="h-11 text-center font-mono text-base tracking-[0.4em]"
+                  inputMode="numeric"
+                  maxLength={6}
+                  onChange={(event) => {
+                    setPasswordTotpCode(event.target.value.replace(/\D/g, '').slice(0, 6))
+                    setPasswordErrors((current) => ({ ...current, totpCode: '' }))
+                  }}
+                  placeholder="000000"
+                  value={passwordTotpCode}
+                />
+                {passwordErrors.totpCode ? (
+                  <p className="text-sm text-danger">{passwordErrors.totpCode}</p>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="flex justify-end">
+              <Button
+                disabled={isChangingPassword}
+                onClick={() => void handleChangePassword()}
+                type="button"
+              >
+                {isChangingPassword ? 'Changing password...' : 'Change password'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className="border-danger/40">
           <CardHeader>
