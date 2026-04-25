@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { auditApi } from '@/lib/api/audit'
 import type { AuditListQuery } from '@/lib/types/api'
 
-export function useAudit(projectId: string | null, query: AuditListQuery = {}) {
+export function useAudit(projectId: string | null, query: AuditListQuery = {}, enabled = true) {
   return useQuery({
     queryKey: ['project-audit', projectId, query],
     queryFn: async () => {
@@ -15,6 +15,6 @@ export function useAudit(projectId: string | null, query: AuditListQuery = {}) {
 
       return auditApi.listProjectAudit(projectId, query)
     },
-    enabled: Boolean(projectId),
+    enabled: Boolean(projectId) && enabled,
   })
 }

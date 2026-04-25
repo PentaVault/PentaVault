@@ -1,7 +1,7 @@
 'use client'
 
-import { useParams } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { useEffect, useMemo, useState } from 'react'
 
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { StatusBadge } from '@/components/ui/badge'
@@ -14,18 +14,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { getOrgProjectPath, getProjectPath } from '@/lib/constants'
 import { useAudit } from '@/lib/hooks/use-audit'
+import { useProject } from '@/lib/hooks/use-projects'
 import { formatDateTime } from '@/lib/utils/format'
 
 const DEFAULT_LIMIT = 25
 
 export default function ProjectAuditPage() {
-  const params = useParams<{ projectId: string }>()
+  const params = useParams<{ orgId?: string; projectId: string }>()
+  const router = useRouter()
   const projectId = typeof params.projectId === 'string' ? params.projectId : null
 
   const [eventType, setEventType] = useState('')
   const [outcome, setOutcome] = useState<'all' | 'success' | 'failure'>('all')
   const [cursor, setCursor] = useState<string | null>(null)
+  const projectQuery = useProject(projectId)
+  const effectiveRole = projectQuery.data?.membership?.role ?? projectQuery.data?.orgRole ?? null
+  const canReadAudit = effectiveRole === 'owner' || effectiveRole === 'admin'
+  const overviewPath = projectId
+    ? params.orgId
+      ? getOrgProjectPath(params.orgId, projectId)
+      : getProjectPath(projectId)
+    : null
+
+  useEffect(() => {
+    if (!projectQuery.isLoading && projectQuery.data && !canReadAudit && overviewPath) {
+      router.replace(overviewPath)
+    }
+  }, [canReadAudit, overviewPath, projectQuery.data, projectQuery.isLoading, router])
 
   const query = useMemo(
     () => ({
@@ -37,10 +54,51 @@ export default function ProjectAuditPage() {
     [cursor, eventType, outcome]
   )
 
-  const auditQuery = useAudit(projectId, query)
+  const auditQuery = useAudit(projectId, query, canReadAudit)
 
   const events = auditQuery.data?.events ?? []
   const nextCursor = auditQuery.data?.nextCursor ?? null
+
+  if (projectQuery.isLoading) {
+    return (
+      <PageWrapper>
+        <Card>
+          <CardHeader>
+            <CardTitle>Audit log</CardTitle>
+            <CardDescription>Loading project permissions...</CardDescription>
+          </CardHeader>
+        </Card>
+      </PageWrapper>
+    )
+  }
+
+  if (projectQuery.isError || !projectQuery.data) {
+    return (
+      <PageWrapper>
+        <Card>
+          <CardHeader>
+            <CardTitle>Audit log unavailable</CardTitle>
+            <CardDescription>
+              The selected project could not be loaded or you do not have access.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </PageWrapper>
+    )
+  }
+
+  if (!canReadAudit) {
+    return (
+      <PageWrapper>
+        <Card>
+          <CardHeader>
+            <CardTitle>Audit log</CardTitle>
+            <CardDescription>Redirecting to the project overview...</CardDescription>
+          </CardHeader>
+        </Card>
+      </PageWrapper>
+    )
+  }
 
   return (
     <PageWrapper>

@@ -45,8 +45,10 @@ export function ProjectLayout({ children }: ProjectLayoutProps) {
   const activeOrgId = params.orgId ?? auth.activeOrganization?.organization.id ?? null
   const projectQuery = useProject(projectId)
   const project = projectQuery.data?.project
+  const effectiveRole = projectQuery.data?.membership?.role ?? projectQuery.data?.orgRole ?? null
+  const canUseRestrictedProjectPages = effectiveRole === 'owner' || effectiveRole === 'admin'
 
-  const navItems: ProjectNavItem[] = activeOrgId
+  const baseNavItems: ProjectNavItem[] = activeOrgId
     ? [
         { href: getOrgProjectPath(activeOrgId, projectId), label: 'Overview', exact: true },
         { href: getOrgProjectSecretsPath(activeOrgId, projectId), label: 'Secrets' },
@@ -63,6 +65,9 @@ export function ProjectLayout({ children }: ProjectLayoutProps) {
         { href: getProjectSecurityPath(projectId), label: 'Security' },
         { href: getProjectUsagePath(projectId), label: 'Usage' },
       ]
+  const navItems = canUseRestrictedProjectPages
+    ? baseNavItems
+    : baseNavItems.filter((item) => item.label !== 'Audit log' && item.label !== 'Security')
   const allProjectsHref = activeOrgId ? getOrgProjectsPath(activeOrgId) : PROJECTS_PATH
   const settingsHref = activeOrgId
     ? getOrgProjectSettingsPath(activeOrgId, projectId)

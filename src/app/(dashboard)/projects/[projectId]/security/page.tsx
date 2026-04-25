@@ -1,12 +1,14 @@
 'use client'
 
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 
 import { CreateProbableLeakAlertForm } from '@/components/dashboard/create-probable-leak-alert-form'
 import { SecurityAlertStatusSelect } from '@/components/dashboard/security-alert-status-select'
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { StatusBadge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { getOrgProjectPath, getProjectPath } from '@/lib/constants'
 import { useProject } from '@/lib/hooks/use-projects'
 import { useProjectSecurity } from '@/lib/hooks/use-security'
 import { formatDateTime } from '@/lib/utils/format'
@@ -16,10 +18,24 @@ function severityTone(severity: 'low' | 'medium' | 'high' | 'critical') {
 }
 
 export default function ProjectSecurityPage() {
-  const params = useParams<{ projectId: string }>()
+  const params = useParams<{ orgId?: string; projectId: string }>()
+  const router = useRouter()
   const projectId = typeof params.projectId === 'string' ? params.projectId : null
   const projectQuery = useProject(projectId)
-  const security = useProjectSecurity(projectId)
+  const effectiveRole = projectQuery.data?.membership?.role ?? projectQuery.data?.orgRole ?? null
+  const canReadSecurity = effectiveRole === 'owner' || effectiveRole === 'admin'
+  const security = useProjectSecurity(projectId, canReadSecurity)
+  const overviewPath = projectId
+    ? params.orgId
+      ? getOrgProjectPath(params.orgId, projectId)
+      : getProjectPath(projectId)
+    : null
+
+  useEffect(() => {
+    if (!projectQuery.isLoading && projectQuery.data && !canReadSecurity && overviewPath) {
+      router.replace(overviewPath)
+    }
+  }, [canReadSecurity, overviewPath, projectQuery.data, projectQuery.isLoading, router])
 
   if (projectQuery.isLoading) {
     return (
@@ -56,6 +72,19 @@ export default function ProjectSecurityPage() {
           <CardHeader>
             <CardTitle>Security center</CardTitle>
             <CardDescription>Project context is required to load this page.</CardDescription>
+          </CardHeader>
+        </Card>
+      </PageWrapper>
+    )
+  }
+
+  if (!canReadSecurity) {
+    return (
+      <PageWrapper>
+        <Card>
+          <CardHeader>
+            <CardTitle>Security center</CardTitle>
+            <CardDescription>Redirecting to the project overview...</CardDescription>
           </CardHeader>
         </Card>
       </PageWrapper>

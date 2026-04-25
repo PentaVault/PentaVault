@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { securityApi } from '@/lib/api/security'
 import type { CreateProbableLeakAlertInput, UpdateSecurityAlertInput } from '@/lib/types/api'
 
-export function useProjectSecurity(projectId: string | null) {
+export function useProjectSecurity(projectId: string | null, enabled = true) {
   const alertsQuery = useQuery({
     queryKey: ['project-security-alerts', projectId],
     queryFn: async () => {
@@ -15,7 +15,7 @@ export function useProjectSecurity(projectId: string | null) {
 
       return securityApi.listAlerts(projectId)
     },
-    enabled: Boolean(projectId),
+    enabled: Boolean(projectId) && enabled,
   })
 
   const recommendationsQuery = useQuery({
@@ -27,7 +27,7 @@ export function useProjectSecurity(projectId: string | null) {
 
       return securityApi.listRecommendations(projectId)
     },
-    enabled: Boolean(projectId),
+    enabled: Boolean(projectId) && enabled,
   })
 
   return {
