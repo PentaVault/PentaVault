@@ -3,8 +3,8 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-import { CopyButton } from '@/components/shared/copy-button'
 import { InlineEditField } from '@/components/settings/inline-edit-field'
+import { CopyButton } from '@/components/shared/copy-button'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -50,13 +50,15 @@ export default function OrganizationSettingsPage() {
   }
 
   const defaultOrganizationId = auth.session?.user.defaultOrganizationId ?? null
+  const isOwner = activeOrg?.membership.role === 'owner'
   const canDeleteOrg = defaultOrganizationId
-    ? organization.id !== defaultOrganizationId
-    : !organization.isDefault
+    ? isOwner && organization.id !== defaultOrganizationId
+    : isOwner && !organization.isDefault
   const orgUrl = `${env.appUrl}/org/${organization.slug}`
 
   async function handleSaveOrganization(name: string): Promise<void> {
-    if (!organization) {
+    if (!organization || !isOwner) {
+      toast.error('Only organisation owners can update organisation settings.')
       return
     }
 
@@ -110,6 +112,8 @@ export default function OrganizationSettingsPage() {
           <CardContent className="space-y-6">
             <div className="space-y-2">
               <InlineEditField
+                disabled={!isOwner}
+                disabledReason="Only organisation owners can update organisation settings."
                 isPending={isSavingOrg}
                 key={organization.name}
                 label="Organisation name"
@@ -169,7 +173,11 @@ export default function OrganizationSettingsPage() {
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Your personal organisation cannot be deleted.</p>
+                      <p>
+                        {isOwner
+                          ? 'Your personal organisation cannot be deleted.'
+                          : 'Only organisation owners can delete organisations.'}
+                      </p>
                     </TooltipContent>
                   </Tooltip>
                 )}
@@ -194,7 +202,9 @@ export default function OrganizationSettingsPage() {
               aria-describedby="delete-org-description"
               className="fixed top-1/2 left-1/2 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-visible rounded-xl border border-border bg-card p-5"
             >
-              <DialogTitle className="text-danger">Delete &quot;{organization.name}&quot;?</DialogTitle>
+              <DialogTitle className="text-danger">
+                Delete &quot;{organization.name}&quot;?
+              </DialogTitle>
               <DialogDescription
                 className="mt-2 text-sm text-muted-foreground"
                 id="delete-org-description"

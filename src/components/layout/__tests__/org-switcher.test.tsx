@@ -113,6 +113,9 @@ describe('OrgSwitcher', () => {
 
     expect(screen.getAllByText('A Very Long Organisation Name').length).toBeGreaterThan(0)
     expect(screen.getByText('Acme Corp')).toBeInTheDocument()
+    expect(screen.getByText('org_1')).toBeInTheDocument()
+    expect(screen.getByText('org_2')).toBeInTheDocument()
+    expect(screen.queryByText('/long-org · org_1')).not.toBeInTheDocument()
   })
 
   it('marks current org with a checkmark', () => {

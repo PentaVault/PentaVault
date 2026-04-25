@@ -1,14 +1,22 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
+import { type ReactNode, useEffect } from 'react'
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Switch, SwitchThumb } from '@/components/ui/switch'
+import { organizationsApi } from '@/lib/api/organizations'
+import { SETTINGS_ORGANIZATION_MEMBERS_PATH } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useToast } from '@/lib/hooks/use-toast'
+import { getApiFriendlyMessage } from '@/lib/utils/errors'
 
 function SettingRow({
   children,
   description,
   title,
 }: {
-  children: React.ReactNode
+  children: ReactNode
   description: string
   title: string
 }) {
@@ -23,54 +31,107 @@ function SettingRow({
   )
 }
 
+function AccessSwitch({
+  checked,
+  disabled,
+  onCheckedChange,
+}: {
+  checked: boolean
+  disabled: boolean
+  onCheckedChange: (checked: boolean) => void
+}) {
+  return (
+    <Switch
+      checked={checked}
+      className="relative h-6 w-11 rounded-full border border-border bg-background-elevated outline-none transition-colors data-[state=checked]:bg-accent/80"
+      disabled={disabled}
+      onCheckedChange={onCheckedChange}
+    >
+      <SwitchThumb className="block h-5 w-5 translate-x-0.5 rounded-full bg-foreground transition-transform data-[state=checked]:translate-x-5" />
+    </Switch>
+  )
+}
+
 export default function OrgAccessControlPage() {
-  const { activeOrganization } = useAuth()
+  const auth = useAuth()
+  const { activeOrganization } = auth
+  const router = useRouter()
+  const { toast } = useToast()
   const org = activeOrganization?.organization
-  const defaultVisibility = org?.defaultProjectVisibility === 'open' ? 'open' : 'private'
-  const showNames = org?.privateProjectDiscoverability !== 'hidden'
+  const role = activeOrganization?.membership.role
+  const canManageAccess = role === 'owner' || role === 'admin'
+  const membersCanSeeAllProjects = org?.membersCanSeeAllProjects ?? true
+  const membersCanRequestProjectAccess = org?.membersCanRequestProjectAccess ?? true
+  const disabled = !org || !canManageAccess
+
+  useEffect(() => {
+    if (auth.status !== 'loading' && !canManageAccess) {
+      router.replace(SETTINGS_ORGANIZATION_MEMBERS_PATH)
+    }
+  }, [auth.status, canManageAccess, router])
+
+  if (auth.status !== 'loading' && !canManageAccess) {
+    return null
+  }
+
+  async function updateAccessControl(
+    key: 'membersCanSeeAllProjects' | 'membersCanRequestProjectAccess',
+    checked: boolean
+  ) {
+    if (!org) {
+      return
+    }
+
+    try {
+      await organizationsApi.updateAccessControl(org.id, { [key]: checked })
+      await auth.refresh()
+      toast.success('Access control updated.')
+    } catch (error) {
+      toast.error(getApiFriendlyMessage(error, 'Unable to update access control right now.'))
+    }
+  }
 
   return (
     <div className="space-y-6 p-6">
       <div>
         <h2 className="text-lg font-semibold">Access control</h2>
         <p className="text-sm text-muted-foreground">
-          Control how members access projects and secrets in this organisation.
+          Control how members interact with projects in this organisation.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Project access defaults</CardTitle>
+          <CardTitle>Project access</CardTitle>
           <CardDescription>
-            These settings shape how new projects and access requests behave.
+            These organisation-level settings decide what members can discover and request.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <SettingRow
-            description="New projects are private by default unless the organisation is configured for open discovery."
-            title="Default project visibility"
+            description="When enabled, members can see project names in this organisation even before they are added. Secrets and tokens still require project membership."
+            title="Members can see all projects"
           >
-            <span className="rounded-md border border-border bg-card-elevated px-3 py-1.5 text-sm capitalize">
-              {defaultVisibility}
-            </span>
+            <AccessSwitch
+              checked={membersCanSeeAllProjects}
+              disabled={disabled}
+              onCheckedChange={(checked) =>
+                void updateAccessControl('membersCanSeeAllProjects', checked)
+              }
+            />
           </SettingRow>
 
           <SettingRow
-            description="When enabled, members can discover private project names and request access."
-            title="Show private projects to members"
+            description="When enabled, members can send access requests to project owners and admins for projects they can see."
+            title="Members can request project access"
           >
-            <span className="rounded-md border border-border bg-card-elevated px-3 py-1.5 text-sm">
-              {showNames ? 'Enabled' : 'Disabled'}
-            </span>
-          </SettingRow>
-
-          <SettingRow
-            description="Members request access to private projects; owners and admins review those requests."
-            title="Require approval for project access"
-          >
-            <span className="rounded-md border border-border bg-card-elevated px-3 py-1.5 text-sm">
-              Enabled
-            </span>
+            <AccessSwitch
+              checked={membersCanRequestProjectAccess}
+              disabled={disabled}
+              onCheckedChange={(checked) =>
+                void updateAccessControl('membersCanRequestProjectAccess', checked)
+              }
+            />
           </SettingRow>
         </CardContent>
       </Card>

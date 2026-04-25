@@ -1,7 +1,8 @@
 'use client'
 
-import { Check, ChevronsUpDown, Plus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+
+import { Check, ChevronsUpDown, Plus } from 'lucide-react'
 
 import {
   DropdownMenu,
@@ -55,11 +56,7 @@ export function OrgSwitcher({ onCreateOrganization }: OrgSwitcherProps) {
         </button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent
-        align="start"
-        className="w-[240px]"
-        role="menu"
-      >
+      <DropdownMenuContent align="start" className="w-[240px]" role="menu">
         {auth.organizations.map((entry) => {
           const isActive = entry.organization.id === activeOrganization?.id
 
@@ -80,9 +77,8 @@ export function OrgSwitcher({ onCreateOrganization }: OrgSwitcherProps) {
                 <p className="truncate text-sm font-medium text-foreground">
                   {entry.organization.name}
                 </p>
-                <p className="truncate text-xs text-muted-foreground">
-                  /{entry.organization.slug} · {entry.membership.role}
-                </p>
+                <p className="truncate text-xs text-muted-foreground">{entry.organization.id}</p>
+                <p className="truncate text-xs text-muted-foreground">{entry.membership.role}</p>
               </div>
               <span
                 className={cn('flex h-4 w-4 items-center justify-center', !isActive && 'opacity-0')}
@@ -95,10 +91,7 @@ export function OrgSwitcher({ onCreateOrganization }: OrgSwitcherProps) {
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem
-          onSelect={handleCreateOrganization}
-          role="menuitem"
-        >
+        <DropdownMenuItem onSelect={handleCreateOrganization} role="menuitem">
           <Plus className="mr-2 h-4 w-4" />
           Create organisation
         </DropdownMenuItem>

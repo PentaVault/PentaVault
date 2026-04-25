@@ -9,6 +9,7 @@ export interface AuthSession {
     id: string | null
     email: string | null
     name: string | null
+    username?: string | null
     image: string | null
     emailVerified: boolean
     twoFactorEnabled: boolean
@@ -24,6 +25,8 @@ export interface AuthOrganization {
   isDefault: boolean
   defaultProjectVisibility: string | null
   privateProjectDiscoverability: string | null
+  membersCanSeeAllProjects?: boolean
+  membersCanRequestProjectAccess?: boolean
 }
 
 export interface AuthOrganizationMembership {
@@ -52,6 +55,7 @@ export interface AuthOrganizationMember {
   user: {
     id: string
     name: string | null
+    username?: string | null
     email: string | null
     image: string | null
   }
@@ -59,6 +63,23 @@ export interface AuthOrganizationMember {
 
 export interface AuthOrganizationMembersResponse {
   members: AuthOrganizationMember[]
+  invitations?: OrgInvitation[]
+}
+
+export type OrgRole = 'owner' | 'admin' | 'developer' | 'readonly' | 'auditor'
+
+export interface OrgInvitation {
+  id: string
+  organizationId: string
+  email: string
+  role: OrgRole
+  status: 'pending' | 'accepted' | 'rejected' | 'expired' | 'revoked' | 'cancelled' | 'canceled'
+  expiresAt: string | null
+  createdAt: string
+  updatedAt: string
+  inviterId: string
+  memberType: string | null
+  acceptedByUserId: string | null
 }
 
 export interface AuthSetActiveOrganizationInput {
@@ -86,6 +107,8 @@ export interface AuthUpdateOrganizationInput {
     slug?: string
     logo?: string
     metadata?: Record<string, unknown> | null
+    membersCanSeeAllProjects?: boolean
+    membersCanRequestProjectAccess?: boolean
   }
 }
 

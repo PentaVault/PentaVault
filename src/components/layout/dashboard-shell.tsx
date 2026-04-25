@@ -8,6 +8,7 @@ import type { ReactNode } from 'react'
 import { BarChart3, Building2, FolderKanban, LayoutDashboard, User } from 'lucide-react'
 
 import { DashboardNavLink } from '@/components/layout/dashboard-nav-link'
+import { NotificationPanel } from '@/components/layout/notification-panel'
 import { OrgSwitcher } from '@/components/layout/org-switcher'
 import { ProfileMenu } from '@/components/layout/profile-menu'
 import { Button } from '@/components/ui/button'
@@ -31,6 +32,7 @@ import {
   getOrgProjectsPath,
 } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useNotificationStream } from '@/lib/hooks/use-notifications'
 import { useToast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils/cn'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
@@ -41,6 +43,7 @@ type DashboardShellProps = {
 
 export function DashboardShell({ children }: DashboardShellProps) {
   const auth = useAuth()
+  useNotificationStream()
   const pathname = usePathname()
   const { toast } = useToast()
   const activeOrganization = auth.activeOrganization?.organization
@@ -106,7 +109,12 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 <OrgSwitcher onCreateOrganization={() => setIsCreateOrgOpen(true)} />
               ) : null}
             </div>
-            {auth.status === 'authenticated' ? <ProfileMenu /> : null}
+            {auth.status === 'authenticated' ? (
+              <div className="flex items-center gap-2">
+                <NotificationPanel />
+                <ProfileMenu />
+              </div>
+            ) : null}
           </div>
         </div>
       </header>
@@ -209,11 +217,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 icon={<Building2 />}
                 label="Organisation"
               />
-              <DashboardNavLink
-                href={SETTINGS_ACCOUNT_PATH}
-                icon={<User />}
-                label="Account"
-              />
+              <DashboardNavLink href={SETTINGS_ACCOUNT_PATH} icon={<User />} label="Account" />
             </div>
           </aside>
         ) : null}

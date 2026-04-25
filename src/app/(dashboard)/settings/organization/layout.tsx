@@ -17,11 +17,15 @@ import { useAuth } from '@/lib/hooks/use-auth'
 export default function OrgSettingsLayout({ children }: { children: React.ReactNode }) {
   const { activeOrganization } = useAuth()
   const activeOrg = activeOrganization?.organization
+  const role = activeOrganization?.membership.role
+  const canManageAccess = role === 'owner' || role === 'admin'
 
   const navItems = [
     { href: SETTINGS_ORGANIZATION_PATH, label: 'General', icon: Settings, exact: true },
     { href: SETTINGS_ORGANIZATION_MEMBERS_PATH, label: 'Members', icon: Users },
-    { href: SETTINGS_ORGANIZATION_ACCESS_PATH, label: 'Access control', icon: ShieldCheck },
+    ...(canManageAccess
+      ? [{ href: SETTINGS_ORGANIZATION_ACCESS_PATH, label: 'Access control', icon: ShieldCheck }]
+      : []),
     { href: SETTINGS_ORGANIZATION_BILLING_PATH, label: 'Billing', icon: CreditCard },
   ]
 

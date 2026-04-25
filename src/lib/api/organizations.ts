@@ -20,6 +20,22 @@ export const organizationsApi = {
     await authApi.updateOrganization(input)
   },
 
+  async updateAccessControl(
+    organizationId: string,
+    input: {
+      membersCanSeeAllProjects?: boolean
+      membersCanRequestProjectAccess?: boolean
+    }
+  ): Promise<{
+    organization: {
+      membersCanSeeAllProjects: boolean
+      membersCanRequestProjectAccess: boolean
+    }
+  }> {
+    const response = await authApi.updateOrganizationAccessControl(organizationId, input)
+    return response
+  },
+
   async delete(input: AuthDeleteOrganizationInput): Promise<void> {
     await authApi.deleteOrganization(input)
   },

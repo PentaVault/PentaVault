@@ -9,7 +9,7 @@ import type {
 export type ProjectRole = (typeof PROJECT_ROLES)[number]
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number]
 export type ProjectVisibility = 'open' | 'private'
-export type AccessRequestStatus = 'pending' | 'approved' | 'denied' | 'cancelled'
+export type AccessRequestStatus = 'pending' | 'approved' | 'denied' | 'rejected' | 'cancelled'
 export type SecretMode = (typeof SECRET_MODES)[number]
 export type SecretStatus = (typeof SECRET_STATUSES)[number]
 
@@ -39,6 +39,7 @@ export type RotationRecommendationAction =
 export interface User {
   id: string
   name: string
+  username: string
   email: string
   emailVerified: boolean
   image: string | null
@@ -71,6 +72,7 @@ export interface ProjectMembership {
   user?: {
     id: string
     name: string
+    username?: string | null
     email: string
     image: string | null
   }
