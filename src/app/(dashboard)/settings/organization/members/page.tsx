@@ -4,7 +4,7 @@ import type { FormEvent } from 'react'
 import { useMemo, useState } from 'react'
 
 import { formatDistanceToNow } from 'date-fns'
-import { Trash2, UserMinus, UserPlus } from 'lucide-react'
+import { Search, Trash2, UserMinus, UserPlus } from 'lucide-react'
 
 import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -247,10 +247,36 @@ export default function OrganizationMembersPage() {
   const { toast } = useToast()
   const [inviteOpen, setInviteOpen] = useState(false)
   const [memberToRemove, setMemberToRemove] = useState<AuthOrganizationMember | null>(null)
+  const [memberSearch, setMemberSearch] = useState('')
   const orgRole = activeOrg?.membership.role
   const currentUserId = auth.session?.user.id ?? null
   const canManage = orgRole === 'owner' || orgRole === 'admin'
   const members = membersQuery.data?.members ?? []
+  const currentMember = members.find((member) => member.user.id === currentUserId) ?? null
+  const normalizedMemberSearch = memberSearch.trim().toLowerCase().replace(/^@/, '')
+  const matchesMemberSearch = (member: AuthOrganizationMember): boolean => {
+    if (!normalizedMemberSearch) {
+      return true
+    }
+
+    return [
+      member.user.name,
+      member.user.username,
+      member.user.email,
+      member.membership.role,
+      member.membership.memberType,
+    ].some((value) => value?.toLowerCase().includes(normalizedMemberSearch))
+  }
+  const matchesInvitationSearch = (invitation: OrgInvitation): boolean => {
+    if (!normalizedMemberSearch) {
+      return true
+    }
+
+    return [invitation.email, invitation.role, invitation.status].some((value) =>
+      value.toLowerCase().includes(normalizedMemberSearch)
+    )
+  }
+  const visibleMembers = members.filter(matchesMemberSearch)
   const invitations = useMemo(() => {
     const latestByEmail = new Map<string, OrgInvitation>()
     for (const invitation of membersQuery.data?.invitations ?? []) {
@@ -269,7 +295,8 @@ export default function OrganizationMembersPage() {
         (left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
       )
   }, [membersQuery.data?.invitations])
-  const memberAndInviteCount = members.length + (canManage ? invitations.length : 0)
+  const visibleInvitations = canManage ? invitations.filter(matchesInvitationSearch) : []
+  const visibleMemberAndInviteCount = visibleMembers.length + visibleInvitations.length
 
   async function changeRole(member: AuthOrganizationMember, role: OrgRole) {
     try {
@@ -352,84 +379,146 @@ export default function OrganizationMembersPage() {
             Members listed here can be added to projects in this organisation.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           {membersQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">Loading members...</p>
-          ) : memberAndInviteCount === 0 ? (
-            <p className="text-sm text-muted-foreground">No members found.</p>
           ) : (
-            <div className="rounded-lg border border-border">
-              {members.map((member, index) => (
-                <div
-                  className="grid gap-3 border-border px-4 py-3 data-[border=true]:border-b lg:grid-cols-[minmax(0,1fr)_auto_auto]"
-                  data-border={index !== members.length - 1}
-                  key={member.membership.id}
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
-                      {member.user.name ?? member.user.email ?? member.user.id}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {member.user.username ? `@${member.user.username}` : member.user.email}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 lg:justify-end">
-                    {member.membership.memberType === 'guest' ? (
-                      <StatusBadge tone="warning">guest</StatusBadge>
-                    ) : null}
-                    <StatusBadge tone={member.membership.role === 'owner' ? 'warning' : 'neutral'}>
-                      {roleLabel(member.membership.role)}
-                    </StatusBadge>
-                  </div>
-                  {canManage ? (
-                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                      <Select
-                        disabled={
-                          !canChangeMemberRole(orgRole, currentUserId, member) ||
-                          updateMember.isPending
-                        }
-                        onValueChange={(value) => void changeRole(member, value as OrgRole)}
-                        {...(isOrgRole(member.membership.role)
-                          ? { value: member.membership.role }
-                          : {})}
-                      >
-                        <SelectTrigger
-                          aria-label={`Change role for ${member.user.name ?? member.user.email ?? member.user.id}`}
-                          className="w-36"
-                        >
-                          <SelectValue placeholder="Role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            {ORG_ROLES.map((value) => (
-                              <SelectItem key={value} value={value}>
-                                {ROLE_LABELS[value]}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        aria-label={`Remove ${member.user.name ?? member.user.email ?? member.user.id}`}
-                        className="h-9 w-9 px-0"
-                        disabled={
-                          !canRemoveMember(orgRole, currentUserId, member) || removeMember.isPending
-                        }
-                        onClick={() => setMemberToRemove(member)}
-                        type="button"
-                        variant="outline"
-                      >
-                        <UserMinus className="h-4 w-4" />
-                      </Button>
+            <>
+              {currentMember ? (
+                <div className="rounded-lg border border-border bg-background-secondary/30 p-4">
+                  <p className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                    You
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {currentMember.user.name ??
+                          currentMember.user.email ??
+                          currentMember.user.id}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {currentMember.user.username
+                          ? `@${currentMember.user.username}`
+                          : currentMember.user.email}
+                      </p>
                     </div>
-                  ) : null}
+                    <div className="flex items-center gap-2">
+                      {currentMember.membership.memberType === 'guest' ? (
+                        <StatusBadge tone="warning">guest</StatusBadge>
+                      ) : null}
+                      <StatusBadge
+                        tone={currentMember.membership.role === 'owner' ? 'warning' : 'neutral'}
+                      >
+                        {roleLabel(currentMember.membership.role)}
+                      </StatusBadge>
+                    </div>
+                  </div>
                 </div>
-              ))}
-              {canManage
-                ? invitations.map((invitation, index) => (
+              ) : null}
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium">All organisation members</p>
+                  <p className="text-xs text-muted-foreground">
+                    Search by name, username, email, role, or invitation status.
+                  </p>
+                </div>
+                <div className="relative w-full sm:max-w-sm">
+                  <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    aria-label="Search organisation members"
+                    className="h-10 pl-9"
+                    onChange={(event) => setMemberSearch(event.target.value)}
+                    placeholder="Search members"
+                    value={memberSearch}
+                  />
+                </div>
+              </div>
+
+              {visibleMemberAndInviteCount === 0 ? (
+                <p className="rounded-lg border border-border px-4 py-3 text-sm text-muted-foreground">
+                  {memberSearch.trim() ? 'No members match your search.' : 'No members found.'}
+                </p>
+              ) : (
+                <div className="rounded-lg border border-border">
+                  {visibleMembers.map((member, index) => (
+                    <div
+                      className="grid gap-3 border-border px-4 py-3 data-[border=true]:border-b lg:grid-cols-[minmax(0,1fr)_auto_auto]"
+                      data-border={index !== visibleMemberAndInviteCount - 1}
+                      key={member.membership.id}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <p className="truncate text-sm font-medium">
+                            {member.user.name ?? member.user.email ?? member.user.id}
+                          </p>
+                          {member.user.id === currentUserId ? (
+                            <StatusBadge tone="success">you</StatusBadge>
+                          ) : null}
+                        </div>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {member.user.username ? `@${member.user.username}` : member.user.email}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 lg:justify-end">
+                        {member.membership.memberType === 'guest' ? (
+                          <StatusBadge tone="warning">guest</StatusBadge>
+                        ) : null}
+                        <StatusBadge
+                          tone={member.membership.role === 'owner' ? 'warning' : 'neutral'}
+                        >
+                          {roleLabel(member.membership.role)}
+                        </StatusBadge>
+                      </div>
+                      {canManage ? (
+                        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                          <Select
+                            disabled={
+                              !canChangeMemberRole(orgRole, currentUserId, member) ||
+                              updateMember.isPending
+                            }
+                            onValueChange={(value) => void changeRole(member, value as OrgRole)}
+                            {...(isOrgRole(member.membership.role)
+                              ? { value: member.membership.role }
+                              : {})}
+                          >
+                            <SelectTrigger
+                              aria-label={`Change role for ${member.user.name ?? member.user.email ?? member.user.id}`}
+                              className="w-36"
+                            >
+                              <SelectValue placeholder="Role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                {ORG_ROLES.map((value) => (
+                                  <SelectItem key={value} value={value}>
+                                    {ROLE_LABELS[value]}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            aria-label={`Remove ${member.user.name ?? member.user.email ?? member.user.id}`}
+                            className="h-9 w-9 px-0"
+                            disabled={
+                              !canRemoveMember(orgRole, currentUserId, member) ||
+                              removeMember.isPending
+                            }
+                            onClick={() => setMemberToRemove(member)}
+                            type="button"
+                            variant="outline"
+                          >
+                            <UserMinus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                  {visibleInvitations.map((invitation, index) => (
                     <div
                       className="grid gap-3 border-border px-4 py-3 data-[border=true]:border-t lg:grid-cols-[minmax(0,1fr)_auto_auto]"
-                      data-border={members.length > 0 || index > 0}
+                      data-border={visibleMembers.length > 0 || index > 0}
                       key={invitation.id}
                     >
                       <div className="min-w-0">
@@ -459,9 +548,10 @@ export default function OrganizationMembersPage() {
                         </Button>
                       </div>
                     </div>
-                  ))
-                : null}
-            </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

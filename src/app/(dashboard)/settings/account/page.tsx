@@ -38,6 +38,7 @@ export default function AccountSettingsPage() {
   const [passwordMode, setPasswordMode] = useState<'current' | 'email'>('current')
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordTotpCode, setPasswordTotpCode] = useState('')
   const [passwordOtp, setPasswordOtp] = useState('')
   const [passwordOtpSent, setPasswordOtpSent] = useState(false)
@@ -125,7 +126,12 @@ export default function AccountSettingsPage() {
     if (!newPassword) {
       nextErrors.newPassword = 'Enter a new password.'
     }
-    if (user.twoFactorEnabled && passwordTotpCode.length !== 6) {
+    if (!confirmPassword) {
+      nextErrors.confirmPassword = 'Confirm your new password.'
+    } else if (newPassword && newPassword !== confirmPassword) {
+      nextErrors.confirmPassword = 'Passwords do not match.'
+    }
+    if (passwordMode === 'current' && user.twoFactorEnabled && passwordTotpCode.length !== 6) {
       nextErrors.totpCode = 'Enter your 6-digit authenticator code.'
     }
 
@@ -149,12 +155,12 @@ export default function AccountSettingsPage() {
           email: user.email,
           otp: passwordOtp,
           password: newPassword,
-          ...(user.twoFactorEnabled ? { totpCode: passwordTotpCode } : {}),
         })
       }
 
       setCurrentPassword('')
       setNewPassword('')
+      setConfirmPassword('')
       setPasswordTotpCode('')
       setPasswordOtp('')
       setPasswordOtpSent(false)
@@ -270,6 +276,7 @@ export default function AccountSettingsPage() {
               <Button
                 onClick={() => {
                   setPasswordMode('current')
+                  setPasswordOtp('')
                   setPasswordErrors({})
                 }}
                 type="button"
@@ -280,6 +287,7 @@ export default function AccountSettingsPage() {
               <Button
                 onClick={() => {
                   setPasswordMode('email')
+                  setPasswordTotpCode('')
                   setPasswordErrors({})
                 }}
                 type="button"
@@ -307,7 +315,7 @@ export default function AccountSettingsPage() {
                 ) : null}
               </div>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
                 <div className="space-y-1">
                   <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
                     Email code
@@ -329,6 +337,7 @@ export default function AccountSettingsPage() {
                   ) : null}
                 </div>
                 <Button
+                  className="mt-6 h-11"
                   disabled={isSendingPasswordOtp}
                   onClick={() => void handleSendPasswordOtp()}
                   type="button"
@@ -362,7 +371,24 @@ export default function AccountSettingsPage() {
               ) : null}
             </div>
 
-            {user.twoFactorEnabled ? (
+            <div className="space-y-1">
+              <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                Confirm password
+              </label>
+              <PasswordInput
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(event) => {
+                  setConfirmPassword(event.target.value)
+                  setPasswordErrors((current) => ({ ...current, confirmPassword: '' }))
+                }}
+              />
+              {passwordErrors.confirmPassword ? (
+                <p className="text-sm text-danger">{passwordErrors.confirmPassword}</p>
+              ) : null}
+            </div>
+
+            {passwordMode === 'current' && user.twoFactorEnabled ? (
               <div className="space-y-1">
                 <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
                   Authenticator code
