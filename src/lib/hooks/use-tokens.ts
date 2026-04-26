@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { tokensApi } from '@/lib/api/tokens'
 import type { BatchIssueTokensInput, IssueTokenInput, RevokeTokenInput } from '@/lib/types/api'
 
-export function useProjectTokens(projectId: string | null) {
+export function useProjectTokens(projectId: string | null, enabled = true) {
   return useQuery({
     queryKey: ['project-tokens', projectId],
     queryFn: async () => {
@@ -15,7 +15,7 @@ export function useProjectTokens(projectId: string | null) {
 
       return tokensApi.listProjectTokens(projectId).then((response) => response.tokens)
     },
-    enabled: Boolean(projectId),
+    enabled: Boolean(projectId) && enabled,
   })
 }
 

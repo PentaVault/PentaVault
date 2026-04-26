@@ -5,6 +5,7 @@ import { useMemo } from 'react'
 
 import { TeamMemberAddForm } from '@/components/dashboard/team-member-add-form'
 import { TeamMemberRow } from '@/components/dashboard/team-member-row'
+import { ProjectAccessRequiredState } from '@/components/projects/project-access-required-state'
 import { EmptyState } from '@/components/shared/empty-state'
 import { ErrorState } from '@/components/shared/error-state'
 import { StatusBadge } from '@/components/ui/badge'
@@ -18,19 +19,20 @@ import { useProjectMembers } from '@/lib/hooks/use-team'
 import { useToast } from '@/lib/hooks/use-toast'
 import { useProjectTokens } from '@/lib/hooks/use-tokens'
 import type { AccessRequest } from '@/lib/types/models'
-import { getApiFriendlyMessage } from '@/lib/utils/errors'
+import { getApiErrorCode, getApiFriendlyMessage } from '@/lib/utils/errors'
 
 export default function ProjectTeamPage() {
   const params = useParams<{ projectId: string }>()
   const projectId = typeof params.projectId === 'string' ? params.projectId : null
   const projectQuery = useProject(projectId)
-  const membersQuery = useProjectMembers(projectId)
-  const tokensQuery = useProjectTokens(projectId)
+  const canAccessProject = projectQuery.data?.canAccess ?? false
+  const membersQuery = useProjectMembers(projectId, canAccessProject)
+  const tokensQuery = useProjectTokens(projectId, canAccessProject)
   const reviewRequest = useReviewProjectAccessRequest(projectId)
   const { toast } = useToast()
 
   const projectName = projectQuery.data?.project.name ?? 'Project'
-  const effectiveRole = projectQuery.data?.membership?.role ?? projectQuery.data?.orgRole ?? null
+  const effectiveRole = projectQuery.data?.effectiveRole ?? projectQuery.data?.orgRole ?? null
   const canReviewRequests = effectiveRole === 'owner' || effectiveRole === 'admin'
   const requestsQuery = useProjectAccessRequests(projectId, 'pending', canReviewRequests)
   const members = useMemo(() => membersQuery.data?.members ?? [], [membersQuery.data?.members])
@@ -71,6 +73,33 @@ export default function ProjectTeamPage() {
             Project context is required to manage members.
           </p>
         </div>
+      </div>
+    )
+  }
+
+  if (projectQuery.isError && getApiErrorCode(projectQuery.error) === 'PROJECT_ACCESS_REQUIRED') {
+    return (
+      <div className="p-6">
+        <ProjectAccessRequiredState
+          description="You need project access before you can view members, tokens, and pending requests."
+          projectId={projectId}
+          title="Access required"
+        />
+      </div>
+    )
+  }
+
+  if (projectQuery.isError && !projectQuery.data) {
+    return (
+      <div className="p-6">
+        <ErrorState
+          title="Project unavailable"
+          message={getApiFriendlyMessage(
+            projectQuery.error,
+            'The project could not be loaded. It may not exist or you may not have access.'
+          )}
+          onRetry={() => void projectQuery.refetch()}
+        />
       </div>
     )
   }

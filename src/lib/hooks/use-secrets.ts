@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { secretsApi } from '@/lib/api/secrets'
 import type { CreateSecretInput } from '@/lib/types/api'
 
-export function useProjectSecrets(projectId: string | null) {
+export function useProjectSecrets(projectId: string | null, enabled = true) {
   return useQuery({
     queryKey: ['project-secrets', projectId],
     queryFn: async () => {
@@ -15,7 +15,7 @@ export function useProjectSecrets(projectId: string | null) {
 
       return secretsApi.listProjectSecrets(projectId).then((response) => response.secrets)
     },
-    enabled: Boolean(projectId),
+    enabled: Boolean(projectId) && enabled,
   })
 }
 

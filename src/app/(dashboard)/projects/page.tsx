@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useParams, usePathname, useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 
@@ -101,6 +101,8 @@ function formatRetryAfter(seconds: number): string {
 
 export default function ProjectsPage() {
   const router = useRouter()
+  const params = useParams<{ orgId?: string }>()
+  const pathname = usePathname()
   const projectsQuery = useProjectsQuery()
   const createProject = useCreateProject()
   const createAccessRequest = useCreateProjectAccessRequest()
@@ -112,6 +114,8 @@ export default function ProjectsPage() {
   const { toast } = useToast()
 
   const activeOrgId = auth.activeOrganization?.organization.id ?? null
+  const orgScopedProjectsRoute = Boolean(params.orgId) || pathname.startsWith('/dashboard/org/')
+  const orgIdForProjectUrls = orgScopedProjectsRoute ? (params.orgId ?? activeOrgId) : null
   const [searchQuery, setSearchQuery] = useState('')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isArchiveOpen, setIsArchiveOpen] = useState(false)
@@ -406,7 +410,7 @@ export default function ProjectsPage() {
               key={projectItem.project.id}
               onArchive={() => void handleArchive(projectItem.project.id)}
               onDelete={() => setDeleteTarget(projectItem.project)}
-              onOpen={() => router.push(projectHref(projectItem.project.id, activeOrgId))}
+              onOpen={() => router.push(projectHref(projectItem.project.id, orgIdForProjectUrls))}
               onRename={() => openRenameDialog(projectItem.project)}
               onRequestAccess={handleRequestAccess}
               onSelect={handleSelect}
@@ -735,8 +739,15 @@ function ProjectCard({
   requestPending: boolean
 }) {
   const [hovered, setHovered] = useState(false)
-  const { project, membership, canAccess, pendingAccessRequest, latestRequestStatus } = projectItem
-  const roleLabel = membership?.role ?? projectItem.orgRole
+  const {
+    project,
+    membership,
+    canAccess,
+    canRequestAccess,
+    pendingAccessRequest,
+    latestRequestStatus,
+  } = projectItem
+  const roleLabel = projectItem.effectiveRole ?? membership?.role ?? projectItem.orgRole
   const showCheckbox = canAccess && (hovered || anySelected || isSelected)
 
   if (!canAccess) {
@@ -746,7 +757,7 @@ function ProjectCard({
         <div className="mt-3 flex justify-end">
           {pendingAccessRequest ? (
             <StatusBadge tone="warning">Request pending</StatusBadge>
-          ) : (
+          ) : canRequestAccess !== false ? (
             <Button
               disabled={requestPending}
               onClick={() => void onRequestAccess(project.id)}
@@ -756,7 +767,7 @@ function ProjectCard({
             >
               {latestRequestStatus === 'denied' ? 'Request access again' : 'Request access'}
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
     )
@@ -803,7 +814,7 @@ function ProjectCard({
 
 function ProjectCardContent({ projectItem }: { projectItem: UserProject }) {
   const { project, canAccess } = projectItem
-  const roleLabel = projectItem.membership?.role ?? projectItem.orgRole
+  const roleLabel = projectItem.effectiveRole ?? projectItem.membership?.role ?? projectItem.orgRole
 
   return (
     <div className="flex items-start justify-between gap-4">

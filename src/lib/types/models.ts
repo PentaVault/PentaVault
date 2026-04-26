@@ -10,6 +10,7 @@ export type ProjectRole = (typeof PROJECT_ROLES)[number]
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number]
 export type ProjectVisibility = 'open' | 'private'
 export type AccessRequestStatus = 'pending' | 'approved' | 'denied' | 'rejected' | 'cancelled'
+export type ProjectMembershipGrantSource = 'manual' | 'org_owner' | 'access_request'
 export type SecretMode = (typeof SECRET_MODES)[number]
 export type SecretStatus = (typeof SECRET_STATUSES)[number]
 
@@ -68,6 +69,7 @@ export interface ProjectMembership {
   projectId: string
   userId: string
   role: ProjectRole
+  grantSource?: ProjectMembershipGrantSource
   createdAt: string
   user?: {
     id: string
@@ -83,6 +85,8 @@ export interface UserProject {
   membership: ProjectMembership | null
   orgRole: string
   canAccess: boolean
+  canRequestAccess?: boolean
+  effectiveRole?: ProjectRole | null
   pendingAccessRequest: boolean
   latestRequestStatus: AccessRequestStatus | null
   latestAccessRequest: AccessRequest | null

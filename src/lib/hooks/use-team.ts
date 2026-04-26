@@ -6,7 +6,7 @@ import { teamApi } from '@/lib/api/team'
 import type { CreateProjectMemberInput, UpdateProjectMemberInput } from '@/lib/types/api'
 import type { OrgRole } from '@/lib/types/auth'
 
-export function useProjectMembers(projectId: string | null) {
+export function useProjectMembers(projectId: string | null, enabled = true) {
   return useQuery({
     queryKey: ['project-members', projectId],
     queryFn: async () => {
@@ -16,7 +16,7 @@ export function useProjectMembers(projectId: string | null) {
 
       return teamApi.listMembers(projectId)
     },
-    enabled: Boolean(projectId),
+    enabled: Boolean(projectId) && enabled,
   })
 }
 

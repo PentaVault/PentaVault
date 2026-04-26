@@ -5,14 +5,19 @@ import { useState } from 'react'
 
 import { Plus, Search } from 'lucide-react'
 
+import { ProjectAccessRequiredState } from '@/components/projects/project-access-required-state'
 import { AddSecretDialog } from '@/components/secrets/add-secret-dialog'
 import { SecretsList } from '@/components/secrets/secrets-list'
+import { ErrorState } from '@/components/shared/error-state'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useProject } from '@/lib/hooks/use-projects'
+import { getApiErrorCode, getApiFriendlyMessage } from '@/lib/utils/errors'
 
 export default function ProjectSecretsPage() {
   const params = useParams<{ projectId: string }>()
   const projectId = typeof params.projectId === 'string' ? params.projectId : null
+  const projectQuery = useProject(projectId)
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [search, setSearch] = useState('')
 
@@ -28,6 +33,35 @@ export default function ProjectSecretsPage() {
       </div>
     )
   }
+
+  if (projectQuery.isError && getApiErrorCode(projectQuery.error) === 'PROJECT_ACCESS_REQUIRED') {
+    return (
+      <div className="p-6">
+        <ProjectAccessRequiredState
+          description="You need project access before you can view or manage this project's secrets."
+          projectId={projectId}
+          title="Access required"
+        />
+      </div>
+    )
+  }
+
+  if (projectQuery.isError && !projectQuery.data) {
+    return (
+      <div className="p-6">
+        <ErrorState
+          title="Project unavailable"
+          message={getApiFriendlyMessage(
+            projectQuery.error,
+            'The project could not be loaded. It may not exist or you may not have access.'
+          )}
+          onRetry={() => void projectQuery.refetch()}
+        />
+      </div>
+    )
+  }
+
+  const canAccessProject = projectQuery.data?.canAccess ?? false
 
   return (
     <div className="p-6">
@@ -55,7 +89,7 @@ export default function ProjectSecretsPage() {
         </div>
       </div>
 
-      <SecretsList projectId={projectId} search={search} />
+      <SecretsList enabled={canAccessProject} projectId={projectId} search={search} />
 
       <AddSecretDialog open={isAddOpen} onOpenChange={setIsAddOpen} projectId={projectId} />
     </div>

@@ -2,12 +2,14 @@
 
 import { useParams } from 'next/navigation'
 
+import { ProjectAccessRequiredState } from '@/components/projects/project-access-required-state'
+import { ErrorState } from '@/components/shared/error-state'
 import { Button } from '@/components/ui/button'
 import { Switch, SwitchThumb } from '@/components/ui/switch'
 import { useProject, useUpdateProject } from '@/lib/hooks/use-projects'
 import { useToast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils/cn'
-import { getApiFriendlyMessage } from '@/lib/utils/errors'
+import { getApiErrorCode, getApiFriendlyMessage } from '@/lib/utils/errors'
 
 export default function ProjectSettingsPage() {
   const params = useParams<{ projectId: string }>()
@@ -44,6 +46,33 @@ export default function ProjectSettingsPage() {
             Project context is required to manage settings.
           </p>
         </div>
+      </div>
+    )
+  }
+
+  if (projectQuery.isError && getApiErrorCode(projectQuery.error) === 'PROJECT_ACCESS_REQUIRED') {
+    return (
+      <div className="p-6">
+        <ProjectAccessRequiredState
+          description="You need project access before you can view or update this project's settings."
+          projectId={projectId}
+          title="Access required"
+        />
+      </div>
+    )
+  }
+
+  if (projectQuery.isError && !projectQuery.data) {
+    return (
+      <div className="p-6">
+        <ErrorState
+          title="Project unavailable"
+          message={getApiFriendlyMessage(
+            projectQuery.error,
+            'The project could not be loaded. It may not exist or you may not have access.'
+          )}
+          onRetry={() => void projectQuery.refetch()}
+        />
       </div>
     )
   }

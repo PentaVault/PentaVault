@@ -6,10 +6,13 @@ import { useState } from 'react'
 import { TokenIssueForm } from '@/components/dashboard/token-issue-form'
 import { TokenRevokeForm } from '@/components/dashboard/token-revoke-form'
 import { PageWrapper } from '@/components/layout/page-wrapper'
+import { ProjectAccessRequiredState } from '@/components/projects/project-access-required-state'
+import { ErrorState } from '@/components/shared/error-state'
 import { StatusBadge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useProject } from '@/lib/hooks/use-projects'
 import type { SecretMode } from '@/lib/types/models'
+import { getApiErrorCode, getApiFriendlyMessage } from '@/lib/utils/errors'
 import { formatDateTime } from '@/lib/utils/format'
 
 export default function ProjectTokensPage() {
@@ -34,6 +37,33 @@ export default function ProjectTokensPage() {
             <CardDescription>Project context is required to manage tokens.</CardDescription>
           </CardHeader>
         </Card>
+      </PageWrapper>
+    )
+  }
+
+  if (projectQuery.isError && getApiErrorCode(projectQuery.error) === 'PROJECT_ACCESS_REQUIRED') {
+    return (
+      <PageWrapper>
+        <ProjectAccessRequiredState
+          description="You need project access before you can issue or revoke this project's tokens."
+          projectId={projectId}
+          title="Access required"
+        />
+      </PageWrapper>
+    )
+  }
+
+  if (projectQuery.isError && !projectQuery.data) {
+    return (
+      <PageWrapper>
+        <ErrorState
+          title="Project unavailable"
+          message={getApiFriendlyMessage(
+            projectQuery.error,
+            'The project could not be loaded. It may not exist or you may not have access.'
+          )}
+          onRetry={() => void projectQuery.refetch()}
+        />
       </PageWrapper>
     )
   }

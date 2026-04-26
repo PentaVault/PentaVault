@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 
 import { ChevronLeft } from 'lucide-react'
@@ -40,22 +40,25 @@ type ProjectNavItem = {
 
 export function ProjectLayout({ children }: ProjectLayoutProps) {
   const params = useParams<{ orgId?: string; projectId: string }>()
+  const pathname = usePathname()
   const projectId = params.projectId
   const auth = useAuth()
   const activeOrgId = params.orgId ?? auth.activeOrganization?.organization.id ?? null
+  const orgScopedProjectRoute = Boolean(params.orgId) || pathname.startsWith('/dashboard/org/')
+  const orgIdForProjectUrls = orgScopedProjectRoute ? activeOrgId : null
   const projectQuery = useProject(projectId)
   const project = projectQuery.data?.project
-  const effectiveRole = projectQuery.data?.membership?.role ?? projectQuery.data?.orgRole ?? null
+  const effectiveRole = projectQuery.data?.effectiveRole ?? projectQuery.data?.orgRole ?? null
   const canUseRestrictedProjectPages = effectiveRole === 'owner' || effectiveRole === 'admin'
 
-  const baseNavItems: ProjectNavItem[] = activeOrgId
+  const baseNavItems: ProjectNavItem[] = orgIdForProjectUrls
     ? [
-        { href: getOrgProjectPath(activeOrgId, projectId), label: 'Overview', exact: true },
-        { href: getOrgProjectSecretsPath(activeOrgId, projectId), label: 'Secrets' },
-        { href: getOrgProjectTeamPath(activeOrgId, projectId), label: 'Team & Access' },
-        { href: getOrgProjectAuditPath(activeOrgId, projectId), label: 'Audit log' },
-        { href: getOrgProjectSecurityPath(activeOrgId, projectId), label: 'Security' },
-        { href: getOrgProjectUsagePath(activeOrgId, projectId), label: 'Usage' },
+        { href: getOrgProjectPath(orgIdForProjectUrls, projectId), label: 'Overview', exact: true },
+        { href: getOrgProjectSecretsPath(orgIdForProjectUrls, projectId), label: 'Secrets' },
+        { href: getOrgProjectTeamPath(orgIdForProjectUrls, projectId), label: 'Team & Access' },
+        { href: getOrgProjectAuditPath(orgIdForProjectUrls, projectId), label: 'Audit log' },
+        { href: getOrgProjectSecurityPath(orgIdForProjectUrls, projectId), label: 'Security' },
+        { href: getOrgProjectUsagePath(orgIdForProjectUrls, projectId), label: 'Usage' },
       ]
     : [
         { href: getProjectPath(projectId), label: 'Overview', exact: true },
@@ -68,9 +71,11 @@ export function ProjectLayout({ children }: ProjectLayoutProps) {
   const navItems = canUseRestrictedProjectPages
     ? baseNavItems
     : baseNavItems.filter((item) => item.label !== 'Audit log' && item.label !== 'Security')
-  const allProjectsHref = activeOrgId ? getOrgProjectsPath(activeOrgId) : PROJECTS_PATH
-  const settingsHref = activeOrgId
-    ? getOrgProjectSettingsPath(activeOrgId, projectId)
+  const allProjectsHref = orgIdForProjectUrls
+    ? getOrgProjectsPath(orgIdForProjectUrls)
+    : PROJECTS_PATH
+  const settingsHref = orgIdForProjectUrls
+    ? getOrgProjectSettingsPath(orgIdForProjectUrls, projectId)
     : getProjectSettingsPath(projectId)
 
   return (

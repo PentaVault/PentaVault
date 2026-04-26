@@ -41,10 +41,18 @@ import { cn } from '@/lib/utils/cn'
 import { getApiFriendlyMessageWithRef } from '@/lib/utils/errors'
 import { formatRelativeDate } from '@/lib/utils/format'
 
-export function SecretsList({ projectId, search }: { projectId: string; search: string }) {
-  const secretsQuery = useProjectSecrets(projectId)
-  const tokensQuery = useProjectTokens(projectId)
-  const membersQuery = useProjectMembers(projectId)
+export function SecretsList({
+  enabled = true,
+  projectId,
+  search,
+}: {
+  enabled?: boolean
+  projectId: string
+  search: string
+}) {
+  const secretsQuery = useProjectSecrets(projectId, enabled)
+  const tokensQuery = useProjectTokens(projectId, enabled)
+  const membersQuery = useProjectMembers(projectId, enabled)
   const deleteSecret = useDeleteSecret()
   const { toast } = useToast()
 

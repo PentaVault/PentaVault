@@ -3,11 +3,12 @@
 import { useParams } from 'next/navigation'
 
 import { TokenAssignmentView } from '@/components/dashboard/token-assignment-view'
+import { ProjectAccessRequiredState } from '@/components/projects/project-access-required-state'
 import { ErrorState } from '@/components/shared/error-state'
 import { StatusBadge } from '@/components/ui/badge'
 import { useProject } from '@/lib/hooks/use-projects'
 import type { ProjectRole, ProjectStatus } from '@/lib/types/models'
-import { getApiFriendlyMessage } from '@/lib/utils/errors'
+import { getApiErrorCode, getApiFriendlyMessage } from '@/lib/utils/errors'
 
 function roleTone(role: ProjectRole | string) {
   return role === 'owner' ? 'warning' : role === 'admin' ? 'success' : 'neutral'
@@ -32,6 +33,14 @@ export default function ProjectOverviewPage() {
   }
 
   if (projectQuery.isError || !projectQuery.data) {
+    if (getApiErrorCode(projectQuery.error) === 'PROJECT_ACCESS_REQUIRED' && projectId) {
+      return (
+        <div className="p-6">
+          <ProjectAccessRequiredState projectId={projectId} />
+        </div>
+      )
+    }
+
     return (
       <div className="p-6">
         <ErrorState
@@ -47,7 +56,7 @@ export default function ProjectOverviewPage() {
   }
 
   const { project, membership, orgRole } = projectQuery.data
-  const roleLabel = membership?.role ?? orgRole
+  const roleLabel = projectQuery.data.effectiveRole ?? membership?.role ?? orgRole
 
   return (
     <div className="p-6">

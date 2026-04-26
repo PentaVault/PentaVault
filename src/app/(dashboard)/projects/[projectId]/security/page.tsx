@@ -22,7 +22,7 @@ export default function ProjectSecurityPage() {
   const router = useRouter()
   const projectId = typeof params.projectId === 'string' ? params.projectId : null
   const projectQuery = useProject(projectId)
-  const effectiveRole = projectQuery.data?.membership?.role ?? projectQuery.data?.orgRole ?? null
+  const effectiveRole = projectQuery.data?.effectiveRole ?? projectQuery.data?.orgRole ?? null
   const canReadSecurity = effectiveRole === 'owner' || effectiveRole === 'admin'
   const security = useProjectSecurity(projectId, canReadSecurity)
   const overviewPath = projectId

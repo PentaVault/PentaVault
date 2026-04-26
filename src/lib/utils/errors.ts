@@ -53,8 +53,12 @@ const API_ERROR_MESSAGES_BY_CODE: Record<string, string> = {
   PROJECT_SLUG_CONFLICT: 'That project slug is already taken.',
   PROJECT_NOT_FOUND: 'Project not found. It may have been deleted or you may not have access.',
   PROJECT_FORBIDDEN: 'Only the project owner can perform this action.',
+  PROJECT_ACCESS_REQUIRED:
+    "You don't have access to this project. Request access from a project admin.",
   PROJECT_CANNOT_REMOVE_LAST_OWNER: 'Cannot remove the only project owner.',
   PROJECT_OWNER_SELF_REMOVE: 'Transfer ownership before removing yourself.',
+  ORG_OWNER_CANNOT_BE_REMOVED_FROM_PROJECT:
+    "This member's project access comes from their organisation owner role. Change their organisation role to remove project access.",
   PROJECT_CREATE_FAILURE: 'Project creation failed unexpectedly. Please try again.',
   PROJECT_READ_FAILURE: 'Unable to load project details. Please refresh.',
   PROJECT_UPDATE_FAILURE: 'Unable to update project. Please try again.',

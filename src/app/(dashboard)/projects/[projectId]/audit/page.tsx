@@ -30,7 +30,7 @@ export default function ProjectAuditPage() {
   const [outcome, setOutcome] = useState<'all' | 'success' | 'failure'>('all')
   const [cursor, setCursor] = useState<string | null>(null)
   const projectQuery = useProject(projectId)
-  const effectiveRole = projectQuery.data?.membership?.role ?? projectQuery.data?.orgRole ?? null
+  const effectiveRole = projectQuery.data?.effectiveRole ?? projectQuery.data?.orgRole ?? null
   const canReadAudit = effectiveRole === 'owner' || effectiveRole === 'admin'
   const overviewPath = projectId
     ? params.orgId
