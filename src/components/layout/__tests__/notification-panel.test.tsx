@@ -344,7 +344,7 @@ describe('NotificationPanel', () => {
       },
     })
     await waitFor(() => {
-      expect(screen.getByLabelText('Access request approved')).toBeInTheDocument()
+      expect(screen.getByText('Approved')).toBeInTheDocument()
     })
   })
 })

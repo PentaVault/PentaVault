@@ -145,22 +145,79 @@ function InvitationStatusBadge({
   expired: boolean
 }) {
   if (action === 'accepted') {
-    return <StatusBadge tone="success">Joined</StatusBadge>
+    return <NotificationStateBadge tone="success">Joined</NotificationStateBadge>
   }
 
   if (action === 'rejected') {
-    return <StatusBadge tone="neutral">Declined</StatusBadge>
+    return <NotificationStateBadge tone="neutral">Declined</NotificationStateBadge>
   }
 
   if (expired || action === 'expired') {
-    return <StatusBadge tone="warning">Expired</StatusBadge>
+    return <NotificationStateBadge tone="warning">Expired</NotificationStateBadge>
   }
 
   if (action === 'dismissed' || action === 'unavailable') {
-    return <StatusBadge tone="neutral">Unavailable</StatusBadge>
+    return <NotificationStateBadge tone="neutral">Unavailable</NotificationStateBadge>
   }
 
   return null
+}
+
+function NotificationStateBadge({
+  children,
+  tone,
+}: {
+  children: string
+  tone: 'success' | 'warning' | 'danger' | 'neutral'
+}) {
+  return (
+    <StatusBadge
+      className="flex h-8 min-w-[6.5rem] items-center justify-center rounded-md px-2 text-[11px]"
+      tone={tone}
+    >
+      {children}
+    </StatusBadge>
+  )
+}
+
+function NotificationIconAction({
+  ariaLabel,
+  disabled,
+  icon,
+  onClick,
+  tone,
+}: {
+  ariaLabel: string
+  disabled?: boolean
+  icon: 'approve' | 'reject'
+  onClick: () => void
+  tone: 'success' | 'danger'
+}) {
+  const iconNode =
+    icon === 'approve' ? (
+      <Check className="h-4 w-4 text-accent" />
+    ) : (
+      <X className="h-4 w-4 text-danger" />
+    )
+
+  return (
+    <Button
+      aria-label={ariaLabel}
+      className={cn(
+        'h-8 w-8 rounded-md px-0',
+        tone === 'success'
+          ? 'border-accent/35 text-accent hover:border-accent'
+          : 'border-danger/35 text-danger hover:border-danger'
+      )}
+      disabled={disabled}
+      onClick={onClick}
+      size="sm"
+      type="button"
+      variant="outline"
+    >
+      {iconNode}
+    </Button>
+  )
 }
 
 function getProjectAccessRequestAction(
@@ -209,27 +266,11 @@ function ProjectAccessRequestStatusIcon({
   action: ProjectAccessRequestNotificationAction
 }) {
   if (action === 'approved') {
-    return (
-      <span
-        aria-label="Access request approved"
-        className="flex h-8 w-8 items-center justify-center rounded-md border border-accent/30 text-accent"
-        title="Approved"
-      >
-        <Check className="h-4 w-4" />
-      </span>
-    )
+    return <NotificationStateBadge tone="success">Approved</NotificationStateBadge>
   }
 
   if (action === 'rejected' || action === 'denied' || action === 'cancelled') {
-    return (
-      <span
-        aria-label="Access request declined"
-        className="flex h-8 w-8 items-center justify-center rounded-md border border-danger/30 text-danger"
-        title="Declined"
-      >
-        <X className="h-4 w-4" />
-      </span>
-    )
+    return <NotificationStateBadge tone="danger">Declined</NotificationStateBadge>
   }
 
   return null
@@ -372,7 +413,7 @@ function NotificationRow({
     <>
       <div
         className={cn(
-          'group flex w-full cursor-pointer gap-3 border-b border-border px-5 py-4 text-left transition-colors last:border-0 hover:bg-card-elevated',
+          'group relative w-full cursor-pointer border-b border-border px-5 py-4 text-left transition-colors last:border-0 hover:bg-card-elevated',
           !notification.readAt && 'bg-accent/5'
         )}
         onClick={() => {
@@ -387,30 +428,76 @@ function NotificationRow({
         role="button"
         tabIndex={0}
       >
-        <span
-          className={cn(
-            'mt-1.5 h-2 w-2 flex-shrink-0 rounded-full',
-            notification.readAt ? 'bg-transparent' : 'bg-accent'
-          )}
-        />
+        <div className="pr-28 pb-10">
+          <div className="flex gap-3">
+            <span
+              className={cn(
+                'mt-1.5 h-2 w-2 flex-shrink-0 rounded-full',
+                notification.readAt ? 'bg-transparent' : 'bg-accent'
+              )}
+            />
 
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-medium leading-5">{notification.title}</span>
-          <span className="mt-1 block line-clamp-2 text-xs leading-5 text-muted-foreground">
-            {notification.body}
-          </span>
-          <span className="mt-1 block text-xs text-muted-foreground">
-            {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
-          </span>
-        </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium leading-5">{notification.title}</span>
+              <span className="mt-1 block line-clamp-2 text-xs leading-5 text-muted-foreground">
+                {notification.body}
+              </span>
+              <span className="mt-2 block text-xs text-muted-foreground">
+                {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+              </span>
+            </span>
+          </div>
+        </div>
 
-        <span
-          className="flex flex-shrink-0 items-center gap-1"
+        <div
+          className="absolute top-4 right-5 flex min-h-8 min-w-[6.5rem] items-start justify-end"
           onClick={(event) => event.stopPropagation()}
         >
+          {canActOnInvitation ? (
+            <span className="flex items-center gap-1">
+              <NotificationIconAction
+                ariaLabel="Decline invitation"
+                disabled={invitationIsActing}
+                icon="reject"
+                onClick={() => void reject()}
+                tone="danger"
+              />
+              <NotificationIconAction
+                ariaLabel="Accept invitation"
+                disabled={invitationIsActing}
+                icon="approve"
+                onClick={() => void accept()}
+                tone="success"
+              />
+            </span>
+          ) : canReviewProjectRequest ? (
+            <span className="flex items-center gap-1">
+              <NotificationIconAction
+                ariaLabel="Decline project access request"
+                disabled={projectRequestIsActing}
+                icon="reject"
+                onClick={() => void reviewProjectRequest('rejected')}
+                tone="danger"
+              />
+              <NotificationIconAction
+                ariaLabel="Approve project access request"
+                disabled={projectRequestIsActing}
+                icon="approve"
+                onClick={() => void reviewProjectRequest('approved')}
+                tone="success"
+              />
+            </span>
+          ) : notification.type === 'project_access_request' ? (
+            <ProjectAccessRequestStatusIcon action={projectRequestAction} />
+          ) : (
+            <InvitationStatusBadge action={effectiveAction} expired={invitationExpired} />
+          )}
+        </div>
+
+        <div className="absolute right-5 bottom-4" onClick={(event) => event.stopPropagation()}>
           <Button
             aria-label={`Delete notification: ${notification.title}`}
-            className="h-8 w-8 px-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+            className="h-8 w-8 rounded-md px-0 opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
             onClick={onDelete}
             size="sm"
             type="button"
@@ -418,72 +505,7 @@ function NotificationRow({
           >
             <Trash2 className="h-4 w-4 text-muted-foreground" />
           </Button>
-        </span>
-
-        {canActOnInvitation ? (
-          <span
-            className="flex flex-shrink-0 items-center gap-1"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <Button
-              aria-label="Decline invitation"
-              className="h-8 w-8 border-danger/35 px-0 text-danger hover:border-danger"
-              disabled={invitationIsActing}
-              onClick={() => void reject()}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <X className="h-4 w-4 text-danger" />
-            </Button>
-            <Button
-              aria-label="Accept invitation"
-              className="h-8 w-8 border-accent/35 px-0 text-accent hover:border-accent"
-              disabled={invitationIsActing}
-              onClick={() => void accept()}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <Check className="h-4 w-4 text-accent" />
-            </Button>
-          </span>
-        ) : canReviewProjectRequest ? (
-          <span
-            className="flex flex-shrink-0 items-center gap-1"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <Button
-              aria-label="Decline project access request"
-              className="h-8 w-8 border-danger/35 px-0 text-danger hover:border-danger"
-              disabled={projectRequestIsActing}
-              onClick={() => void reviewProjectRequest('rejected')}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <X className="h-4 w-4 text-danger" />
-            </Button>
-            <Button
-              aria-label="Approve project access request"
-              className="h-8 w-8 border-accent/35 px-0 text-accent hover:border-accent"
-              disabled={projectRequestIsActing}
-              onClick={() => void reviewProjectRequest('approved')}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <Check className="h-4 w-4 text-accent" />
-            </Button>
-          </span>
-        ) : (
-          <>
-            <InvitationStatusBadge action={effectiveAction} expired={invitationExpired} />
-            {notification.type === 'project_access_request' ? (
-              <ProjectAccessRequestStatusIcon action={projectRequestAction} />
-            ) : null}
-          </>
-        )}
+        </div>
       </div>
 
       {canActOnInvitation ? (
