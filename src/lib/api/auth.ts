@@ -39,9 +39,14 @@ import type {
   AuthSetActiveOrganizationResponse,
   AuthUpdateOrganizationInput,
 } from '@/lib/types/auth'
+import { getApiErrorCode, getApiErrorStatus } from '@/lib/utils/errors'
 
 function isNetworkError(error: unknown): boolean {
   return axios.isAxiosError(error) && !error.response
+}
+
+function isUpstreamUnavailableError(error: unknown): boolean {
+  return getApiErrorStatus(error) === 503 && getApiErrorCode(error) === 'API_UPSTREAM_UNAVAILABLE'
 }
 
 export const authApi = {
@@ -59,6 +64,10 @@ export const authApi = {
       }
 
       if (isNetworkError(error)) {
+        return null
+      }
+
+      if (isUpstreamUnavailableError(error)) {
         return null
       }
 
@@ -132,6 +141,12 @@ export const authApi = {
       }
 
       if (isNetworkError(error)) {
+        return {
+          organizations: [],
+        }
+      }
+
+      if (isUpstreamUnavailableError(error)) {
         return {
           organizations: [],
         }

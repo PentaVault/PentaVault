@@ -55,6 +55,15 @@ function isAuthOrganizationsRequest(url: string | undefined): boolean {
   )
 }
 
+function isUpstreamUnavailableResponse(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) {
+    return false
+  }
+
+  const errorCode = (error.response?.data as { code?: string } | undefined)?.code
+  return error.response?.status === 503 && errorCode === 'API_UPSTREAM_UNAVAILABLE'
+}
+
 function getErrorMeta(error: unknown): Record<string, unknown> {
   if (!axios.isAxiosError(error)) {
     return {
@@ -111,8 +120,9 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
   const isSessionProbe = isAuthSessionRequest(error.config?.url)
   const isUnauthorized = error.response?.status === 401
   const isNetworkSessionProbe = isSessionProbe && !error.response
+  const isUnavailableSessionProbe = isSessionProbe && isUpstreamUnavailableResponse(error)
 
-  if ((isSessionProbe && isUnauthorized) || isNetworkSessionProbe) {
+  if ((isSessionProbe && isUnauthorized) || isNetworkSessionProbe || isUnavailableSessionProbe) {
     return true
   }
 
@@ -151,6 +161,8 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
 
   const isAuthOrganizationsUnauthorized =
     isAuthOrganizationsRequest(error.config?.url) && error.response?.status === 401
+  const isAuthOrganizationsUnavailable =
+    isAuthOrganizationsRequest(error.config?.url) && isUpstreamUnavailableResponse(error)
 
   const authOrganizationsErrorCode = (error.response?.data as { code?: string } | undefined)?.code
   const isAuthSetActiveKnownFailure =
@@ -171,6 +183,7 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     isProjectCreateValidationError ||
     isProjectCreateKnownFailure ||
     isAuthOrganizationsUnauthorized ||
+    isAuthOrganizationsUnavailable ||
     isAuthSetActiveKnownFailure ||
     isOrgDeleteGuardedFailure ||
     isExpectedEmailNotVerified
