@@ -66,7 +66,7 @@ export interface AuthOrganizationMembersResponse {
   invitations?: OrgInvitation[]
 }
 
-export type OrgRole = 'owner' | 'admin' | 'developer' | 'readonly' | 'auditor'
+export type OrgRole = 'owner' | 'admin' | 'developer' | 'auditor'
 
 export interface OrgInvitation {
   id: string

@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 :root {
   --background: #171717;
@@ -60,7 +60,7 @@ body {
     radial-gradient(circle at 12% -15%, rgba(62, 207, 142, 0.08), transparent 34%),
     linear-gradient(180deg, var(--background), #141414 70%);
   color: var(--foreground);
-  font-family: var(--font-brand-sans), 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: var(--font-brand-sans), "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-weight: 400;
   scrollbar-width: thin;
   scrollbar-color: rgba(250, 250, 250, 0.22) transparent;

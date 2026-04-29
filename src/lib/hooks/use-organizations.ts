@@ -1,8 +1,7 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 
 import { DASHBOARD_HOME_PATH } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'

@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect } from 'react'
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
 
 import { notificationsApi } from '@/lib/api/notifications'
 import { useAuth } from '@/lib/hooks/use-auth'

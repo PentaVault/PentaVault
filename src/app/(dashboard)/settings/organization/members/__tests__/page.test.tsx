@@ -54,9 +54,9 @@ const members = [
     },
   },
 ]
-const revokeInvitationMutateAsync = jest.fn()
+const revokeInvitationMutateAsync = vi.fn()
 
-jest.mock('@/lib/hooks/use-auth', () => ({
+vi.mock('@/lib/hooks/use-auth', () => ({
   useAuth: () => ({
     session: {
       user: {
@@ -75,7 +75,7 @@ jest.mock('@/lib/hooks/use-auth', () => ({
   }),
 }))
 
-jest.mock('@/lib/hooks/use-team', () => ({
+vi.mock('@/lib/hooks/use-team', () => ({
   useOrganizationMembers: () => ({
     data: {
       members,
@@ -121,18 +121,18 @@ jest.mock('@/lib/hooks/use-team', () => ({
     isLoading: false,
   }),
   useUpdateOrganizationMember: () => ({
-    mutateAsync: jest.fn(),
+    mutateAsync: vi.fn(),
     isPending: false,
   }),
   useRemoveOrganizationMember: () => ({
-    mutateAsync: jest.fn(),
+    mutateAsync: vi.fn(),
     isPending: false,
   }),
 }))
 
-jest.mock('@/lib/hooks/use-invitations', () => ({
+vi.mock('@/lib/hooks/use-invitations', () => ({
   useSendOrgInvitation: () => ({
-    mutateAsync: jest.fn(),
+    mutateAsync: vi.fn(),
     isPending: false,
   }),
   useRevokeInvitation: () => ({
@@ -140,16 +140,16 @@ jest.mock('@/lib/hooks/use-invitations', () => ({
     isPending: false,
   }),
   useResendInvitation: () => ({
-    mutateAsync: jest.fn(),
+    mutateAsync: vi.fn(),
     isPending: false,
   }),
 }))
 
-jest.mock('@/lib/hooks/use-toast', () => ({
+vi.mock('@/lib/hooks/use-toast', () => ({
   useToast: () => ({
     toast: {
-      success: jest.fn(),
-      error: jest.fn(),
+      success: vi.fn(),
+      error: vi.fn(),
     },
   }),
 }))

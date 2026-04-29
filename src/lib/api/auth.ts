@@ -3,7 +3,7 @@ import axios from 'axios'
 import { apiClient } from '@/lib/api/client'
 import { createMockSession, isMockAuthEnabled, isMockCredential } from '@/lib/auth/mock-auth'
 import { clearClientAuthHint, hasAuthCookieHint, setClientAuthHint } from '@/lib/auth/token'
-import { AUTH_REVOKE_SESSION_PATH, AUTH_SESSIONS_PATH, AUTH_SESSION_PATH } from '@/lib/constants'
+import { AUTH_REVOKE_SESSION_PATH, AUTH_SESSION_PATH, AUTH_SESSIONS_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
 import type {
   AuthChangePasswordInput,

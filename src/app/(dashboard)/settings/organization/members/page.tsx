@@ -1,10 +1,9 @@
 'use client'
 
-import type { FormEvent } from 'react'
-import { useMemo, useState } from 'react'
-
 import { formatDistanceToNow } from 'date-fns'
 import { Search, Trash2, UserMinus, UserPlus } from 'lucide-react'
+import type { FormEvent } from 'react'
+import { useMemo, useState } from 'react'
 
 import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -37,21 +36,19 @@ import { useToast } from '@/lib/hooks/use-toast'
 import type { AuthOrganizationMember, OrgInvitation, OrgRole } from '@/lib/types/auth'
 import { getApiErrorPayload, getApiFriendlyMessage } from '@/lib/utils/errors'
 
-const ORG_ROLES: OrgRole[] = ['owner', 'admin', 'developer']
+const ORG_ROLES: OrgRole[] = ['owner', 'admin', 'developer', 'auditor']
 
 const ROLE_LEVEL: Record<OrgRole, number> = {
   owner: 5,
   admin: 4,
   developer: 3,
-  readonly: 2,
-  auditor: 1,
+  auditor: 2,
 }
 
 const ROLE_LABELS: Record<OrgRole, string> = {
   owner: 'Owner',
   admin: 'Admin',
   developer: 'Member',
-  readonly: 'Read-only',
   auditor: 'Auditor',
 }
 
@@ -59,20 +56,24 @@ const ROLE_DESCRIPTIONS: Record<OrgRole, string> = {
   owner: 'Full organisation control',
   admin: 'Manage members and projects',
   developer: 'Work in assigned projects',
-  readonly: 'View assigned resources',
-  auditor: 'Audit and review access',
+  auditor: 'Read metadata, usage, and audit trails',
 }
 
-function isOrgRole(value: string | null | undefined): value is OrgRole {
-  return Boolean(value && value in ROLE_LEVEL)
+function normalizeOrgRole(value: string | null | undefined): OrgRole | null {
+  if (value === 'readonly') {
+    return 'auditor'
+  }
+
+  return value && value in ROLE_LEVEL ? (value as OrgRole) : null
 }
 
 function canInviteRole(actorRole: string | null | undefined, role: OrgRole): boolean {
-  if (!isOrgRole(actorRole)) {
+  const normalizedActorRole = normalizeOrgRole(actorRole)
+  if (!normalizedActorRole) {
     return false
   }
 
-  return ROLE_LEVEL[role] <= ROLE_LEVEL[actorRole]
+  return ROLE_LEVEL[role] <= ROLE_LEVEL[normalizedActorRole]
 }
 
 function canChangeMemberRole(
@@ -88,7 +89,8 @@ function canRemoveMember(
   actorUserId: string | null,
   target: AuthOrganizationMember
 ): boolean {
-  if (!isOrgRole(actorRole)) {
+  const normalizedActorRole = normalizeOrgRole(actorRole)
+  if (!normalizedActorRole) {
     return false
   }
 
@@ -96,19 +98,21 @@ function canRemoveMember(
     return true
   }
 
-  if (actorRole === 'owner') {
+  if (normalizedActorRole === 'owner') {
     return true
   }
 
-  if (actorRole === 'admin' && isOrgRole(target.membership.role)) {
-    return ROLE_LEVEL[target.membership.role] < ROLE_LEVEL.admin
+  const normalizedTargetRole = normalizeOrgRole(target.membership.role)
+  if (normalizedActorRole === 'admin' && normalizedTargetRole) {
+    return ROLE_LEVEL[normalizedTargetRole] < ROLE_LEVEL.admin
   }
 
   return false
 }
 
 function roleLabel(role: string | null | undefined): string {
-  return isOrgRole(role) ? ROLE_LABELS[role] : (role ?? 'member')
+  const normalizedRole = normalizeOrgRole(role)
+  return normalizedRole ? ROLE_LABELS[normalizedRole] : (role ?? 'member')
 }
 
 function formatGuestExpiry(expiresAt: string | null): string {
@@ -505,9 +509,7 @@ export default function OrganizationMembersPage() {
                                 updateMember.isPending
                               }
                               onValueChange={(value) => void changeRole(member, value as OrgRole)}
-                              {...(isOrgRole(member.membership.role)
-                                ? { value: member.membership.role }
-                                : {})}
+                              value={normalizeOrgRole(member.membership.role) ?? ''}
                             >
                               <SelectTrigger
                                 aria-label={`Change role for ${member.user.name ?? member.user.email ?? member.user.id}`}

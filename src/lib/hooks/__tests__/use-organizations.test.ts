@@ -2,29 +2,29 @@ import { renderHook } from '@testing-library/react'
 
 import { useSwitchOrganization } from '../use-organizations'
 
-const invalidateQueries = jest.fn()
-const cancelQueries = jest.fn()
-const removeQueries = jest.fn()
-const replace = jest.fn()
-const refresh = jest.fn()
-const setActiveOrganization = jest.fn()
-const toastError = jest.fn()
-const useMutationMock = jest.fn()
+const invalidateQueries = vi.fn()
+const cancelQueries = vi.fn()
+const removeQueries = vi.fn()
+const replace = vi.fn()
+const refresh = vi.fn()
+const setActiveOrganization = vi.fn()
+const toastError = vi.fn()
+const useMutationMock = vi.fn()
 
-jest.mock('@tanstack/react-query', () => ({
+vi.mock('@tanstack/react-query', () => ({
   useMutation: (options: unknown) => useMutationMock(options),
   useQueryClient: () => ({ cancelQueries, invalidateQueries, removeQueries }),
 }))
 
-jest.mock('next/navigation', () => ({
+vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace }),
 }))
 
-jest.mock('@/lib/hooks/use-auth', () => ({
+vi.mock('@/lib/hooks/use-auth', () => ({
   useAuth: () => ({ refresh, setActiveOrganization }),
 }))
 
-jest.mock('@/lib/hooks/use-toast', () => ({
+vi.mock('@/lib/hooks/use-toast', () => ({
   useToast: () => ({ toast: { error: toastError } }),
 }))
 

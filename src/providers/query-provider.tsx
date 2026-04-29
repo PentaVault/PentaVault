@@ -1,10 +1,9 @@
 'use client'
 
-import type { PropsWithChildren } from 'react'
-import { useState } from 'react'
-
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import type { PropsWithChildren } from 'react'
+import { useState } from 'react'
 
 import { DEFAULT_QUERY_STALE_TIME_MS } from '@/lib/constants'
 import { env } from '@/lib/env'

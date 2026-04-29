@@ -1,4 +1,3 @@
 module.exports = {
-  '*.{ts,tsx}': ['eslint --fix', 'prettier --write'],
-  '*.{json,md,css,mjs,js,yml,yaml}': ['prettier --write'],
+  '*.{ts,tsx,js,mjs,cjs,json,jsonc,css}': ['biome check --write --no-errors-on-unmatched'],
 }

@@ -2,8 +2,8 @@ import { authApi } from '@/lib/api/auth'
 import { apiClient } from '@/lib/api/client'
 import type {
   CreateProjectMemberInput,
-  ProjectMembersResponse,
   ProjectMembershipResponse,
+  ProjectMembersResponse,
   RemoveProjectMemberResponse,
   UpdateProjectMemberInput,
 } from '@/lib/types/api'

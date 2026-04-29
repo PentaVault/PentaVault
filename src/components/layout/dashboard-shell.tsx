@@ -1,11 +1,10 @@
 'use client'
 
+import { BarChart3, Building2, FolderKanban, LayoutDashboard, User } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
 import type { ReactNode } from 'react'
-
-import { BarChart3, Building2, FolderKanban, LayoutDashboard, User } from 'lucide-react'
+import { useState } from 'react'
 
 import { DashboardNavLink } from '@/components/layout/dashboard-nav-link'
 import { NotificationPanel } from '@/components/layout/notification-panel'
@@ -25,11 +24,11 @@ import { authApi } from '@/lib/api/auth'
 import {
   APP_NAME,
   DASHBOARD_HOME_PATH,
-  SETTINGS_ACCOUNT_PATH,
-  SETTINGS_ORGANIZATION_PATH,
   getOrgDashboardPath,
   getOrgOnboardingPath,
   getOrgProjectsPath,
+  SETTINGS_ACCOUNT_PATH,
+  SETTINGS_ORGANIZATION_PATH,
 } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useNotificationStream } from '@/lib/hooks/use-notifications'

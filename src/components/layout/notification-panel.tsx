@@ -1,10 +1,9 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
-
 import { formatDistanceToNow } from 'date-fns'
 import { Bell, Check, Trash2, X } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useMemo, useState } from 'react'
 
 import { InvitationDialog } from '@/components/invitations/invitation-dialog'
 import { StatusBadge } from '@/components/ui/badge'
@@ -92,10 +91,10 @@ function isActionableInvitationNotification(notification: NotificationRecord): b
 
   return Boolean(
     getString(notification.data, 'organizationName') &&
-    getString(notification.data, 'invitedByName') &&
-    getString(notification.data, 'role') &&
-    getString(notification.data, 'email') &&
-    getString(notification.data, 'expiresAt')
+      getString(notification.data, 'invitedByName') &&
+      getString(notification.data, 'role') &&
+      getString(notification.data, 'email') &&
+      getString(notification.data, 'expiresAt')
   )
 }
 
@@ -217,7 +216,10 @@ function NotificationIconAction({
           : 'border-danger/35 text-danger hover:border-danger'
       )}
       disabled={disabled}
-      onClick={onClick}
+      onClick={(event) => {
+        event.stopPropagation()
+        onClick()
+      }}
       size="sm"
       type="button"
       variant="outline"
@@ -479,7 +481,7 @@ function NotificationRow({
             void openNotificationTarget()
           }
         }}
-        role="button"
+        role="link"
         tabIndex={0}
       >
         <div className="pr-28 pb-10">
@@ -503,10 +505,7 @@ function NotificationRow({
           </div>
         </div>
 
-        <div
-          className="absolute top-4 right-5 flex min-h-8 min-w-[6.5rem] items-start justify-end"
-          onClick={(event) => event.stopPropagation()}
-        >
+        <div className="absolute top-4 right-5 flex min-h-8 min-w-[6.5rem] items-start justify-end">
           {canActOnInvitation ? (
             <span className="flex items-center gap-1">
               <NotificationIconAction
@@ -548,11 +547,14 @@ function NotificationRow({
           )}
         </div>
 
-        <div className="absolute right-5 bottom-4" onClick={(event) => event.stopPropagation()}>
+        <div className="absolute right-5 bottom-4">
           <Button
             aria-label={`Delete notification: ${notification.title}`}
             className="h-8 w-8 rounded-md px-0 opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
-            onClick={onDelete}
+            onClick={(event) => {
+              event.stopPropagation()
+              onDelete()
+            }}
             size="sm"
             type="button"
             variant="ghost"

@@ -1,10 +1,9 @@
 'use client'
 
-import { useParams, usePathname, useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
-import type { FormEvent } from 'react'
-
 import { Archive, Lock, MoreHorizontal, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { useParams, usePathname, useRouter } from 'next/navigation'
+import type { FormEvent } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -748,7 +747,6 @@ function ProjectCard({
   projectItem: UserProject
   requestPending: boolean
 }) {
-  const [hovered, setHovered] = useState(false)
   const {
     project,
     membership,
@@ -759,7 +757,7 @@ function ProjectCard({
   } = projectItem
   const roleLabel = projectItem.effectiveRole ?? membership?.role ?? projectItem.orgRole
   const canManageProject = roleLabel === 'owner' || roleLabel === 'admin'
-  const showCheckbox = canAccess && canManageProject && (hovered || anySelected || isSelected)
+  const showCheckbox = canAccess && canManageProject && (anySelected || isSelected)
 
   if (!canAccess) {
     return (
@@ -793,15 +791,24 @@ function ProjectCard({
           : 'border-border bg-card hover:border-border-strong hover:bg-card-elevated'
       )}
       onClick={onOpen}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onOpen()
+        }
+      }}
+      role="button"
+      tabIndex={0}
     >
       <div
-        className={cn('transition-opacity', showCheckbox ? 'opacity-100' : 'opacity-0')}
-        onClick={(event) => event.stopPropagation()}
+        className={cn(
+          'transition-opacity group-hover:opacity-100',
+          showCheckbox ? 'opacity-100' : 'opacity-0'
+        )}
       >
         <Checkbox
           checked={isSelected}
+          onClick={(event) => event.stopPropagation()}
           onCheckedChange={(checked) => onSelect(project.id, checked)}
         />
       </div>

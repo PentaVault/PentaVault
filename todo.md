@@ -16,7 +16,7 @@ Not everything from the April 29 review is done, but the highest-impact implemen
 
 The core account, MFA, organization, project, secrets, project-team, and auditor metadata flows are mostly implemented. This pass added a shared project access-policy module in the backend, moved duplicated project RBAC decisions into that module, aligned project access-request roles with the `member` project role, added self-leave behavior for projects and organizations, fixed the account settings password-code cooldown, made password-change session behavior consistent, enabled project deletion from project settings, and tightened the organization project-visibility dependency between "Members can see all projects" and access requests.
 
-The main remaining gaps are reproduction-only invite/default-organization bugs, full organization role-model migration, final secret/user/key isolation design, broader DAL-style backend access architecture beyond the project policy module, and manual browser/email verification.
+The main remaining gaps are reproduction-only invite/default-organization bugs, final secret/user/key isolation design, broader DAL-style backend access architecture beyond the project policy module, project access-request database enum migration, and manual browser/email verification.
 
 ## Completed Or Mostly Working From Review
 
@@ -306,12 +306,12 @@ Status: [?]
 Priority: high
 Area: invitations / email
 Review source: Emails were not sending properly for read-only and admin role invitations.
-Current state: Invitation send endpoints and frontend invite form exist. The organization invite UI now avoids offering read-only/auditor roles for new invites, but actual SMTP/email delivery still must be verified in the configured environment.
+Current state: Invitation send endpoints and frontend invite form exist. The organization invite UI now offers the canonical roles owner, admin, member, and auditor, with read-only removed as a separate role. Actual SMTP/email delivery still must be verified in the configured environment.
 Needed:
 
-- Send test invites for owner/admin/member roles in the real SMTP environment.
+- Send test invites for owner/admin/member/auditor roles in the real SMTP environment.
 - Confirm SMTP logs and delivery outcomes.
-- Confirm legacy read-only/auditor roles do not remain reachable through the current invite UI.
+- Confirm legacy read-only does not remain reachable through the current invite UI.
 Evidence:
 
 - `src/app/(dashboard)/settings/organization/members/page.tsx`
@@ -320,20 +320,20 @@ Evidence:
 
 ### R-108 Organization role model cleanup: merge/remove read-only and auditor
 
-Status: [~]
+Status: [x]
 Priority: high
 Area: RBAC / product design
 Review source: Remove the separate Auditor role and merge it into read-only, or rename read-only to Auditor.
-Current state: Partially done. The new invite UI only offers owner, admin, and member-facing options, but backend schemas and existing data still support legacy organization roles `developer`, `readonly`, and `auditor`. This requires a deliberate migration rather than a small UI-only edit.
+Current state: Implemented with `auditor` as the canonical merged role. The frontend and backend organization role models no longer expose `readonly` as a normal role. A database migration converts existing organization member and invitation `readonly` values to `auditor`, and API/UI boundary logic treats old `readonly` values as a legacy alias only.
 Needed:
 
-- Decide final organization role names.
-- Migrate schemas, Better Auth role config, UI labels, invite forms, tests, and permission mapping.
-- Update existing data if any users already have removed roles.
+- Apply and verify the new auth migration in local/staging databases.
+- Keep legacy `readonly` handling only as compatibility code until old data is gone everywhere.
 Evidence:
 
 - `PentaVault-Backend/apps/api/src/plugins/auth.ts`
 - `PentaVault-Backend/packages/auth/src/organization-permissions.ts`
+- `PentaVault-Backend/packages/db/migrations/auth/0003_merge_readonly_auditor.sql`
 - `src/app/(dashboard)/settings/organization/members/page.tsx`
 
 ### R-109 Project access requests still use developer/readonly roles
@@ -469,7 +469,7 @@ Status: [~]
 Priority: high
 Area: architecture / security
 Review source: RBAC should live in a data access layer or single policy file so security controls are plug-and-play and reused everywhere.
-Current state: A new shared project access-policy module now centralizes project role resolution, project management checks, project visibility, access-request role normalization, metadata/audit read checks, and project self-removal rules. Project service, project store, project API routes, and token routes now use this shared policy. This is an important step, but it is not yet the full DAL-style backend access architecture for organizations, secrets, tokens, audit, auth, and every future data access path.
+Current state: A new shared project access-policy module now centralizes project role resolution, project management checks, project visibility, access-request role normalization, metadata/audit read checks, and project self-removal rules. Project service, project store, project API routes, and token routes now use this shared policy, and dedicated unit tests lock down the high-risk visibility/removal/normalization paths. This is an important step, but it is not yet the full DAL-style backend access architecture for organizations, secrets, tokens, audit, auth, and every future data access path.
 Needed:
 
 - Expand the policy layer from project access into a broader backend data-access/security layer covering organization, project, secret, token, audit, and access-request capabilities.
@@ -478,6 +478,7 @@ Needed:
 Evidence:
 
 - `PentaVault-Backend/packages/projects/src/access-policy.ts`
+- `PentaVault-Backend/tests/unit/project-access-policy.test.ts`
 - `PentaVault-Backend/packages/auth/src/authorization.ts`
 - `PentaVault-Backend/packages/projects/src/service.ts`
 - `PentaVault-Backend/apps/api/src/plugins/projects.ts`
@@ -499,6 +500,20 @@ Evidence:
 
 - Repository documentation tree
 
+### R-119 Align frontend and backend tooling
+
+Status: [x]
+Priority: medium
+Area: tooling / cleanup
+Review source: Frontend and backend used different test and lint stacks; frontend used Jest while backend used Vitest and Biome.
+Current state: Frontend now uses Vitest with jsdom for tests and Biome for linting/formatting, matching the backend tooling direction. Jest, ts-jest, ESLint, Prettier, and related frontend-only packages/config files were removed.
+Evidence:
+
+- `package.json`
+- `vitest.config.ts`
+- `biome.json`
+- `src/test/vitest.setup.ts`
+
 ## Verification Checklist For Next Pass
 
 - [ ] Run a full browser test for password change with current password, email-code password change, and MFA-enabled password change.
@@ -507,8 +522,8 @@ Evidence:
 - [ ] Reproduce delete account -> recreate same email -> default personal organization.
 - [ ] Send invitation emails for owner, admin, and member roles in the real SMTP environment.
 - [ ] Accept organization invitations through both dashboard notification and email URL.
-- [ ] Verify members cannot see hidden projects when organization visibility is disabled.
-- [ ] Add backend/frontend tests for project self-leave and organization self-leave edge cases.
+- [x] Verify hidden private-project policy with backend unit tests when organization visibility is disabled.
+- [x] Add backend tests for project self-leave policy edge cases.
 - [ ] Plan the database migration for legacy project access-request role storage.
 - [ ] Design and document the final secret/user/key isolation model before coding deeper access rules.
 - [ ] Expand the centralized backend access-policy layer beyond project-level access into the broader DAL-style architecture.

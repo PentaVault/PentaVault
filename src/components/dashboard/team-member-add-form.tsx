@@ -1,9 +1,8 @@
 'use client'
 
+import { Plus, Search } from 'lucide-react'
 import type { FormEvent } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-
-import { Plus, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -116,7 +115,6 @@ export function TeamMemberAddForm({
           {isUserPickerOpen ? (
             <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-card p-2">
               <input
-                autoFocus
                 className="h-8 w-full rounded-md border border-border bg-background-elevated px-2 text-sm outline-none focus:border-border-strong focus:ring-2 focus:ring-focus-ring"
                 onChange={(event) => setUserSearch(event.target.value)}
                 placeholder="Search by name or @username"

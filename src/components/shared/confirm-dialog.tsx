@@ -1,8 +1,7 @@
 'use client'
 
-import type { ReactNode } from 'react'
-
 import * as AlertDialog from '@radix-ui/react-alert-dialog'
+import type { ReactNode } from 'react'
 
 type ConfirmDialogProps = {
   trigger: ReactNode

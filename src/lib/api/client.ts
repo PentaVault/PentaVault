@@ -204,7 +204,7 @@ apiClient.interceptors.request.use((config) => {
   config.headers = AxiosHeaders.from(config.headers)
   config.headers.set('X-Request-ID', crypto.randomUUID())
 
-  if (config.url && config.url.startsWith('/') && !config.url.startsWith('//')) {
+  if (config.url?.startsWith('/') && !config.url.startsWith('//')) {
     config.url = config.url.slice(1)
   }
 

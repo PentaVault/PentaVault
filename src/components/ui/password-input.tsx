@@ -1,9 +1,8 @@
 'use client'
 
+import { Eye } from 'lucide-react'
 import type { InputHTMLAttributes, PointerEvent } from 'react'
 import { useState } from 'react'
-
-import { Eye } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils/cn'

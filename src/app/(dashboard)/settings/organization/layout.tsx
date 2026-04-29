@@ -1,8 +1,7 @@
 'use client'
 
-import Link from 'next/link'
-
 import { Building2, ChevronLeft, CreditCard, Settings, ShieldCheck, Users } from 'lucide-react'
+import Link from 'next/link'
 
 import { DashboardNavLink } from '@/components/layout/dashboard-nav-link'
 import {

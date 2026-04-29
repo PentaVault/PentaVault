@@ -1,9 +1,8 @@
 'use client'
 
+import { Copy } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-
-import { Copy } from 'lucide-react'
 
 import { InlineEditField } from '@/components/settings/inline-edit-field'
 import { MfaSettingsCard } from '@/components/settings/mfa-settings-card'
@@ -79,7 +78,9 @@ export default function AccountSettingsPage() {
       })
       clearClientAuthHint()
       auth.clear()
+      // biome-ignore lint/suspicious/noDocumentCookie: Better Auth stores these browser session cookies outside the app state.
       document.cookie = 'better-auth.session_token=; path=/; max-age=0'
+      // biome-ignore lint/suspicious/noDocumentCookie: Clear the secure Better Auth cookie variant after account deletion.
       document.cookie = '__Secure-better-auth.session_token=; path=/; max-age=0'
       toast.success('Your account has been permanently deleted.')
       router.replace(REGISTER_PATH)
@@ -311,11 +312,15 @@ export default function AccountSettingsPage() {
 
             {passwordMode === 'current' ? (
               <div className="space-y-1">
-                <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                <label
+                  className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+                  htmlFor="current-password"
+                >
                   Current password
                 </label>
                 <PasswordInput
                   autoComplete="current-password"
+                  id="current-password"
                   value={currentPassword}
                   onChange={(event) => {
                     setCurrentPassword(event.target.value)
@@ -329,12 +334,16 @@ export default function AccountSettingsPage() {
             ) : (
               <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
                 <div className="space-y-1">
-                  <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                  <label
+                    className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+                    htmlFor="password-email-code"
+                  >
                     Email code
                   </label>
                   <Input
                     autoComplete="one-time-code"
                     className="h-11 text-center font-mono text-base tracking-[0.4em]"
+                    id="password-email-code"
                     inputMode="numeric"
                     maxLength={6}
                     onChange={(event) => {
@@ -367,11 +376,15 @@ export default function AccountSettingsPage() {
             )}
 
             <div className="space-y-1">
-              <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+              <label
+                className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+                htmlFor="new-password"
+              >
                 New password
               </label>
               <PasswordInput
                 autoComplete="new-password"
+                id="new-password"
                 value={newPassword}
                 onChange={(event) => {
                   setNewPassword(event.target.value)
@@ -386,11 +399,15 @@ export default function AccountSettingsPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+              <label
+                className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+                htmlFor="confirm-password"
+              >
                 Confirm password
               </label>
               <PasswordInput
                 autoComplete="new-password"
+                id="confirm-password"
                 value={confirmPassword}
                 onChange={(event) => {
                   setConfirmPassword(event.target.value)
@@ -404,12 +421,16 @@ export default function AccountSettingsPage() {
 
             {passwordMode === 'current' && user.twoFactorEnabled ? (
               <div className="space-y-1">
-                <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                <label
+                  className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+                  htmlFor="password-totp-code"
+                >
                   Authenticator code
                 </label>
                 <Input
                   autoComplete="one-time-code"
                   className="h-11 text-center font-mono text-base tracking-[0.4em]"
+                  id="password-totp-code"
                   inputMode="numeric"
                   maxLength={6}
                   onChange={(event) => {
