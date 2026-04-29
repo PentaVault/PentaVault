@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams, usePathname, useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 
 import { Archive, Lock, MoreHorizontal, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
@@ -38,7 +38,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown'
 import { Input } from '@/components/ui/input'
-import { getOrgProjectPath, getProjectPath } from '@/lib/constants'
+import { getOrgProjectPath, getOrgProjectsPath, getProjectPath } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import {
   useArchiveProject,
@@ -114,8 +114,10 @@ export default function ProjectsPage() {
   const { toast } = useToast()
 
   const activeOrgId = auth.activeOrganization?.organization.id ?? null
+  const activeOrgRole = auth.activeOrganization?.membership.role ?? null
   const orgScopedProjectsRoute = Boolean(params.orgId) || pathname.startsWith('/dashboard/org/')
   const orgIdForProjectUrls = orgScopedProjectsRoute ? (params.orgId ?? activeOrgId) : null
+  const canCreateProjects = activeOrgRole === 'owner' || activeOrgRole === 'admin'
   const [searchQuery, setSearchQuery] = useState('')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isArchiveOpen, setIsArchiveOpen] = useState(false)
@@ -149,6 +151,12 @@ export default function ProjectsPage() {
   }, [activeProjects, searchQuery])
 
   const anySelected = selectedIds.size > 0
+
+  useEffect(() => {
+    if (!orgScopedProjectsRoute && activeOrgId) {
+      router.replace(getOrgProjectsPath(activeOrgId))
+    }
+  }, [activeOrgId, orgScopedProjectsRoute, router])
 
   function handleSelect(id: string, checked: boolean): void {
     setSelectedIds((current) => {
@@ -340,10 +348,12 @@ export default function ProjectsPage() {
           />
         </div>
 
-        <Button className="flex-shrink-0" onClick={() => setIsCreateOpen(true)} type="button">
-          <Plus className="mr-2 h-4 w-4" />
-          New project
-        </Button>
+        {canCreateProjects ? (
+          <Button className="flex-shrink-0" onClick={() => setIsCreateOpen(true)} type="button">
+            <Plus className="mr-2 h-4 w-4" />
+            New project
+          </Button>
+        ) : null}
       </div>
 
       {anySelected ? (
@@ -748,7 +758,8 @@ function ProjectCard({
     latestRequestStatus,
   } = projectItem
   const roleLabel = projectItem.effectiveRole ?? membership?.role ?? projectItem.orgRole
-  const showCheckbox = canAccess && (hovered || anySelected || isSelected)
+  const canManageProject = roleLabel === 'owner' || roleLabel === 'admin'
+  const showCheckbox = canAccess && canManageProject && (hovered || anySelected || isSelected)
 
   if (!canAccess) {
     return (
@@ -805,7 +816,9 @@ function ProjectCard({
           <StatusBadge className="capitalize" tone={statusTone(project.status)}>
             {project.status}
           </StatusBadge>
-          <ProjectCardMenu onArchive={onArchive} onDelete={onDelete} onRename={onRename} />
+          {canManageProject ? (
+            <ProjectCardMenu onArchive={onArchive} onDelete={onDelete} onRename={onRename} />
+          ) : null}
         </div>
       </div>
     </div>

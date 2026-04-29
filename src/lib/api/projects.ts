@@ -91,4 +91,11 @@ export const projectsApi = {
     )
     return response.data
   },
+
+  async createSecretAccessRequest(projectId: string, secretId: string): Promise<{ requested: true }> {
+    const response = await apiClient.post<{ requested: true }>(
+      `/v1/projects/${projectId}/secrets/${secretId}/access-requests`
+    )
+    return response.data
+  },
 }

@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 
-import { Code2, Eye, EyeOff, MoreHorizontal, Shield, Trash2, X } from 'lucide-react'
+import { Code2, Eye, EyeOff, KeyRound, MoreHorizontal, Shield, Trash2, X } from 'lucide-react'
 
 import {
   AlertDialog,
@@ -32,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown'
 import { Input } from '@/components/ui/input'
+import { useCreateSecretAccessRequest } from '@/lib/hooks/use-projects'
 import { useDeleteSecret, useProjectSecrets, useUpdateSecret } from '@/lib/hooks/use-secrets'
 import { useProjectMembers } from '@/lib/hooks/use-team'
 import { useToast } from '@/lib/hooks/use-toast'
@@ -42,10 +43,12 @@ import { getApiFriendlyMessageWithRef } from '@/lib/utils/errors'
 import { formatRelativeDate } from '@/lib/utils/format'
 
 export function SecretsList({
+  canManage = false,
   enabled = true,
   projectId,
   search,
 }: {
+  canManage?: boolean
   enabled?: boolean
   projectId: string
   search: string
@@ -54,6 +57,7 @@ export function SecretsList({
   const tokensQuery = useProjectTokens(projectId, enabled)
   const membersQuery = useProjectMembers(projectId, enabled)
   const deleteSecret = useDeleteSecret()
+  const requestAccess = useCreateSecretAccessRequest(projectId)
   const { toast } = useToast()
 
   const [selectedSecretIds, setSelectedSecretIds] = useState<Set<string>>(new Set())
@@ -92,6 +96,13 @@ export function SecretsList({
 
     return map
   }, [membersByUserId, tokensQuery.data])
+  const assignedSecretIds = useMemo(() => {
+    return new Set(
+      (tokensQuery.data ?? [])
+        .filter((token) => token.userId && !token.revokedAt)
+        .map((token) => token.secretId)
+    )
+  }, [tokensQuery.data])
   const filtered = useMemo(() => {
     if (!search.trim()) {
       return secrets
@@ -101,8 +112,10 @@ export function SecretsList({
     return secrets.filter((secret) => secret.name.toLowerCase().includes(query))
   }, [secrets, search])
 
-  const anySelected = selectedSecretIds.size > 0
-  const selectedSecrets = filtered.filter((secret) => selectedSecretIds.has(secret.id))
+  const anySelected = canManage && selectedSecretIds.size > 0
+  const selectedSecrets = canManage
+    ? filtered.filter((secret) => selectedSecretIds.has(secret.id))
+    : []
   const editTargets = editTarget ? [editTarget] : selectedSecrets
   const deleteTargetUsers = deleteTarget ? (secretAccessUsers.get(deleteTarget.id) ?? []) : []
   const deleteImpactUsers = deleteImpactTarget
@@ -110,6 +123,10 @@ export function SecretsList({
     : []
 
   function handleSelect(secretId: string, checked: boolean): void {
+    if (!canManage) {
+      return
+    }
+
     setSelectedSecretIds((current) => {
       const next = new Set(current)
       if (checked) {
@@ -119,6 +136,20 @@ export function SecretsList({
       }
       return next
     })
+  }
+
+  async function handleRequestAccess(secret: Secret): Promise<void> {
+    try {
+      await requestAccess.mutateAsync({ secretId: secret.id })
+      toast.success('Access request sent.')
+    } catch (error) {
+      toast.error(
+        getApiFriendlyMessageWithRef(
+          error,
+          'Unable to request access right now. The server did not return a specific reason.'
+        )
+      )
+    }
   }
 
   async function handleDelete(secret: Secret | null): Promise<void> {
@@ -212,7 +243,7 @@ export function SecretsList({
 
   return (
     <>
-      {anySelected ? (
+      {canManage && anySelected ? (
         <div className="mb-3 flex items-center gap-3 rounded-md border border-border bg-background-secondary px-3 py-2">
           <button
             className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
@@ -262,26 +293,32 @@ export function SecretsList({
             isLast={index === filtered.length - 1}
             isSelected={selectedSecretIds.has(secret.id)}
             key={secret.id}
+            canManage={canManage}
+            hasAccess={assignedSecretIds.has(secret.id)}
+            isRequestingAccess={requestAccess.isPending}
             onDelete={() => setDeleteTarget(secret)}
             onEdit={() => setEditTarget(secret)}
+            onRequestAccess={() => void handleRequestAccess(secret)}
             onSelect={handleSelect}
             secret={secret}
           />
         ))}
       </div>
 
-      <EditSecretDialog
-        key={`${Boolean(editTarget) || isBulkEditOpen}:${editTargets.map((secret) => secret.id).join(':')}`}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditTarget(null)
-            setIsBulkEditOpen(false)
-          }
-        }}
-        open={Boolean(editTarget) || isBulkEditOpen}
-        projectId={projectId}
-        targets={editTargets}
-      />
+      {canManage ? (
+        <EditSecretDialog
+          key={`${Boolean(editTarget) || isBulkEditOpen}:${editTargets.map((secret) => secret.id).join(':')}`}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditTarget(null)
+              setIsBulkEditOpen(false)
+            }
+          }}
+          open={Boolean(editTarget) || isBulkEditOpen}
+          projectId={projectId}
+          targets={editTargets}
+        />
+      ) : null}
 
       <AlertDialog
         onOpenChange={(open) => {
@@ -386,24 +423,32 @@ export function SecretsList({
 
 function SecretRow({
   anySelected,
+  canManage,
+  hasAccess,
   secret,
   isLast,
   isSelected,
+  isRequestingAccess,
   onDelete,
   onEdit,
+  onRequestAccess,
   onSelect,
 }: {
   anySelected: boolean
+  canManage: boolean
+  hasAccess: boolean
   secret: Secret
   isLast: boolean
   isSelected: boolean
+  isRequestingAccess: boolean
   onDelete: () => void
   onEdit: () => void
+  onRequestAccess: () => void
   onSelect: (secretId: string, checked: boolean) => void
 }) {
   const [showValue, setShowValue] = useState(false)
   const [hovered, setHovered] = useState(false)
-  const showCheckbox = hovered || anySelected || isSelected
+  const showCheckbox = canManage && (hovered || anySelected || isSelected)
 
   return (
     <div
@@ -415,15 +460,17 @@ function SecretRow({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div
-        className={cn('transition-opacity', showCheckbox ? 'opacity-100' : 'opacity-0')}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <Checkbox
-          checked={isSelected}
-          onCheckedChange={(checked) => onSelect(secret.id, checked)}
-        />
-      </div>
+      {canManage ? (
+        <div
+          className={cn('transition-opacity', showCheckbox ? 'opacity-100' : 'opacity-0')}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={(checked) => onSelect(secret.id, checked)}
+          />
+        </div>
+      ) : null}
 
       <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded border border-border">
         <Code2 className="h-3.5 w-3.5 text-muted-foreground" />
@@ -431,37 +478,55 @@ function SecretRow({
 
       <span className="min-w-0 flex-1 truncate font-mono text-sm">{secret.name}</span>
 
-      <div className="flex items-center gap-2">
-        <button
-          className="text-muted-foreground transition-colors hover:text-foreground"
-          onClick={() => setShowValue((current) => !current)}
+      {canManage ? (
+        <div className="flex items-center gap-2">
+          <button
+            className="text-muted-foreground transition-colors hover:text-foreground"
+            onClick={() => setShowValue((current) => !current)}
+            type="button"
+          >
+            {showValue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+          <span className="font-mono text-sm text-muted-foreground">
+            {showValue ? '(value hidden - edit to update)' : '*************'}
+          </span>
+        </div>
+      ) : hasAccess ? (
+        <span className="text-xs text-muted-foreground">Assigned</span>
+      ) : (
+        <Button
+          className="h-8 px-2 text-xs"
+          disabled={isRequestingAccess}
+          onClick={onRequestAccess}
+          size="sm"
           type="button"
+          variant="outline"
         >
-          {showValue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-        </button>
-        <span className="font-mono text-sm text-muted-foreground">
-          {showValue ? '(value hidden - edit to update)' : '*************'}
-        </span>
-      </div>
+          <KeyRound className="mr-1.5 h-3.5 w-3.5" />
+          Request access
+        </Button>
+      )}
 
       <span className="w-28 text-right text-xs text-muted-foreground">
         {formatRelativeDate(secret.updatedAt)}
       </span>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button className="h-7 w-7 p-0" size="sm" type="button" variant="ghost">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={onEdit}>Edit value</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-danger" onSelect={onDelete}>
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {canManage ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button className="h-7 w-7 p-0" size="sm" type="button" variant="ghost">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={onEdit}>Edit value</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-danger" onSelect={onDelete}>
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
     </div>
   )
 }

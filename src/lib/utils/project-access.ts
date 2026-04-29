@@ -17,6 +17,10 @@ export function getEffectiveProjectRole(
     return 'owner'
   }
 
+  if (project.orgRole === 'admin') {
+    return 'admin'
+  }
+
   if (project.membership?.role) {
     return project.membership.role
   }

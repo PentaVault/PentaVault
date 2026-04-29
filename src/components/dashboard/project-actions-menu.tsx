@@ -36,6 +36,7 @@ import {
   getApiFriendlyMessage,
   getApiFriendlyMessageWithRef,
 } from '@/lib/utils/errors'
+import { getEffectiveProjectRole } from '@/lib/utils/project-access'
 
 type ProjectActionsMenuProps = {
   projectItem: UserProject
@@ -56,7 +57,8 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
-  const isOwner = projectItem.membership?.role === 'owner'
+  const effectiveRole = getEffectiveProjectRole(projectItem)
+  const canManageProject = effectiveRole === 'owner' || effectiveRole === 'admin'
 
   async function handleSave(): Promise<void> {
     setError(null)
@@ -157,7 +159,7 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
           <Dialog onOpenChange={setIsEditOpen} open={isEditOpen}>
             <DialogTrigger asChild>
               <DropdownMenuItem
-                disabled={!isOwner}
+                disabled={!canManageProject}
                 onSelect={(event) => {
                   event.preventDefault()
                 }}
@@ -225,7 +227,7 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
           <DropdownMenuSeparator />
 
           <DropdownMenuItem
-            disabled={!isOwner || archiveProject.isPending || unarchiveProject.isPending}
+            disabled={!canManageProject || archiveProject.isPending || unarchiveProject.isPending}
             onSelect={(event) => {
               event.preventDefault()
               void handleArchiveToggle()
@@ -241,7 +243,7 @@ export function ProjectActionsMenu({ projectItem, onArchived }: ProjectActionsMe
           </DropdownMenuItem>
           <DropdownMenuItem
             className="text-danger hover:bg-danger/10"
-            disabled={!isOwner || deleteProject.isPending}
+            disabled={!canManageProject || deleteProject.isPending}
             onSelect={(event) => {
               event.preventDefault()
               setError(null)

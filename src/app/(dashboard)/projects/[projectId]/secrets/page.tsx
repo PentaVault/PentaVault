@@ -62,6 +62,8 @@ export default function ProjectSecretsPage() {
   }
 
   const canAccessProject = projectQuery.data?.canAccess ?? false
+  const effectiveRole = projectQuery.data?.effectiveRole ?? projectQuery.data?.orgRole ?? null
+  const canManageSecrets = effectiveRole === 'owner' || effectiveRole === 'admin'
 
   return (
     <div className="p-6">
@@ -82,16 +84,25 @@ export default function ProjectSecretsPage() {
               value={search}
             />
           </div>
-          <Button onClick={() => setIsAddOpen(true)} type="button">
-            <Plus className="mr-2 h-4 w-4" />
-            Add variable
-          </Button>
+          {canManageSecrets ? (
+            <Button onClick={() => setIsAddOpen(true)} type="button">
+              <Plus className="mr-2 h-4 w-4" />
+              Add variable
+            </Button>
+          ) : null}
         </div>
       </div>
 
-      <SecretsList enabled={canAccessProject} projectId={projectId} search={search} />
+      <SecretsList
+        canManage={canManageSecrets}
+        enabled={canAccessProject}
+        projectId={projectId}
+        search={search}
+      />
 
-      <AddSecretDialog open={isAddOpen} onOpenChange={setIsAddOpen} projectId={projectId} />
+      {canManageSecrets ? (
+        <AddSecretDialog open={isAddOpen} onOpenChange={setIsAddOpen} projectId={projectId} />
+      ) : null}
     </div>
   )
 }

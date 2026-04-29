@@ -10,7 +10,14 @@ import { InvitationDialog } from '@/components/invitations/invitation-dialog'
 import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown'
-import { getOrgProjectTeamPath, getProjectTeamPath } from '@/lib/constants'
+import {
+  getOrgProjectPath,
+  getOrgProjectSecretsPath,
+  getOrgProjectTeamPath,
+  getProjectPath,
+  getProjectSecretsPath,
+  getProjectTeamPath,
+} from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useAcceptInvitationById, useRejectInvitationById } from '@/lib/hooks/use-invitations'
 import {
@@ -260,6 +267,37 @@ function getProjectAccessRequestHref(notification: NotificationRecord): string |
     : getProjectTeamPath(projectId)
 }
 
+function getProjectNotificationHref(notification: NotificationRecord): string | null {
+  const projectId = getString(notification.data, 'projectId')
+  if (!projectId) {
+    return null
+  }
+
+  const organizationId = getString(notification.data, 'organizationId')
+  const notificationAction = getString(notification.data, 'notificationAction')
+
+  if (
+    notification.type === 'secret_access_request' ||
+    notificationAction === 'review_secret_access'
+  ) {
+    return organizationId
+      ? getOrgProjectSecretsPath(organizationId, projectId)
+      : getProjectSecretsPath(projectId)
+  }
+
+  if (notification.type === 'project_access_request') {
+    return organizationId
+      ? getOrgProjectTeamPath(organizationId, projectId)
+      : getProjectTeamPath(projectId)
+  }
+
+  if (notification.type === 'project_access_approved') {
+    return organizationId ? getOrgProjectPath(organizationId, projectId) : getProjectPath(projectId)
+  }
+
+  return null
+}
+
 function ProjectAccessRequestStatusIcon({
   action,
 }: {
@@ -317,6 +355,7 @@ function NotificationRow({
     projectRequestLocalAction
   )
   const projectRequestHref = getProjectAccessRequestHref(notification)
+  const notificationHref = getProjectNotificationHref(notification) ?? projectRequestHref
   const canReviewProjectRequest =
     notification.type === 'project_access_request' &&
     Boolean(requestId && projectId) &&
@@ -381,6 +420,7 @@ function NotificationRow({
     if (!requestId) return
 
     try {
+      await activateNotificationOrganization()
       await reviewProjectAccessRequest.mutateAsync({
         requestId,
         input: {
@@ -397,15 +437,29 @@ function NotificationRow({
     }
   }
 
-  function openNotificationTarget() {
+  async function activateNotificationOrganization(): Promise<void> {
+    const organizationId = getString(notification.data, 'organizationId')
+    if (!organizationId) {
+      return
+    }
+
+    try {
+      await auth.setActiveOrganization({ organizationId })
+    } catch {
+      await auth.refresh()
+    }
+  }
+
+  async function openNotificationTarget() {
     onRead()
     if (canActOnInvitation) {
       setDialogOpen(true)
       return
     }
 
-    if (projectRequestHref) {
-      router.push(projectRequestHref)
+    if (notificationHref) {
+      await activateNotificationOrganization()
+      router.push(notificationHref)
     }
   }
 
@@ -417,12 +471,12 @@ function NotificationRow({
           !notification.readAt && 'bg-accent/5'
         )}
         onClick={() => {
-          openNotificationTarget()
+          void openNotificationTarget()
         }}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault()
-            openNotificationTarget()
+            void openNotificationTarget()
           }
         }}
         role="button"

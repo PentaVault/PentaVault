@@ -109,6 +109,23 @@ export function useReviewProjectAccessRequest(projectId?: string | null) {
   })
 }
 
+export function useCreateSecretAccessRequest(projectId?: string | null) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: { secretId: string }) => {
+      if (!projectId) {
+        throw new Error('projectId is required to request variable access')
+      }
+
+      return projectsApi.createSecretAccessRequest(projectId, payload.secretId)
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+  })
+}
+
 export function useArchiveProject() {
   const queryClient = useQueryClient()
 

@@ -33,8 +33,8 @@ export default function ProjectTeamPage() {
 
   const projectName = projectQuery.data?.project.name ?? 'Project'
   const effectiveRole = projectQuery.data?.effectiveRole ?? projectQuery.data?.orgRole ?? null
-  const canReviewRequests = effectiveRole === 'owner' || effectiveRole === 'admin'
-  const requestsQuery = useProjectAccessRequests(projectId, 'pending', canReviewRequests)
+  const canManageMembers = effectiveRole === 'owner' || effectiveRole === 'admin'
+  const requestsQuery = useProjectAccessRequests(projectId, 'pending', canManageMembers)
   const members = useMemo(() => membersQuery.data?.members ?? [], [membersQuery.data?.members])
   const pendingRequests = useMemo(
     () => requestsQuery.data?.requests ?? [],
@@ -115,16 +115,18 @@ export default function ProjectTeamPage() {
         </div>
       </div>
 
-      <div className="mb-6 rounded-lg border border-border p-4">
-        <p className="mb-3 text-sm font-medium">Add member</p>
-        <TeamMemberAddForm
-          existingUserIds={existingUserIds}
-          organizationId={organizationId}
-          projectId={projectId}
-        />
-      </div>
+      {canManageMembers ? (
+        <div className="mb-6 rounded-lg border border-border p-4">
+          <p className="mb-3 text-sm font-medium">Add member</p>
+          <TeamMemberAddForm
+            existingUserIds={existingUserIds}
+            organizationId={organizationId}
+            projectId={projectId}
+          />
+        </div>
+      ) : null}
 
-      {canReviewRequests ? (
+      {canManageMembers ? (
         <div className="mb-6 overflow-hidden rounded-lg border border-border">
           <div className="border-b border-border px-4 py-3">
             <p className="text-sm font-medium">Pending access requests</p>
@@ -180,6 +182,7 @@ export default function ProjectTeamPage() {
           members.map((membership) => (
             <TeamMemberRow
               assignedCount={tokens.filter((token) => token.userId === membership.userId).length}
+              canManage={canManageMembers}
               key={membership.id}
               membership={membership}
               projectId={projectId}

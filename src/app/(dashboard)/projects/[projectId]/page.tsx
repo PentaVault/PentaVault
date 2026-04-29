@@ -73,7 +73,7 @@ export default function ProjectOverviewPage() {
         </div>
       </div>
 
-      <TokenAssignmentView projectId={project.id} />
+      <TokenAssignmentView effectiveRole={roleLabel} projectId={project.id} />
     </div>
   )
 }

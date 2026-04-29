@@ -274,7 +274,7 @@ describe('NotificationPanel', () => {
     expect(deleteNotificationMutate).toHaveBeenCalledWith('notification_1')
   })
 
-  it('navigates project access request notifications to the team page', () => {
+  it('switches organization and navigates project access request notifications to the team page', async () => {
     notificationsData = {
       unreadCount: 1,
       nextCursor: null,
@@ -304,7 +304,78 @@ describe('NotificationPanel', () => {
     fireEvent.click(screen.getByText('Project access requested'))
 
     expect(markReadMutate).toHaveBeenCalledWith('notification_access')
-    expect(routerPush).toHaveBeenCalledWith('/dashboard/org/org_1/projects/project_1/team')
+    await waitFor(() => {
+      expect(setActiveOrganization).toHaveBeenCalledWith({ organizationId: 'org_1' })
+      expect(routerPush).toHaveBeenCalledWith('/dashboard/org/org_1/projects/project_1/team')
+    })
+  })
+
+  it('opens project approval notifications on the org-scoped project page', async () => {
+    notificationsData = {
+      unreadCount: 1,
+      nextCursor: null,
+      notifications: [
+        {
+          id: 'notification_approved',
+          userId: 'user_1',
+          type: 'project_access_approved',
+          title: 'Access request approved',
+          body: 'Your project access request was approved.',
+          data: {
+            requestId: 'access_request_1',
+            requestStatus: 'approved',
+            projectId: 'project_1',
+            organizationId: 'org_1',
+          },
+          readAt: null,
+          actionTaken: null,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    }
+
+    render(<NotificationPanel />)
+
+    fireEvent.click(screen.getByText('Access request approved'))
+
+    await waitFor(() => {
+      expect(setActiveOrganization).toHaveBeenCalledWith({ organizationId: 'org_1' })
+      expect(routerPush).toHaveBeenCalledWith('/dashboard/org/org_1/projects/project_1')
+    })
+  })
+
+  it('opens secret access request notifications on the org-scoped secrets page', async () => {
+    notificationsData = {
+      unreadCount: 1,
+      nextCursor: null,
+      notifications: [
+        {
+          id: 'notification_secret_access',
+          userId: 'admin_1',
+          type: 'secret_access_request',
+          title: 'Variable access requested',
+          body: 'Member requested access to a project variable.',
+          data: {
+            notificationAction: 'review_secret_access',
+            projectId: 'project_1',
+            organizationId: 'org_1',
+            secretId: 'secret_1',
+          },
+          readAt: null,
+          actionTaken: null,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    }
+
+    render(<NotificationPanel />)
+
+    fireEvent.click(screen.getByText('Variable access requested'))
+
+    await waitFor(() => {
+      expect(setActiveOrganization).toHaveBeenCalledWith({ organizationId: 'org_1' })
+      expect(routerPush).toHaveBeenCalledWith('/dashboard/org/org_1/projects/project_1/secrets')
+    })
   })
 
   it('approves project access from the inline tick and then shows a status icon', async () => {
@@ -336,12 +407,15 @@ describe('NotificationPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Approve project access request' }))
 
-    expect(reviewAccessRequestMutateAsync).toHaveBeenCalledWith({
-      requestId: 'access_request_1',
-      input: {
-        status: 'approved',
-        grantedRole: 'developer',
-      },
+    await waitFor(() => {
+      expect(setActiveOrganization).toHaveBeenCalledWith({ organizationId: 'org_1' })
+      expect(reviewAccessRequestMutateAsync).toHaveBeenCalledWith({
+        requestId: 'access_request_1',
+        input: {
+          status: 'approved',
+          grantedRole: 'developer',
+        },
+      })
     })
     await waitFor(() => {
       expect(screen.getByText('Approved')).toBeInTheDocument()

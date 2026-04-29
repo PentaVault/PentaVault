@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import { useMemo, useState } from 'react'
 
 import { ChevronDown, Copy, Plus, RotateCcw, Shield, ShieldCheck, Trash2 } from 'lucide-react'
@@ -25,7 +26,7 @@ import {
   DialogPortal,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { getProjectSecretsPath } from '@/lib/constants'
+import { getOrgProjectSecretsPath, getProjectSecretsPath } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useProjectSecrets } from '@/lib/hooks/use-secrets'
 import { useProjectMembers } from '@/lib/hooks/use-team'
@@ -46,9 +47,21 @@ type GeneratedToken = {
   createdAt: string
 }
 
-export function TokenAssignmentView({ projectId }: { projectId: string }) {
+export function TokenAssignmentView({
+  effectiveRole,
+  projectId,
+}: {
+  effectiveRole?: string | null
+  projectId: string
+}) {
+  const params = useParams<{ orgId?: string }>()
   const auth = useAuth()
   const currentUserId = auth.session?.user.id ?? null
+  const orgId = typeof params.orgId === 'string' ? params.orgId : null
+  const secretsHref = orgId
+    ? getOrgProjectSecretsPath(orgId, projectId)
+    : getProjectSecretsPath(projectId)
+  const canManageAssignments = effectiveRole === 'owner' || effectiveRole === 'admin'
   const membersQuery = useProjectMembers(projectId)
   const secretsQuery = useProjectSecrets(projectId)
   const tokensQuery = useProjectTokens(projectId)
@@ -69,9 +82,11 @@ export function TokenAssignmentView({ projectId }: { projectId: string }) {
         <p className="mt-1 mb-4 text-xs text-muted-foreground">
           Add secrets to this project first, then come back to assign access.
         </p>
-        <Button asChild size="sm" type="button" variant="outline">
-          <Link href={getProjectSecretsPath(projectId)}>Go to Secrets</Link>
-        </Button>
+        {canManageAssignments ? (
+          <Button asChild size="sm" type="button" variant="outline">
+            <Link href={secretsHref}>Go to Secrets</Link>
+          </Button>
+        ) : null}
       </div>
     )
   }
@@ -91,19 +106,31 @@ export function TokenAssignmentView({ projectId }: { projectId: string }) {
     ? members.filter((member) => member.userId !== currentUserId)
     : members
   const orderedMembers = currentMember ? [currentMember, ...otherMembers] : otherMembers
-  const currentUserRole = currentMember?.role
-  const multipleMembers = members.length > 1
+  const visibleMembers = canManageAssignments
+    ? orderedMembers
+    : currentMember
+      ? [currentMember]
+      : []
+  const multipleMembers = canManageAssignments && members.length > 1
+
+  if (visibleMembers.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+        No variables assigned yet.
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-3">
-      {orderedMembers.map((member) => {
+      {visibleMembers.map((member) => {
         const isCurrentUser = member.userId === currentUserId
         const memberTokens = tokens.filter((token) => token.userId === member.userId)
 
         if (multipleMembers && !isCurrentUser) {
           return (
             <MemberAccordion
-              currentUserRole={currentUserRole}
+              canManage={canManageAssignments}
               key={member.userId}
               member={member}
               memberTokens={memberTokens}
@@ -116,6 +143,8 @@ export function TokenAssignmentView({ projectId }: { projectId: string }) {
         return (
           <MemberAccessSection
             alwaysOpen
+            canAddVariables={canManageAssignments}
+            canManageTokens={canManageAssignments}
             key={member.userId}
             member={member}
             memberTokens={memberTokens}
@@ -129,20 +158,19 @@ export function TokenAssignmentView({ projectId }: { projectId: string }) {
 }
 
 function MemberAccordion({
-  currentUserRole,
+  canManage,
   member,
   memberTokens,
   projectId,
   secrets,
 }: {
-  currentUserRole: ProjectMembership['role'] | undefined
+  canManage: boolean
   member: ProjectMembership
   memberTokens: ProxyToken[]
   projectId: string
   secrets: Secret[]
 }) {
   const [open, setOpen] = useState(false)
-  const canManage = currentUserRole === 'owner' || currentUserRole === 'admin'
   const displayName = member.user?.name ?? member.userId
   const email = member.user?.email ?? member.userId
 
@@ -175,6 +203,7 @@ function MemberAccordion({
       {open ? (
         <MemberAccessSection
           canAddVariables={canManage}
+          canManageTokens={canManage}
           member={member}
           memberTokens={memberTokens}
           projectId={projectId}
@@ -187,7 +216,8 @@ function MemberAccordion({
 
 function MemberAccessSection({
   alwaysOpen = false,
-  canAddVariables = true,
+  canAddVariables = false,
+  canManageTokens = false,
   member,
   memberTokens,
   projectId,
@@ -195,6 +225,7 @@ function MemberAccessSection({
 }: {
   alwaysOpen?: boolean
   canAddVariables?: boolean
+  canManageTokens?: boolean
   member: ProjectMembership
   memberTokens: ProxyToken[]
   projectId: string
@@ -215,6 +246,7 @@ function MemberAccessSection({
         <div className="divide-y divide-border">
           {memberTokens.map((token) => (
             <AssignedTokenRow
+              canManage={canManageTokens}
               key={token.tokenHash}
               memberId={member.userId}
               onGenerated={setRevealTokens}
@@ -478,12 +510,14 @@ function TokenRevealDialog({
 }
 
 function AssignedTokenRow({
+  canManage,
   memberId,
   onGenerated,
   projectId,
   secretName,
   token,
 }: {
+  canManage: boolean
   memberId: string
   onGenerated: (tokens: GeneratedToken[]) => void
   projectId: string
@@ -515,40 +549,44 @@ function AssignedTokenRow({
       <span className="w-28 text-right text-xs text-muted-foreground">
         {formatRelativeDate(token.createdAt)}
       </span>
-      <button
-        aria-label={`Refresh token for ${secretName}`}
-        className="text-muted-foreground opacity-0 transition-opacity hover:text-foreground disabled:opacity-40 group-hover:opacity-100"
-        disabled={generateTokens.isPending || revokeToken.isPending}
-        onClick={() => void rotateToken()}
-        type="button"
-      >
-        <RotateCcw className="h-3.5 w-3.5" />
-      </button>
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
+      {canManage ? (
+        <>
           <button
-            className="text-muted-foreground opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
+            aria-label={`Refresh token for ${secretName}`}
+            className="text-muted-foreground opacity-0 transition-opacity hover:text-foreground disabled:opacity-40 group-hover:opacity-100"
+            disabled={generateTokens.isPending || revokeToken.isPending}
+            onClick={() => void rotateToken()}
             type="button"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <RotateCcw className="h-3.5 w-3.5" />
           </button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogTitle>Revoke token for {secretName}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This token will stop working immediately. A new token can be generated later.
-          </AlertDialogDescription>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={revokeToken.isPending}
-              onClick={() => revokeToken.mutate({ projectId, tokenHash: token.tokenHash })}
-            >
-              Revoke token
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                className="text-muted-foreground opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
+                type="button"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogTitle>Revoke token for {secretName}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This token will stop working immediately. A new token can be generated later.
+              </AlertDialogDescription>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={revokeToken.isPending}
+                  onClick={() => revokeToken.mutate({ projectId, tokenHash: token.tokenHash })}
+                >
+                  Revoke token
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      ) : null}
     </div>
   )
 }
