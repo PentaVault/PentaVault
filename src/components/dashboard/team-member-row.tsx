@@ -46,6 +46,7 @@ export function TeamMemberRow({
   const isImmutableOwner = membership.role === 'owner' || membership.grantSource === 'org_owner'
   const isCurrentUser = Boolean(currentUserId) && membership.userId === currentUserId
   const canManageRow = canManage && !isImmutableOwner && !isCurrentUser
+  const canLeaveRow = isCurrentUser && !isImmutableOwner
 
   async function updateRole(nextRole: EditableRole): Promise<void> {
     if (!canManageRow) {
@@ -68,13 +69,13 @@ export function TeamMemberRow({
   }
 
   async function removeMemberRow(): Promise<void> {
-    if (!canManageRow) {
+    if (!canManageRow && !canLeaveRow) {
       return
     }
 
     try {
       await removeMember.mutateAsync(membership.userId)
-      toast.success('Member removed from project.')
+      toast.success(canLeaveRow ? 'You left this project.' : 'Member removed from project.')
     } catch (removeError) {
       toast.error(getApiFriendlyMessage(removeError, 'Unable to remove member.'))
     }
@@ -136,6 +137,22 @@ export function TeamMemberRow({
             variant="danger"
           >
             Remove
+          </Button>
+        </>
+      ) : canLeaveRow ? (
+        <>
+          <p className="justify-self-start font-mono text-xs text-muted-foreground md:justify-self-center">
+            {membership.role}
+          </p>
+          <Button
+            className="justify-self-start md:justify-self-end"
+            disabled={removeMember.isPending}
+            onClick={() => void removeMemberRow()}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            Leave
           </Button>
         </>
       ) : canManage ? (

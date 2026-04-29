@@ -97,7 +97,7 @@ export interface AccessRequest {
   projectId: string
   organizationId: string
   requesterId: string
-  requestedRole: Extract<ProjectRole, 'developer' | 'readonly'>
+  requestedRole: Extract<ProjectRole, 'member'>
   message: string | null
   status: AccessRequestStatus
   reviewedBy: string | null

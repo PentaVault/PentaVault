@@ -193,7 +193,7 @@ describe('OrganizationMembersPage', () => {
   it('allows owners to remove other members but not themselves', () => {
     render(<OrganizationMembersPage />)
 
-    expect(screen.getByRole('button', { name: 'Remove Owner User' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Leave organisation' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Remove Admin User' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Remove Member User' })).toBeEnabled()
   })
@@ -203,7 +203,7 @@ describe('OrganizationMembersPage', () => {
 
     render(<OrganizationMembersPage />)
 
-    expect(screen.getByRole('button', { name: 'Remove Owner User' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Leave organisation' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Remove Admin User' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Remove Member User' })).toBeEnabled()
   })

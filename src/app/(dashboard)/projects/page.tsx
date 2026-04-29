@@ -284,7 +284,7 @@ export default function ProjectsPage() {
       await createAccessRequest.mutateAsync({
         projectId,
         input: {
-          requestedRole: 'developer',
+          requestedRole: 'member',
         },
       })
       toast.success("Access request sent. You'll be notified when it's reviewed.")

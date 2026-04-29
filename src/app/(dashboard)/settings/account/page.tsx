@@ -21,8 +21,9 @@ import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { authApi } from '@/lib/api/auth'
 import { clearClientAuthHint } from '@/lib/auth/token'
-import { REGISTER_PATH } from '@/lib/constants'
+import { LOGIN_PATH, REGISTER_PATH } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useEmailCooldown } from '@/lib/hooks/use-email-cooldown'
 import { useToast } from '@/lib/hooks/use-toast'
 import { getApiErrorPayload, getApiFieldErrors, getApiFriendlyMessage } from '@/lib/utils/errors'
 
@@ -30,6 +31,7 @@ export default function AccountSettingsPage() {
   const auth = useAuth()
   const router = useRouter()
   const { toast } = useToast()
+  const passwordEmailCooldown = useEmailCooldown()
   const [emailInput, setEmailInput] = useState('')
   const [totpCode, setTotpCode] = useState('')
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -102,9 +104,14 @@ export default function AccountSettingsPage() {
       setIsSendingPasswordOtp(true)
       setPasswordErrors({})
       await authApi.requestPasswordResetOtp({ email: user.email })
+      passwordEmailCooldown.startCooldown(60)
       setPasswordOtpSent(true)
       toast.success('Password code sent. Check your email.')
     } catch (error) {
+      const payload = getApiErrorPayload(error)
+      if (payload?.code === 'RATE_LIMITED' && typeof payload.retryAfter === 'number') {
+        passwordEmailCooldown.startCooldown(payload.retryAfter)
+      }
       toast.error(getApiFriendlyMessage(error, 'Unable to send a password code right now.'))
     } finally {
       setIsSendingPasswordOtp(false)
@@ -125,6 +132,8 @@ export default function AccountSettingsPage() {
     }
     if (!newPassword) {
       nextErrors.newPassword = 'Enter a new password.'
+    } else if (passwordMode === 'current' && currentPassword && currentPassword === newPassword) {
+      nextErrors.newPassword = 'New password must be different from your current password.'
     }
     if (!confirmPassword) {
       nextErrors.confirmPassword = 'Confirm your new password.'
@@ -164,7 +173,10 @@ export default function AccountSettingsPage() {
       setPasswordTotpCode('')
       setPasswordOtp('')
       setPasswordOtpSent(false)
-      toast.success('Password changed successfully.')
+      toast.success('Password changed successfully. Please sign in again.')
+      await authApi.signOut()
+      await auth.refresh()
+      router.replace(LOGIN_PATH)
     } catch (error) {
       const fields = getApiFieldErrors(error)
       if (fields && Object.keys(fields).length > 0) {
@@ -338,16 +350,18 @@ export default function AccountSettingsPage() {
                 </div>
                 <Button
                   className="mt-6 h-11"
-                  disabled={isSendingPasswordOtp}
+                  disabled={isSendingPasswordOtp || passwordEmailCooldown.isOnCooldown}
                   onClick={() => void handleSendPasswordOtp()}
                   type="button"
                   variant="outline"
                 >
                   {isSendingPasswordOtp
                     ? 'Sending...'
-                    : passwordOtpSent
-                      ? 'Send again'
-                      : 'Send code'}
+                    : passwordEmailCooldown.isOnCooldown
+                      ? `Send again in ${passwordEmailCooldown.secondsLeft}s`
+                      : passwordOtpSent
+                        ? 'Send again'
+                        : 'Send code'}
                 </Button>
               </div>
             )}

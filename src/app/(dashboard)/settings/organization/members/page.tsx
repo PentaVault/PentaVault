@@ -37,7 +37,7 @@ import { useToast } from '@/lib/hooks/use-toast'
 import type { AuthOrganizationMember, OrgInvitation, OrgRole } from '@/lib/types/auth'
 import { getApiErrorPayload, getApiFriendlyMessage } from '@/lib/utils/errors'
 
-const ORG_ROLES: OrgRole[] = ['owner', 'admin', 'developer', 'readonly', 'auditor']
+const ORG_ROLES: OrgRole[] = ['owner', 'admin', 'developer']
 
 const ROLE_LEVEL: Record<OrgRole, number> = {
   owner: 5,
@@ -88,8 +88,12 @@ function canRemoveMember(
   actorUserId: string | null,
   target: AuthOrganizationMember
 ): boolean {
-  if (!isOrgRole(actorRole) || actorUserId === target.user.id) {
+  if (!isOrgRole(actorRole)) {
     return false
+  }
+
+  if (actorUserId === target.user.id) {
+    return true
   }
 
   if (actorRole === 'owner') {
@@ -334,7 +338,11 @@ export default function OrganizationMembersPage() {
 
     try {
       await removeMember.mutateAsync(memberToRemove.user.id)
-      toast.success(`${memberToRemove.user.name ?? memberToRemove.user.email ?? 'Member'} removed.`)
+      toast.success(
+        memberToRemove.user.id === currentUserId
+          ? 'You left this organisation.'
+          : `${memberToRemove.user.name ?? memberToRemove.user.email ?? 'Member'} removed.`
+      )
       setMemberToRemove(null)
     } catch (error) {
       const payload = getApiErrorPayload(error)
@@ -488,36 +496,42 @@ export default function OrganizationMembersPage() {
                           {roleLabel(member.membership.role)}
                         </StatusBadge>
                       </div>
-                      {canManage ? (
+                      {canManage || member.user.id === currentUserId ? (
                         <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                          <Select
-                            disabled={
-                              !canChangeMemberRole(orgRole, currentUserId, member) ||
-                              updateMember.isPending
-                            }
-                            onValueChange={(value) => void changeRole(member, value as OrgRole)}
-                            {...(isOrgRole(member.membership.role)
-                              ? { value: member.membership.role }
-                              : {})}
-                          >
-                            <SelectTrigger
-                              aria-label={`Change role for ${member.user.name ?? member.user.email ?? member.user.id}`}
-                              className="w-36"
+                          {canManage ? (
+                            <Select
+                              disabled={
+                                !canChangeMemberRole(orgRole, currentUserId, member) ||
+                                updateMember.isPending
+                              }
+                              onValueChange={(value) => void changeRole(member, value as OrgRole)}
+                              {...(isOrgRole(member.membership.role)
+                                ? { value: member.membership.role }
+                                : {})}
                             >
-                              <SelectValue placeholder="Role" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectGroup>
-                                {ORG_ROLES.map((value) => (
-                                  <SelectItem key={value} value={value}>
-                                    {ROLE_LABELS[value]}
-                                  </SelectItem>
-                                ))}
-                              </SelectGroup>
-                            </SelectContent>
-                          </Select>
+                              <SelectTrigger
+                                aria-label={`Change role for ${member.user.name ?? member.user.email ?? member.user.id}`}
+                                className="w-36"
+                              >
+                                <SelectValue placeholder="Role" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectGroup>
+                                  {ORG_ROLES.map((value) => (
+                                    <SelectItem key={value} value={value}>
+                                      {ROLE_LABELS[value]}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                          ) : null}
                           <Button
-                            aria-label={`Remove ${member.user.name ?? member.user.email ?? member.user.id}`}
+                            aria-label={
+                              member.user.id === currentUserId
+                                ? 'Leave organisation'
+                                : `Remove ${member.user.name ?? member.user.email ?? member.user.id}`
+                            }
                             className="h-9 w-9 px-0"
                             disabled={
                               !canRemoveMember(orgRole, currentUserId, member) ||
@@ -581,10 +595,15 @@ export default function OrganizationMembersPage() {
         <DialogPortal>
           <DialogOverlay className="fixed inset-0 z-50 bg-black/45" />
           <DialogContent className="fixed top-1/2 left-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-5 shadow-xl">
-            <DialogTitle className="text-lg font-semibold">Remove organisation member?</DialogTitle>
+            <DialogTitle className="text-lg font-semibold">
+              {memberToRemove?.user.id === currentUserId
+                ? 'Leave organisation?'
+                : 'Remove organisation member?'}
+            </DialogTitle>
             <DialogDescription className="mt-2 text-sm text-muted-foreground">
-              This removes the member from the organisation, all projects in it, and any project
-              access tokens tied to those projects.
+              {memberToRemove?.user.id === currentUserId
+                ? 'This removes your access to the organisation, its projects, and project access tokens tied to your account.'
+                : 'This removes the member from the organisation, all projects in it, and any project access tokens tied to those projects.'}
             </DialogDescription>
             {memberToRemove ? (
               <div className="mt-4 rounded-lg border border-border bg-background-secondary/40 p-3">
@@ -614,7 +633,11 @@ export default function OrganizationMembersPage() {
                 type="button"
                 variant="danger"
               >
-                {removeMember.isPending ? 'Removing...' : 'Remove member'}
+                {removeMember.isPending
+                  ? 'Removing...'
+                  : memberToRemove?.user.id === currentUserId
+                    ? 'Leave organisation'
+                    : 'Remove member'}
               </Button>
             </div>
           </DialogContent>

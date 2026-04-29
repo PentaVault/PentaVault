@@ -57,7 +57,7 @@ export interface ProjectTokensResponse {
 }
 
 export interface CreateAccessRequestInput {
-  requestedRole: 'developer' | 'readonly'
+  requestedRole: 'member'
   message?: string
 }
 
@@ -71,7 +71,7 @@ export interface ListAccessRequestsResponse {
 
 export interface ReviewAccessRequestInput {
   status: 'approved' | 'rejected'
-  grantedRole?: 'developer' | 'readonly'
+  grantedRole?: 'member'
   reviewerNote?: string
 }
 

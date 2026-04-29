@@ -83,7 +83,12 @@ export default function OrgAccessControlPage() {
     }
 
     try {
-      await organizationsApi.updateAccessControl(org.id, { [key]: checked })
+      await organizationsApi.updateAccessControl(org.id, {
+        [key]: checked,
+        ...(key === 'membersCanSeeAllProjects' && !checked
+          ? { membersCanRequestProjectAccess: false }
+          : {}),
+      })
       await auth.refresh()
       toast.success('Access control updated.')
     } catch (error) {
@@ -122,12 +127,12 @@ export default function OrgAccessControlPage() {
           </SettingRow>
 
           <SettingRow
-            description="When enabled, members can send access requests to project owners and admins for projects they can see."
+            description="When enabled, members can send access requests to project owners and admins for projects they can see. Enable project visibility first."
             title="Members can request project access"
           >
             <AccessSwitch
-              checked={membersCanRequestProjectAccess}
-              disabled={disabled}
+              checked={membersCanSeeAllProjects && membersCanRequestProjectAccess}
+              disabled={disabled || !membersCanSeeAllProjects}
               onCheckedChange={(checked) =>
                 void updateAccessControl('membersCanRequestProjectAccess', checked)
               }

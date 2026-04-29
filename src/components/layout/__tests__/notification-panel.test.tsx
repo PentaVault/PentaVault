@@ -413,7 +413,7 @@ describe('NotificationPanel', () => {
         requestId: 'access_request_1',
         input: {
           status: 'approved',
-          grantedRole: 'developer',
+          grantedRole: 'member',
         },
       })
     })

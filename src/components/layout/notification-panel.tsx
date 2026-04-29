@@ -426,7 +426,7 @@ function NotificationRow({
         input: {
           status,
           ...(status === 'approved'
-            ? { grantedRole: 'developer' }
+            ? { grantedRole: 'member' }
             : { reviewerNote: 'Declined from notification review.' }),
         },
       })
