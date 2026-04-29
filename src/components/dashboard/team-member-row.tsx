@@ -22,6 +22,7 @@ type TeamMemberRowProps = {
   membership: ProjectMembership
   assignedCount: number
   canManage: boolean
+  currentUserId: string | null
 }
 
 type EditableRole = 'admin' | 'member'
@@ -33,6 +34,7 @@ function displayProjectRole(role: ProjectMembership['role']): 'owner' | Editable
 export function TeamMemberRow({
   assignedCount,
   canManage,
+  currentUserId,
   projectId,
   membership,
 }: TeamMemberRowProps) {
@@ -42,7 +44,8 @@ export function TeamMemberRow({
 
   const [role, setRole] = useState<'owner' | EditableRole>(displayProjectRole(membership.role))
   const isImmutableOwner = membership.role === 'owner' || membership.grantSource === 'org_owner'
-  const canManageRow = canManage && !isImmutableOwner
+  const isCurrentUser = Boolean(currentUserId) && membership.userId === currentUserId
+  const canManageRow = canManage && !isImmutableOwner && !isCurrentUser
 
   async function updateRole(nextRole: EditableRole): Promise<void> {
     if (!canManageRow) {
@@ -87,7 +90,16 @@ export function TeamMemberRow({
       )}
     >
       <div className="min-w-0">
-        <p className="truncate text-sm font-medium">{membership.user?.name ?? membership.userId}</p>
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="truncate text-sm font-medium">
+            {membership.user?.name ?? membership.userId}
+          </p>
+          {isCurrentUser ? (
+            <span className="rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[10px] font-medium text-accent">
+              you
+            </span>
+          ) : null}
+        </div>
         <p className="truncate text-xs text-muted-foreground">
           {membership.user?.email ?? membership.userId}
         </p>

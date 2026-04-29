@@ -107,6 +107,14 @@ function roleLabel(role: string | null | undefined): string {
   return isOrgRole(role) ? ROLE_LABELS[role] : (role ?? 'member')
 }
 
+function formatGuestExpiry(expiresAt: string | null): string {
+  if (!expiresAt) {
+    return 'no expiry'
+  }
+
+  return `expires ${formatDistanceToNow(new Date(expiresAt), { addSuffix: true })}`
+}
+
 function invitationTone(status: OrgInvitation['status']) {
   if (status === 'pending') return 'warning'
   if (status === 'accepted') return 'success'
@@ -406,6 +414,11 @@ export default function OrganizationMembersPage() {
                       {currentMember.membership.memberType === 'guest' ? (
                         <StatusBadge tone="warning">guest</StatusBadge>
                       ) : null}
+                      {currentMember.membership.memberType === 'guest' ? (
+                        <span className="text-xs text-muted-foreground">
+                          {formatGuestExpiry(currentMember.membership.expiresAt)}
+                        </span>
+                      ) : null}
                       <StatusBadge
                         tone={currentMember.membership.role === 'owner' ? 'warning' : 'neutral'}
                       >
@@ -463,6 +476,11 @@ export default function OrganizationMembersPage() {
                       <div className="flex items-center gap-2 lg:justify-end">
                         {member.membership.memberType === 'guest' ? (
                           <StatusBadge tone="warning">guest</StatusBadge>
+                        ) : null}
+                        {member.membership.memberType === 'guest' ? (
+                          <span className="text-xs text-muted-foreground">
+                            {formatGuestExpiry(member.membership.expiresAt)}
+                          </span>
                         ) : null}
                         <StatusBadge
                           tone={member.membership.role === 'owner' ? 'warning' : 'neutral'}
