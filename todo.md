@@ -16,7 +16,19 @@ Not everything from the April 29 review is done, but the highest-impact implemen
 
 The core account, MFA, organization, project, secrets, project-team, and auditor metadata flows are mostly implemented. This pass added a shared project access-policy module in the backend, moved duplicated project RBAC decisions into that module, aligned project access-request roles with the `member` project role, added self-leave behavior for projects and organizations, fixed the account settings password-code cooldown, made password-change session behavior consistent, enabled project deletion from project settings, and tightened the organization project-visibility dependency between "Members can see all projects" and access requests.
 
-The main remaining gaps are reproduction-only invite/default-organization bugs, final secret/user/key isolation design, broader DAL-style backend access architecture beyond the project policy module, project access-request database enum migration, and manual browser/email verification.
+The main remaining gaps are reproduction-only invite/default-organization bugs, final secret/user/key isolation design, broader DAL-style backend access architecture beyond the project policy module, and manual browser/email verification. The legacy project access-request role storage migration has now been implemented and applied locally.
+
+## Latest Verification Pass
+
+Completed on April 29, 2026:
+
+- Applied backend bootstrap migrations against the local Docker Postgres database.
+- Applied auth migrations through the bootstrap runner and verified `pentavault_auth_migrations` contains `0000_repair_partial_mfa_recovery`, `0001_team_member_management`, `0002_email_pgmq_queues`, and `0003_merge_readonly_auditor`.
+- Verified legacy organization invitation/member `readonly` values are normalized to the canonical `auditor` role in the applied migration path.
+- Added and applied platform migration `0012_access_request_member_role`, which converts `access_request.requested_role` storage to the canonical `member` enum value.
+- Verified `access_request_requested_role` now only exposes the `member` enum label and existing access requests store `member`.
+- Added backend integration coverage for rejecting same-password current-password changes before the auth service mutates credentials.
+- Ran backend verification: `pnpm run format`, `pnpm run lint`, `pnpm run lint:md`, `pnpm run typecheck`, and `pnpm test`.
 
 ## Completed Or Mostly Working From Review
 
@@ -207,15 +219,16 @@ Status: [~]
 Priority: high
 Area: account settings / auth
 Review source: If the current password and new password are the same, the user should receive an error. This should apply to current-password, OTP-based, and MFA-based password changes.
-Current state: Current-password changes now reject identical current and new password values in both the account settings frontend and the backend auth API. OTP-based resets still cannot reliably compare against the current password unless the backend performs credential-history or hash-verification logic for that reset path.
+Current state: Current-password changes now reject identical current and new password values in both the account settings frontend and the backend auth API. Backend integration coverage now verifies this rejection happens before the auth service changes credentials or emits security notifications. OTP-based resets still cannot reliably compare against the current password unless the backend performs credential-history or hash-verification logic for that reset path.
 Needed:
 
 - Decide whether OTP-based reset should include credential-history enforcement so password reuse can also be rejected without needing the current password.
-- Add regression coverage for the current-password same-password rejection.
+- Manually verify the browser flow for current-password and MFA-enabled password changes.
 Evidence:
 
 - `src/app/(dashboard)/settings/account/page.tsx`
 - `PentaVault-Backend/apps/api/src/plugins/auth.ts`
+- `PentaVault-Backend/tests/integration/api-auth.test.ts`
 
 ### R-102 Password change session/logout behavior is delayed and inconsistent
 
@@ -327,13 +340,14 @@ Review source: Remove the separate Auditor role and merge it into read-only, or 
 Current state: Implemented with `auditor` as the canonical merged role. The frontend and backend organization role models no longer expose `readonly` as a normal role. A database migration converts existing organization member and invitation `readonly` values to `auditor`, and API/UI boundary logic treats old `readonly` values as a legacy alias only.
 Needed:
 
-- Apply and verify the new auth migration in local/staging databases.
+- Apply and verify the auth migration in staging/production databases.
 - Keep legacy `readonly` handling only as compatibility code until old data is gone everywhere.
 Evidence:
 
 - `PentaVault-Backend/apps/api/src/plugins/auth.ts`
 - `PentaVault-Backend/packages/auth/src/organization-permissions.ts`
 - `PentaVault-Backend/packages/db/migrations/auth/0003_merge_readonly_auditor.sql`
+- `PentaVault-Backend/scripts/db-bootstrap.mjs`
 - `src/app/(dashboard)/settings/organization/members/page.tsx`
 
 ### R-109 Project access requests still use developer/readonly roles
@@ -345,11 +359,14 @@ Review source: Project-specific roles should be only `admin` and `member`.
 Current state: Project access-request creation/review now normalizes requested and granted roles to `member`. The backend still serializes the value to the legacy database enum internally for compatibility, but the API and frontend model now expose `member`.
 Needed:
 
-- Plan a database enum migration so the internal stored access-request role can also become `member` instead of the legacy `developer` value.
+- Apply and verify the access-request role migration in staging/production databases.
 Evidence:
 
 - `src/app/(dashboard)/projects/page.tsx`
 - `PentaVault-Backend/apps/api/src/plugins/projects.ts`
+- `PentaVault-Backend/packages/db/migrations/platform/0012_access_request_member_role.sql`
+- `PentaVault-Backend/packages/db/src/platform-schema.ts`
+- `PentaVault-Backend/packages/projects/src/access-policy.ts`
 
 ### R-110 Add ability to leave a project
 
@@ -517,13 +534,13 @@ Evidence:
 ## Verification Checklist For Next Pass
 
 - [ ] Run a full browser test for password change with current password, email-code password change, and MFA-enabled password change.
-- [ ] Add tests for same-password rejection in current-password change.
+- [x] Add tests for same-password rejection in current-password change.
 - [ ] Test account settings password-code resend timer and backend rate-limit retry-after behavior in a browser.
 - [ ] Reproduce delete account -> recreate same email -> default personal organization.
 - [ ] Send invitation emails for owner, admin, and member roles in the real SMTP environment.
 - [ ] Accept organization invitations through both dashboard notification and email URL.
 - [x] Verify hidden private-project policy with backend unit tests when organization visibility is disabled.
 - [x] Add backend tests for project self-leave policy edge cases.
-- [ ] Plan the database migration for legacy project access-request role storage.
+- [x] Plan and implement the database migration for legacy project access-request role storage.
 - [ ] Design and document the final secret/user/key isolation model before coding deeper access rules.
 - [ ] Expand the centralized backend access-policy layer beyond project-level access into the broader DAL-style architecture.
