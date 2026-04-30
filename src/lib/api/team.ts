@@ -1,5 +1,13 @@
+import { z } from 'zod'
 import { authApi } from '@/lib/api/auth'
 import { apiClient } from '@/lib/api/client'
+import {
+  authOrganizationMemberSchema,
+  parseApiResponse,
+  projectMembershipResponseSchema,
+  projectMembersResponseSchema,
+  removeProjectMemberResponseSchema,
+} from '@/lib/api/schemas'
 import type {
   CreateProjectMemberInput,
   ProjectMembershipResponse,
@@ -23,7 +31,7 @@ export const teamApi = {
       `/v1/organizations/${organizationId}/members/${userId}`,
       input
     )
-    return response.data
+    return parseApiResponse(z.object({ member: authOrganizationMemberSchema }), response.data)
   },
 
   async removeOrganizationMember(
@@ -33,14 +41,17 @@ export const teamApi = {
     const response = await apiClient.delete<{ removed: true; userId: string }>(
       `/v1/organizations/${organizationId}/members/${userId}`
     )
-    return response.data
+    return parseApiResponse(
+      z.object({ removed: z.literal(true), userId: z.string() }),
+      response.data
+    )
   },
 
   async listMembers(projectId: string): Promise<ProjectMembersResponse> {
     const response = await apiClient.get<ProjectMembersResponse>(
       `/v1/projects/${projectId}/members`
     )
-    return response.data
+    return parseApiResponse(projectMembersResponseSchema, response.data)
   },
 
   async addMember(
@@ -51,7 +62,7 @@ export const teamApi = {
       `/v1/projects/${projectId}/members`,
       input
     )
-    return response.data
+    return parseApiResponse(projectMembershipResponseSchema, response.data)
   },
 
   async updateMember(
@@ -63,13 +74,13 @@ export const teamApi = {
       `/v1/projects/${projectId}/members/${userId}`,
       input
     )
-    return response.data
+    return parseApiResponse(projectMembershipResponseSchema, response.data)
   },
 
   async removeMember(projectId: string, userId: string): Promise<RemoveProjectMemberResponse> {
     const response = await apiClient.delete<RemoveProjectMemberResponse>(
       `/v1/projects/${projectId}/members/${userId}`
     )
-    return response.data
+    return parseApiResponse(removeProjectMemberResponseSchema, response.data)
   },
 }

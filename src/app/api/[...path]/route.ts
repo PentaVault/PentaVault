@@ -12,22 +12,50 @@ const HOP_BY_HOP_HEADERS = new Set([
   'transfer-encoding',
   'upgrade',
   'host',
+  'content-length',
+  'forwarded',
+  'x-forwarded-for',
+  'x-forwarded-host',
+  'x-forwarded-proto',
+  'x-forwarded-server',
+  'x-real-ip',
+  'x-client-ip',
+  'x-cluster-client-ip',
+  'x-original-forwarded-for',
+  'cf-connecting-ip',
+  'true-client-ip',
+  'fastly-client-ip',
+  'x-vercel-forwarded-for',
+  'x-vercel-ip-city',
+  'x-vercel-ip-country',
+  'x-vercel-ip-country-region',
 ])
 
-function buildTargetUrl(path: string[], request: NextRequest): URL {
+export function isSafeProxyPath(path: string[]): boolean {
+  return path.every((segment) => {
+    const normalizedSegment = segment.trim()
+    return normalizedSegment !== '' && normalizedSegment !== '.' && normalizedSegment !== '..'
+  })
+}
+
+export function buildTargetUrl(path: string[], request: NextRequest): URL | null {
+  if (!isSafeProxyPath(path)) {
+    return null
+  }
+
   const parsedBase = new URL(env.apiUrl)
   const trimmedPathname = parsedBase.pathname.replace(/\/+$/, '')
-  parsedBase.pathname = `${trimmedPathname.endsWith('/api') ? trimmedPathname : `${trimmedPathname}/api`}/`
+  const apiPathname = trimmedPathname.endsWith('/api') ? trimmedPathname : `${trimmedPathname}/api`
+  const encodedPath = path.map((segment) => encodeURIComponent(segment)).join('/')
+  parsedBase.pathname = `${apiPathname}/${encodedPath}`
   parsedBase.search = ''
   parsedBase.hash = ''
 
-  const base = parsedBase.toString()
-  const upstream = new URL(path.join('/'), base)
-  upstream.search = request.nextUrl.search
-  return upstream
+  parsedBase.search = request.nextUrl.search
+  return parsedBase
 }
 
-function forwardRequestHeaders(request: NextRequest): Headers {
+export function forwardRequestHeaders(request: NextRequest): Headers {
   const headers = new Headers()
 
   request.headers.forEach((value, key) => {
@@ -43,7 +71,7 @@ function forwardRequestHeaders(request: NextRequest): Headers {
   return headers
 }
 
-function forwardResponseHeaders(upstreamHeaders: Headers): Headers {
+export function forwardResponseHeaders(upstreamHeaders: Headers): Headers {
   const headers = new Headers()
 
   upstreamHeaders.forEach((value, key) => {
@@ -61,6 +89,17 @@ function forwardResponseHeaders(upstreamHeaders: Headers): Headers {
 
 async function handle(request: NextRequest, path: string[]): Promise<Response> {
   const targetUrl = buildTargetUrl(path, request)
+
+  if (!targetUrl) {
+    return Response.json(
+      {
+        code: 'INVALID_PROXY_PATH',
+        error: 'API proxy path is invalid.',
+      },
+      { status: 400 }
+    )
+  }
+
   const method = request.method.toUpperCase()
   const headers = forwardRequestHeaders(request)
   const requestInit: RequestInit = {

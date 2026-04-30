@@ -3,6 +3,7 @@ import axios, { AxiosHeaders } from 'axios'
 import { clearClientAuthHint } from '@/lib/auth/token'
 import { AUTH_SESSION_PATH, DEVICE_PATH, LOGIN_PATH, REGISTER_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
+import { dispatchAuthExpired } from '@/lib/query/cache'
 import { isBrowser } from '@/lib/runtime'
 
 function normalizeUrlPath(url: string): string {
@@ -235,6 +236,7 @@ apiClient.interceptors.response.use(
     if (error.response.status === 401 && isBrowser) {
       if (!shouldSkipUnauthorizedRedirect(error.config?.url)) {
         clearClientAuthHint()
+        dispatchAuthExpired()
         const redirectUrl =
           window.location.pathname !== LOGIN_PATH
             ? `${LOGIN_PATH}?expired=1&next=${encodeURIComponent(window.location.pathname)}`

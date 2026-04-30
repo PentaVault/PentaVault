@@ -1,4 +1,6 @@
+import { z } from 'zod'
 import { apiClient } from '@/lib/api/client'
+import { parseApiResponse, userSearchResponseSchema } from '@/lib/api/schemas'
 import type { UserSearchResponse } from '@/lib/types/api'
 
 export const usersApi = {
@@ -7,13 +9,16 @@ export const usersApi = {
       '/v1/users/check-username',
       { params: { username } }
     )
-    return response.data
+    return parseApiResponse(
+      z.object({ available: z.boolean(), username: z.string() }),
+      response.data
+    )
   },
 
   async search(query: string, organizationId: string): Promise<UserSearchResponse> {
     const response = await apiClient.get<UserSearchResponse>('/v1/users/search', {
       params: { q: query, organizationId },
     })
-    return response.data
+    return parseApiResponse(userSearchResponseSchema, response.data)
   },
 }

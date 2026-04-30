@@ -1,0 +1,57 @@
+export const queryKeys = {
+  invitationAll: ['invitation'] as const,
+  invitation: (token: string) => ['invitation', token] as const,
+  notifications: {
+    all: ['notifications'] as const,
+  },
+  organizationMembers: {
+    all: ['organization-members'] as const,
+    list: (organizationId: string | null) => ['organization-members', organizationId] as const,
+  },
+  organizationInvitations: {
+    all: ['organization-invitations'] as const,
+    list: (organizationId: string | null) => ['organization-invitations', organizationId] as const,
+  },
+  organizations: {
+    all: ['organizations'] as const,
+  },
+  projects: {
+    all: ['projects'] as const,
+    detailAll: ['project'] as const,
+    list: (organizationId: string | null) => ['projects', organizationId] as const,
+    detail: (projectId: string | null) => ['project', projectId] as const,
+  },
+  projectAccessRequests: {
+    all: ['project-access-requests'] as const,
+    list: (projectId: string | null, status: string) =>
+      ['project-access-requests', projectId, status] as const,
+  },
+  projectAudit: {
+    all: ['project-audit'] as const,
+    list: (projectId: string | null, query: unknown) =>
+      ['project-audit', projectId, query] as const,
+  },
+  projectMembers: {
+    all: ['project-members'] as const,
+    list: (projectId: string | null) => ['project-members', projectId] as const,
+  },
+  projectSecrets: {
+    all: ['project-secrets'] as const,
+    list: (projectId: string | null) => ['project-secrets', projectId] as const,
+  },
+  projectSecurityAlerts: {
+    all: ['project-security-alerts'] as const,
+    list: (projectId: string | null) => ['project-security-alerts', projectId] as const,
+  },
+  projectSecurityRecommendations: {
+    all: ['project-security-recommendations'] as const,
+    list: (projectId: string | null) => ['project-security-recommendations', projectId] as const,
+  },
+  projectTokens: {
+    all: ['project-tokens'] as const,
+    list: (projectId: string | null) => ['project-tokens', projectId] as const,
+  },
+  userSearchAll: ['user-search'] as const,
+  userSearch: (organizationId: string | null, query: string) =>
+    ['user-search', organizationId, query] as const,
+} as const

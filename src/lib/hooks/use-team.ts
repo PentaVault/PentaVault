@@ -3,12 +3,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { teamApi } from '@/lib/api/team'
+import { queryKeys } from '@/lib/query/keys'
 import type { CreateProjectMemberInput, UpdateProjectMemberInput } from '@/lib/types/api'
 import type { OrgRole } from '@/lib/types/auth'
 
 export function useProjectMembers(projectId: string | null, enabled = true) {
   return useQuery({
-    queryKey: ['project-members', projectId],
+    queryKey: queryKeys.projectMembers.list(projectId),
     queryFn: async () => {
       if (!projectId) {
         throw new Error('projectId is required to list project members')
@@ -22,7 +23,7 @@ export function useProjectMembers(projectId: string | null, enabled = true) {
 
 export function useOrganizationMembers(organizationId: string | null) {
   return useQuery({
-    queryKey: ['organization-members', organizationId],
+    queryKey: queryKeys.organizationMembers.list(organizationId),
     queryFn: async () => {
       if (!organizationId) {
         throw new Error('organizationId is required to list organization members')
@@ -48,7 +49,9 @@ export function useUpdateOrganizationMember(organizationId: string | null) {
       })
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['organization-members', organizationId] })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.organizationMembers.list(organizationId),
+      })
     },
   })
 }
@@ -65,7 +68,9 @@ export function useRemoveOrganizationMember(organizationId: string | null) {
       return teamApi.removeOrganizationMember(organizationId, userId)
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['organization-members', organizationId] })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.organizationMembers.list(organizationId),
+      })
     },
   })
 }
@@ -82,7 +87,7 @@ export function useAddProjectMember(projectId: string | null) {
       return teamApi.addMember(projectId, input)
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['project-members', projectId] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.projectMembers.list(projectId) })
     },
   })
 }
@@ -99,7 +104,7 @@ export function useUpdateProjectMember(projectId: string | null) {
       return teamApi.updateMember(projectId, payload.userId, payload.input)
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['project-members', projectId] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.projectMembers.list(projectId) })
     },
   })
 }
@@ -116,7 +121,7 @@ export function useRemoveProjectMember(projectId: string | null) {
       return teamApi.removeMember(projectId, userId)
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['project-members', projectId] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.projectMembers.list(projectId) })
     },
   })
 }

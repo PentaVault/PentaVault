@@ -3,11 +3,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { tokensApi } from '@/lib/api/tokens'
+import { queryKeys } from '@/lib/query/keys'
 import type { BatchIssueTokensInput, IssueTokenInput, RevokeTokenInput } from '@/lib/types/api'
 
 export function useProjectTokens(projectId: string | null, enabled = true) {
   return useQuery({
-    queryKey: ['project-tokens', projectId],
+    queryKey: queryKeys.projectTokens.list(projectId),
     queryFn: async () => {
       if (!projectId) {
         throw new Error('projectId is required to list tokens')
@@ -26,7 +27,9 @@ export function useGenerateToken() {
     mutationFn: async (input: IssueTokenInput & { projectId: string }) =>
       tokensApi.issueToken(input),
     onSuccess: async (_result, input) => {
-      await queryClient.invalidateQueries({ queryKey: ['project-tokens', input.projectId] })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.projectTokens.list(input.projectId),
+      })
     },
   })
 }
@@ -37,7 +40,9 @@ export function useGenerateTokensForMember() {
   return useMutation({
     mutationFn: async (input: BatchIssueTokensInput) => tokensApi.batchIssueTokens(input),
     onSuccess: async (_result, input) => {
-      await queryClient.invalidateQueries({ queryKey: ['project-tokens', input.projectId] })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.projectTokens.list(input.projectId),
+      })
     },
   })
 }
@@ -58,7 +63,9 @@ export function useRevokeToken() {
       throw new Error('token or tokenHash is required')
     },
     onSuccess: async (_result, input) => {
-      await queryClient.invalidateQueries({ queryKey: ['project-tokens', input.projectId] })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.projectTokens.list(input.projectId),
+      })
     },
   })
 }
@@ -69,10 +76,9 @@ export function useTokens() {
   return {
     issueToken: useMutation({
       mutationFn: tokensApi.issueToken,
-      onSuccess: async (_result, input) => {
-        await queryClient.invalidateQueries({ queryKey: ['project-tokens'] })
-        await queryClient.invalidateQueries({ queryKey: ['project-secrets'] })
-        await queryClient.invalidateQueries({ queryKey: ['project', input.secretId] })
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.projectTokens.all })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.projectSecrets.all })
       },
     }),
     resolveBulk: useMutation({
@@ -81,7 +87,7 @@ export function useTokens() {
     revokeToken: useMutation({
       mutationFn: tokensApi.revokeToken,
       onSuccess: async () => {
-        await queryClient.invalidateQueries({ queryKey: ['project-tokens'] })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.projectTokens.all })
       },
     }),
   }

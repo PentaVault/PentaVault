@@ -6,11 +6,12 @@ import { useEffect } from 'react'
 import { notificationsApi } from '@/lib/api/notifications'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useToast } from '@/lib/hooks/use-toast'
+import { queryKeys } from '@/lib/query/keys'
 import type { NotificationListResponse, NotificationRecord } from '@/lib/types/api'
 
 export function useNotifications() {
   return useQuery({
-    queryKey: ['notifications'],
+    queryKey: queryKeys.notifications.all,
     queryFn: () => notificationsApi.list(),
     staleTime: 30_000,
   })
@@ -36,7 +37,7 @@ export function useNotificationStream() {
 
       source.addEventListener('notification', (event) => {
         const notification = JSON.parse(event.data) as NotificationRecord
-        queryClient.setQueryData<NotificationListResponse>(['notifications'], (old) => {
+        queryClient.setQueryData<NotificationListResponse>(queryKeys.notifications.all, (old) => {
           if (!old) {
             return { notifications: [notification], unreadCount: 1, nextCursor: null }
           }
@@ -85,7 +86,7 @@ export function useMarkNotificationRead() {
   return useMutation({
     mutationFn: (notificationId: string) => notificationsApi.markRead(notificationId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
     },
   })
 }
@@ -96,7 +97,7 @@ export function useMarkAllNotificationsRead() {
   return useMutation({
     mutationFn: () => notificationsApi.markAllRead(),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
     },
   })
 }
@@ -107,7 +108,7 @@ export function useDeleteNotification() {
   return useMutation({
     mutationFn: (notificationId: string) => notificationsApi.delete(notificationId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
     },
   })
 }

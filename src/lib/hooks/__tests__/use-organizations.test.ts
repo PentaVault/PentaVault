@@ -1,5 +1,7 @@
 import { renderHook } from '@testing-library/react'
 
+import { queryKeys } from '@/lib/query/keys'
+
 import { useSwitchOrganization } from '../use-organizations'
 
 const invalidateQueries = vi.fn()
@@ -71,11 +73,11 @@ describe('useSwitchOrganization', () => {
 
     await options.onSuccess({}, 'org_2')
 
-    expect(removeQueries).toHaveBeenCalledWith({ queryKey: ['project'] })
-    expect(removeQueries).toHaveBeenCalledWith({ queryKey: ['project-members'] })
-    expect(removeQueries).toHaveBeenCalledWith({ queryKey: ['project-secrets'] })
-    expect(removeQueries).toHaveBeenCalledWith({ queryKey: ['project-tokens'] })
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['projects'] })
+    expect(removeQueries).toHaveBeenCalledWith({ queryKey: queryKeys.projects.detailAll })
+    expect(removeQueries).toHaveBeenCalledWith({ queryKey: queryKeys.projectMembers.all })
+    expect(removeQueries).toHaveBeenCalledWith({ queryKey: queryKeys.projectSecrets.all })
+    expect(removeQueries).toHaveBeenCalledWith({ queryKey: queryKeys.projectTokens.all })
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.projects.all })
   })
 
   it('calls auth refresh on success', async () => {

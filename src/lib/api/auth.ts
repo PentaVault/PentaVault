@@ -1,6 +1,13 @@
 import axios from 'axios'
+import { z } from 'zod'
 
 import { apiClient } from '@/lib/api/client'
+import {
+  authOrganizationMembersResponseSchema,
+  authOrganizationsResponseSchema,
+  authSessionSchema,
+  parseApiResponse,
+} from '@/lib/api/schemas'
 import { createMockSession, isMockAuthEnabled, isMockCredential } from '@/lib/auth/mock-auth'
 import { clearClientAuthHint, hasAuthCookieHint, setClientAuthHint } from '@/lib/auth/token'
 import { AUTH_REVOKE_SESSION_PATH, AUTH_SESSION_PATH, AUTH_SESSIONS_PATH } from '@/lib/constants'
@@ -41,6 +48,79 @@ import type {
 } from '@/lib/types/auth'
 import { getApiErrorCode, getApiErrorStatus } from '@/lib/utils/errors'
 
+const sessionListResponseSchema = z.object({
+  sessions: z.array(
+    z.object({
+      id: z.string(),
+      current: z.boolean(),
+      expiresAt: z.string().nullable(),
+      ipAddress: z.string().nullable(),
+      userAgent: z.string().nullable(),
+      browser: z.string().nullable().optional(),
+      os: z.string().nullable().optional(),
+      device: z.string().nullable().optional(),
+      location: z.string().nullable().optional(),
+    })
+  ),
+})
+
+const activeOrganizationResponseSchema = z.object({
+  activeOrganizationId: z.string().nullable(),
+  activeOrganizationSlug: z.string().nullable(),
+})
+
+const createOrganizationResponseSchema = z.object({
+  id: z.string().optional(),
+  slug: z.string().optional(),
+})
+
+const organizationAccessControlResponseSchema = z.object({
+  organization: z.object({
+    membersCanSeeAllProjects: z.boolean(),
+    membersCanRequestProjectAccess: z.boolean(),
+  }),
+})
+
+const deleteAccountResponseSchema = z.object({ deleted: z.literal(true) })
+
+const revokeSessionResponseSchema = z.object({
+  revoked: z.boolean(),
+  sessionId: z.string(),
+})
+
+const createApiKeyResponseSchema = z.object({
+  headerName: z.string(),
+  key: z.string(),
+  apiKey: z.object({
+    id: z.string().nullable(),
+    name: z.string().nullable(),
+    start: z.string().nullable(),
+    prefix: z.string().nullable(),
+    expiresAt: z.string().nullable(),
+    metadata: z.unknown(),
+    rateLimitEnabled: z.boolean().nullable(),
+    rateLimitMax: z.number().nullable(),
+    rateLimitTimeWindow: z.number().nullable(),
+  }),
+})
+
+const emailSignInResponseSchema = z
+  .object({
+    twoFactorRedirect: z.boolean().optional(),
+    twoFactorMethods: z.array(z.string()).optional(),
+  })
+  .default({})
+
+const resetPasswordResponseSchema = z.object({
+  success: z.boolean().optional(),
+  requiresMfa: z.boolean().optional(),
+})
+
+const mfaEnableResponseSchema = z.object({
+  totpURI: z.string(),
+  backupCodes: z.array(z.string()),
+})
+
 function isNetworkError(error: unknown): boolean {
   return axios.isAxiosError(error) && !error.response
 }
@@ -57,7 +137,7 @@ export const authApi = {
 
     try {
       const response = await apiClient.get<AuthSessionResponse>(AUTH_SESSION_PATH)
-      return response.data
+      return parseApiResponse(authSessionSchema, response.data)
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         return null
@@ -97,7 +177,7 @@ export const authApi = {
     }
 
     const response = await apiClient.get<AuthSessionListApiResponse>(AUTH_SESSIONS_PATH)
-    return response.data
+    return parseApiResponse(sessionListResponseSchema, response.data)
   },
 
   async listOrganizations(): Promise<AuthOrganizationsResponse> {
@@ -132,7 +212,7 @@ export const authApi = {
 
     try {
       const response = await apiClient.get<AuthOrganizationsResponse>('/v1/auth/organizations')
-      return response.data
+      return parseApiResponse(authOrganizationsResponseSchema, response.data)
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         return {
@@ -183,7 +263,7 @@ export const authApi = {
     const response = await apiClient.get<AuthOrganizationMembersResponse>(
       `/v1/organizations/${organizationId}/members`
     )
-    return response.data
+    return parseApiResponse(authOrganizationMembersResponseSchema, response.data)
   },
 
   async setActiveOrganization(
@@ -205,7 +285,7 @@ export const authApi = {
       '/v1/auth/organizations/active',
       payload
     )
-    return response.data
+    return parseApiResponse(activeOrganizationResponseSchema, response.data)
   },
 
   async createOrganization(
@@ -225,7 +305,7 @@ export const authApi = {
         keepCurrentActiveOrganization: input.keepCurrentActiveOrganization ?? false,
       }
     )
-    return response.data
+    return parseApiResponse(createOrganizationResponseSchema, response.data)
   },
 
   async updateOrganization(input: AuthUpdateOrganizationInput): Promise<void> {
@@ -263,7 +343,7 @@ export const authApi = {
         membersCanRequestProjectAccess: boolean
       }
     }>(`/v1/organizations/${organizationId}/access-control`, input)
-    return response.data
+    return parseApiResponse(organizationAccessControlResponseSchema, response.data)
   },
 
   async deleteOrganization(input: AuthDeleteOrganizationInput): Promise<void> {
@@ -291,7 +371,7 @@ export const authApi = {
     const response = await apiClient.delete<{ deleted: true }>('/v1/auth/account', {
       data: input,
     })
-    return response.data
+    return parseApiResponse(deleteAccountResponseSchema, response.data)
   },
 
   async revokeSession(input: AuthSessionRevokeRequest): Promise<AuthSessionRevokeResponse> {
@@ -306,7 +386,7 @@ export const authApi = {
       AUTH_REVOKE_SESSION_PATH,
       input
     )
-    return response.data
+    return parseApiResponse(revokeSessionResponseSchema, response.data)
   },
 
   async createApiKey(input: AuthCreateApiKeyRequest): Promise<AuthCreateApiKeyResponse> {
@@ -331,7 +411,7 @@ export const authApi = {
     }
 
     const response = await apiClient.post<AuthCreateApiKeyResponse>('/v1/auth/api-keys', input)
-    return response.data
+    return parseApiResponse(createApiKeyResponseSchema, response.data)
   },
 
   async signInWithEmail(input: AuthSignInWithEmailInput): Promise<AuthSignInWithEmailResponse> {
@@ -350,7 +430,7 @@ export const authApi = {
       rememberMe: true,
     })
 
-    return response.data ?? {}
+    return parseApiResponse(emailSignInResponseSchema, response.data ?? {})
   },
 
   async signOut(): Promise<void> {
@@ -436,7 +516,7 @@ export const authApi = {
       '/auth/email-otp/reset-password',
       input
     )
-    return response.data ?? { success: true }
+    return parseApiResponse(resetPasswordResponseSchema, response.data ?? { success: true })
   },
 
   async enableMfa(input: AuthEnableMfaInput): Promise<AuthEnableMfaResponse> {
@@ -449,7 +529,7 @@ export const authApi = {
     }
 
     const response = await apiClient.post<AuthEnableMfaResponse>('/auth/two-factor/enable', input)
-    return response.data
+    return parseApiResponse(mfaEnableResponseSchema, response.data)
   },
 
   async verifyTotp(input: AuthVerifyTotpInput): Promise<void> {
@@ -486,7 +566,7 @@ export const authApi = {
     }
 
     const response = await apiClient.post<AuthEnableMfaResponse>('/v1/auth/mfa/change/start', input)
-    return response.data
+    return parseApiResponse(mfaEnableResponseSchema, response.data)
   },
 
   async startRecoveryMfaSetup(
@@ -504,7 +584,7 @@ export const authApi = {
       '/v1/auth/mfa/recovery/start',
       input
     )
-    return response.data
+    return parseApiResponse(mfaEnableResponseSchema, response.data)
   },
 
   async completeMfaSetup(input: AuthCompleteMfaSetupInput): Promise<void> {

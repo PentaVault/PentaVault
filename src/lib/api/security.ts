@@ -1,4 +1,11 @@
 import { apiClient } from '@/lib/api/client'
+import {
+  createProbableLeakAlertResponseSchema,
+  parseApiResponse,
+  rotationRecommendationsResponseSchema,
+  securityAlertsResponseSchema,
+  updateSecurityAlertResponseSchema,
+} from '@/lib/api/schemas'
 import type {
   CreateProbableLeakAlertInput,
   CreateProbableLeakAlertResponse,
@@ -11,7 +18,7 @@ import type {
 export const securityApi = {
   async listAlerts(projectId: string): Promise<SecurityAlertsResponse> {
     const response = await apiClient.get<SecurityAlertsResponse>(`/v1/projects/${projectId}/alerts`)
-    return response.data
+    return parseApiResponse(securityAlertsResponseSchema, response.data)
   },
 
   async createProbableLeakAlert(
@@ -22,7 +29,7 @@ export const securityApi = {
       `/v1/projects/${projectId}/alerts/probable-leak`,
       input
     )
-    return response.data
+    return parseApiResponse(createProbableLeakAlertResponseSchema, response.data)
   },
 
   async updateAlert(
@@ -34,13 +41,13 @@ export const securityApi = {
       `/v1/projects/${projectId}/alerts/${alertId}`,
       input
     )
-    return response.data
+    return parseApiResponse(updateSecurityAlertResponseSchema, response.data)
   },
 
   async listRecommendations(projectId: string): Promise<RotationRecommendationsResponse> {
     const response = await apiClient.get<RotationRecommendationsResponse>(
       `/v1/projects/${projectId}/recommendations`
     )
-    return response.data
+    return parseApiResponse(rotationRecommendationsResponseSchema, response.data)
   },
 }
