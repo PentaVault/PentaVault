@@ -81,7 +81,11 @@ const organizationAccessControlResponseSchema = z.object({
   }),
 })
 
-const deleteAccountResponseSchema = z.object({ deleted: z.literal(true) })
+const deleteAccountResponseSchema = z.object({
+  deleted: z.literal(true),
+  softDeleted: z.literal(true).optional(),
+  purgeAfter: z.string().optional(),
+})
 
 const revokeSessionResponseSchema = z.object({
   revoked: z.boolean(),
@@ -362,13 +366,21 @@ export const authApi = {
     await apiClient.post('/auth/update-user', input)
   },
 
-  async deleteAccount(input: { email: string; totpCode?: string }): Promise<{ deleted: true }> {
+  async deleteAccount(input: { email: string; totpCode?: string }): Promise<{
+    deleted: true
+    softDeleted?: true
+    purgeAfter?: string
+  }> {
     if (isMockAuthEnabled()) {
       clearClientAuthHint()
-      return { deleted: true }
+      return { deleted: true, softDeleted: true }
     }
 
-    const response = await apiClient.delete<{ deleted: true }>('/v1/auth/account', {
+    const response = await apiClient.delete<{
+      deleted: true
+      softDeleted?: true
+      purgeAfter?: string
+    }>('/v1/auth/account', {
       data: input,
     })
     return parseApiResponse(deleteAccountResponseSchema, response.data)

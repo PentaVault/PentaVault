@@ -127,8 +127,28 @@ async function handle(request: NextRequest, path: string[]): Promise<Response> {
   }
 
   const responseHeaders = forwardResponseHeaders(upstreamResponse.headers)
+  if (upstreamResponse.headers.get('content-type')?.toLowerCase().includes('text/event-stream')) {
+    return new Response(upstreamResponse.body, {
+      status: upstreamResponse.status,
+      statusText: upstreamResponse.statusText,
+      headers: responseHeaders,
+    })
+  }
 
-  return new Response(upstreamResponse.body, {
+  let responseBody: ArrayBuffer | null = null
+  try {
+    responseBody = method === 'HEAD' ? null : await upstreamResponse.arrayBuffer()
+  } catch {
+    return Response.json(
+      {
+        code: 'API_UPSTREAM_UNAVAILABLE',
+        error: 'The API service is temporarily unavailable. Please try again in a moment.',
+      },
+      { status: 503 }
+    )
+  }
+
+  return new Response(responseBody, {
     status: upstreamResponse.status,
     statusText: upstreamResponse.statusText,
     headers: responseHeaders,

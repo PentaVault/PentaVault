@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import OrganizationMembersPage from '../page'
 
 let actorRole = 'owner'
+let defaultOrganizationId: string | null = null
 
 const members = [
   {
@@ -61,6 +62,7 @@ vi.mock('@/lib/hooks/use-auth', () => ({
     session: {
       user: {
         id: 'user_owner',
+        defaultOrganizationId,
       },
     },
     activeOrganization: {
@@ -87,7 +89,7 @@ vi.mock('@/lib/hooks/use-team', () => ({
           status: 'rejected',
           expiresAt: null,
           createdAt: '2026-04-20T00:00:00.000Z',
-          updatedAt: '2026-04-20T00:00:00.000Z',
+          updatedAt: '2026-04-26T00:00:00.000Z',
           inviterId: 'user_owner',
           memberType: 'member',
           acceptedByUserId: null,
@@ -157,6 +159,7 @@ vi.mock('@/lib/hooks/use-toast', () => ({
 describe('OrganizationMembersPage', () => {
   beforeEach(() => {
     actorRole = 'owner'
+    defaultOrganizationId = null
     revokeInvitationMutateAsync.mockResolvedValue({})
     revokeInvitationMutateAsync.mockClear()
   })
@@ -169,12 +172,21 @@ describe('OrganizationMembersPage', () => {
     expect(screen.queryByText('user_developer')).not.toBeInTheDocument()
   })
 
-  it('deduplicates invitation statuses into the member list', () => {
+  it('shows the current pending resend when an older invitation is declined later', () => {
     render(<OrganizationMembersPage />)
 
     expect(screen.getAllByText('new@example.com')).toHaveLength(1)
     expect(screen.getByText('pending')).toBeInTheDocument()
     expect(screen.queryByText('declined')).not.toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove invitation message for new@example.com' })
+    )
+    expect(revokeInvitationMutateAsync).toHaveBeenCalledWith('invite_new')
+  })
+
+  it('hides accepted invitation history from the member list', () => {
+    render(<OrganizationMembersPage />)
+
     expect(screen.queryByText('joined@example.com')).not.toBeInTheDocument()
     expect(screen.queryByText('joined')).not.toBeInTheDocument()
     expect(screen.queryByText('Invitations')).not.toBeInTheDocument()
@@ -196,6 +208,15 @@ describe('OrganizationMembersPage', () => {
     expect(screen.getByRole('button', { name: 'Leave organisation' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Remove Admin User' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Remove Member User' })).toBeEnabled()
+  })
+
+  it('does not allow the current user to leave their default personal organisation', () => {
+    defaultOrganizationId = 'org_1'
+
+    render(<OrganizationMembersPage />)
+
+    expect(screen.getByRole('button', { name: 'Leave organisation' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Remove Admin User' })).toBeEnabled()
   })
 
   it('allows admins to remove lower privilege members only', () => {

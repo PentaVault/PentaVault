@@ -20,7 +20,11 @@ const nullableStringSchema = z.string().nullable()
 const optionalNullableStringSchema = z.string().nullable().optional()
 const metadataSchema = z.record(z.string(), z.unknown())
 
-export const orgRoleSchema = z.enum(['owner', 'admin', 'developer', 'auditor'])
+const canonicalOrgRoleSchema = z.enum(['owner', 'admin', 'developer', 'auditor'])
+export const orgRoleSchema = z.preprocess(
+  (role) => (role === 'readonly' ? 'auditor' : role),
+  canonicalOrgRoleSchema
+)
 
 export const authSessionSchema = z
   .object({
@@ -112,7 +116,10 @@ export const authOrganizationMembersResponseSchema = z.object({
   invitations: z.array(orgInvitationSchema).optional(),
 })
 
-const projectRoleSchema = z.enum(PROJECT_ROLES)
+const projectRoleSchema = z.preprocess(
+  (role) => (role === 'developer' || role === 'readonly' ? 'member' : role),
+  z.enum(PROJECT_ROLES)
+)
 const projectStatusSchema = z.enum(PROJECT_STATUSES)
 const secretModeSchema = z.enum(SECRET_MODES)
 const secretStatusSchema = z.enum(SECRET_STATUSES)
@@ -508,5 +515,5 @@ export const updateProjectInputSchema = z.object({
 
 export const sendOrgInvitationInputSchema = z.object({
   email: z.string().trim().email(),
-  role: orgRoleSchema,
+  role: canonicalOrgRoleSchema,
 })

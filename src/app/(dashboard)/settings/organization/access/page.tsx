@@ -14,10 +14,12 @@ import { getApiFriendlyMessage } from '@/lib/utils/errors'
 function SettingRow({
   children,
   description,
+  footer,
   title,
 }: {
   children: ReactNode
   description: string
+  footer?: ReactNode
   title: string
 }) {
   return (
@@ -25,6 +27,7 @@ function SettingRow({
       <div className="min-w-0">
         <p className="text-sm font-medium">{title}</p>
         <p className="mt-0.5 max-w-2xl text-xs text-muted-foreground">{description}</p>
+        {footer ? <div className="mt-3">{footer}</div> : null}
       </div>
       <div className="flex-shrink-0">{children}</div>
     </div>
@@ -32,16 +35,19 @@ function SettingRow({
 }
 
 function AccessSwitch({
+  ariaLabel,
   checked,
   disabled,
   onCheckedChange,
 }: {
+  ariaLabel: string
   checked: boolean
   disabled: boolean
   onCheckedChange: (checked: boolean) => void
 }) {
   return (
     <Switch
+      aria-label={ariaLabel}
       checked={checked}
       className="relative h-6 w-11 rounded-full border border-border bg-background-elevated outline-none transition-colors data-[state=checked]:bg-accent/80"
       disabled={disabled}
@@ -115,26 +121,36 @@ export default function OrgAccessControlPage() {
         <CardContent>
           <SettingRow
             description="When enabled, members can see project names in this organisation even before they are added. Secrets and tokens still require project membership."
+            footer={
+              membersCanSeeAllProjects ? (
+                <div className="flex max-w-2xl items-center justify-between gap-4 rounded-md border border-border bg-background-secondary/35 px-3 py-2">
+                  <span className="min-w-0">
+                    <span className="block text-xs font-medium">
+                      Members can request project access
+                    </span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      Allow members to send access requests for projects they can see.
+                    </span>
+                  </span>
+                  <AccessSwitch
+                    ariaLabel="Toggle member project access requests"
+                    checked={membersCanRequestProjectAccess}
+                    disabled={disabled}
+                    onCheckedChange={(checked) =>
+                      void updateAccessControl('membersCanRequestProjectAccess', checked)
+                    }
+                  />
+                </div>
+              ) : null
+            }
             title="Members can see all projects"
           >
             <AccessSwitch
+              ariaLabel="Toggle member project visibility"
               checked={membersCanSeeAllProjects}
               disabled={disabled}
               onCheckedChange={(checked) =>
                 void updateAccessControl('membersCanSeeAllProjects', checked)
-              }
-            />
-          </SettingRow>
-
-          <SettingRow
-            description="When enabled, members can send access requests to project owners and admins for projects they can see. Enable project visibility first."
-            title="Members can request project access"
-          >
-            <AccessSwitch
-              checked={membersCanSeeAllProjects && membersCanRequestProjectAccess}
-              disabled={disabled || !membersCanSeeAllProjects}
-              onCheckedChange={(checked) =>
-                void updateAccessControl('membersCanRequestProjectAccess', checked)
               }
             />
           </SettingRow>

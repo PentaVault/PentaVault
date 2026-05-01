@@ -87,7 +87,8 @@ function canChangeMemberRole(
 function canRemoveMember(
   actorRole: string | null | undefined,
   actorUserId: string | null,
-  target: AuthOrganizationMember
+  target: AuthOrganizationMember,
+  isCurrentUserDefaultOrganization = false
 ): boolean {
   const normalizedActorRole = normalizeOrgRole(actorRole)
   if (!normalizedActorRole) {
@@ -95,7 +96,7 @@ function canRemoveMember(
   }
 
   if (actorUserId === target.user.id) {
-    return true
+    return !isCurrentUserDefaultOrganization
   }
 
   if (normalizedActorRole === 'owner') {
@@ -266,6 +267,8 @@ export default function OrganizationMembersPage() {
   const [memberSearch, setMemberSearch] = useState('')
   const orgRole = activeOrg?.membership.role
   const currentUserId = auth.session?.user.id ?? null
+  const isCurrentUserDefaultOrganization =
+    Boolean(organizationId) && auth.session?.user.defaultOrganizationId === organizationId
   const canManage = orgRole === 'owner' || orgRole === 'admin'
   const members = membersQuery.data?.members ?? []
   const currentMember = members.find((member) => member.user.id === currentUserId) ?? null
@@ -298,6 +301,13 @@ export default function OrganizationMembersPage() {
     for (const invitation of membersQuery.data?.invitations ?? []) {
       const key = invitation.email.trim().toLowerCase()
       const current = latestByEmail.get(key)
+      if (current?.status === 'pending' && invitation.status !== 'pending') {
+        continue
+      }
+      if (current?.status !== 'pending' && invitation.status === 'pending') {
+        latestByEmail.set(key, invitation)
+        continue
+      }
       const currentTime = current ? new Date(current.updatedAt).getTime() : 0
       const invitationTime = new Date(invitation.updatedAt).getTime()
       if (!current || invitationTime >= currentTime) {
@@ -536,8 +546,12 @@ export default function OrganizationMembersPage() {
                             }
                             className="h-9 w-9 px-0"
                             disabled={
-                              !canRemoveMember(orgRole, currentUserId, member) ||
-                              removeMember.isPending
+                              !canRemoveMember(
+                                orgRole,
+                                currentUserId,
+                                member,
+                                isCurrentUserDefaultOrganization
+                              ) || removeMember.isPending
                             }
                             onClick={() => setMemberToRemove(member)}
                             type="button"

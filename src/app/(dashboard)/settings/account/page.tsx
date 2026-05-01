@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { authApi } from '@/lib/api/auth'
 import { clearClientAuthHint } from '@/lib/auth/token'
-import { LOGIN_PATH, REGISTER_PATH } from '@/lib/constants'
+import { LOGIN_PATH } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useEmailCooldown } from '@/lib/hooks/use-email-cooldown'
 import { useToast } from '@/lib/hooks/use-toast'
@@ -72,7 +72,7 @@ export default function AccountSettingsPage() {
     setIsDeleting(true)
 
     try {
-      await authApi.deleteAccount({
+      const deletion = await authApi.deleteAccount({
         email: user.email,
         ...(user.twoFactorEnabled ? { totpCode } : {}),
       })
@@ -82,13 +82,22 @@ export default function AccountSettingsPage() {
       document.cookie = 'better-auth.session_token=; path=/; max-age=0'
       // biome-ignore lint/suspicious/noDocumentCookie: Clear the secure Better Auth cookie variant after account deletion.
       document.cookie = '__Secure-better-auth.session_token=; path=/; max-age=0'
-      toast.success('Your account has been permanently deleted.')
-      router.replace(REGISTER_PATH)
+      const purgeDate = deletion.purgeAfter
+        ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
+            new Date(deletion.purgeAfter)
+          )
+        : null
+      toast.success(
+        purgeDate
+          ? `Account deletion scheduled. Sign in before ${purgeDate} to restore it.`
+          : 'Account deletion scheduled. Sign in within 6 months to restore it.'
+      )
+      router.replace(LOGIN_PATH)
     } catch (error) {
       toast.error(
         getApiFriendlyMessage(
           error,
-          'Account deletion failed. No data was deleted. Please try again.'
+          'Account deletion failed. No account data was changed. Please try again.'
         )
       )
     } finally {
@@ -462,8 +471,8 @@ export default function AccountSettingsPage() {
           <CardHeader>
             <CardTitle className="text-danger">Danger zone</CardTitle>
             <CardDescription>
-              Deleting your account permanently removes all organisations you own, their projects,
-              secrets, tokens, API keys, sessions, and audit history.
+              Deleting your account immediately signs you out and revokes active credentials. Your
+              retained account data is purged after a 6-month recovery window.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-end">
@@ -489,17 +498,17 @@ export default function AccountSettingsPage() {
             aria-describedby="delete-account-description"
             className="fixed top-1/2 left-1/2 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-visible rounded-xl border border-border bg-card p-5"
           >
-            <DialogTitle className="text-danger">Delete your account permanently</DialogTitle>
+            <DialogTitle className="text-danger">Schedule account deletion</DialogTitle>
             <DialogDescription
               className="mt-2 text-sm text-muted-foreground"
               id="delete-account-description"
             >
-              This will permanently delete your account and all associated data.
+              Your account will be disabled now and permanently purged after the recovery window.
             </DialogDescription>
             <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-              <li>All organisations you own and their projects, secrets, and tokens</li>
-              <li>All your API keys and active sessions</li>
-              <li>Your complete audit history</li>
+              <li>Active sessions, API keys, and proxy tokens are revoked immediately</li>
+              <li>Owned organisations and project data are retained until final purge</li>
+              <li>Signing in again before the purge date restores the account</li>
             </ul>
             <div className="mt-4 space-y-2 pt-1">
               <p className="text-sm">Type your email address to confirm:</p>
@@ -549,7 +558,7 @@ export default function AccountSettingsPage() {
                 type="button"
                 variant="danger"
               >
-                {isDeleting ? 'Deleting account...' : 'Delete account permanently'}
+                {isDeleting ? 'Scheduling deletion...' : 'Schedule deletion'}
               </Button>
             </div>
           </DialogContent>

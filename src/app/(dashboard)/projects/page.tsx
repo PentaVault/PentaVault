@@ -868,7 +868,7 @@ function ProjectCardMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          className="h-7 w-7 p-0 opacity-0 transition-opacity group-hover:opacity-100"
+          className="h-7 w-7 p-0"
           onClick={(event) => event.stopPropagation()}
           size="sm"
           type="button"

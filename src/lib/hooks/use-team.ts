@@ -1,8 +1,12 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 
 import { teamApi } from '@/lib/api/team'
+import { DASHBOARD_HOME_PATH } from '@/lib/constants'
+import { useAuth } from '@/lib/hooks/use-auth'
+import { clearProjectScopedQueryCache } from '@/lib/query/cache'
 import { queryKeys } from '@/lib/query/keys'
 import type { CreateProjectMemberInput, UpdateProjectMemberInput } from '@/lib/types/api'
 import type { OrgRole } from '@/lib/types/auth'
@@ -58,6 +62,8 @@ export function useUpdateOrganizationMember(organizationId: string | null) {
 
 export function useRemoveOrganizationMember(organizationId: string | null) {
   const queryClient = useQueryClient()
+  const router = useRouter()
+  const auth = useAuth()
 
   return useMutation({
     mutationFn: async (userId: string) => {
@@ -67,10 +73,22 @@ export function useRemoveOrganizationMember(organizationId: string | null) {
 
       return teamApi.removeOrganizationMember(organizationId, userId)
     },
-    onSuccess: async () => {
+    onSuccess: async (_response, removedUserId) => {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.organizationMembers.list(organizationId),
       })
+
+      if (removedUserId !== auth.session?.user.id) {
+        return
+      }
+
+      clearProjectScopedQueryCache(queryClient)
+      queryClient.removeQueries({ queryKey: queryKeys.organizationMembers.all })
+      queryClient.removeQueries({ queryKey: queryKeys.organizationInvitations.all })
+      queryClient.removeQueries({ queryKey: queryKeys.organizations.all })
+      await auth.refresh()
+      await queryClient.invalidateQueries({ queryKey: queryKeys.organizations.all })
+      router.replace(DASHBOARD_HOME_PATH)
     },
   })
 }
