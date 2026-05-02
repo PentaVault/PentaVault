@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import OrganizationMembersPage from '../page'
 
 let actorRole = 'owner'
+let defaultOrganizationId: string | null = null
 
 const members = [
   {
@@ -54,13 +55,14 @@ const members = [
     },
   },
 ]
-const revokeInvitationMutateAsync = jest.fn()
+const revokeInvitationMutateAsync = vi.fn()
 
-jest.mock('@/lib/hooks/use-auth', () => ({
+vi.mock('@/lib/hooks/use-auth', () => ({
   useAuth: () => ({
     session: {
       user: {
         id: 'user_owner',
+        defaultOrganizationId,
       },
     },
     activeOrganization: {
@@ -75,7 +77,7 @@ jest.mock('@/lib/hooks/use-auth', () => ({
   }),
 }))
 
-jest.mock('@/lib/hooks/use-team', () => ({
+vi.mock('@/lib/hooks/use-team', () => ({
   useOrganizationMembers: () => ({
     data: {
       members,
@@ -87,7 +89,7 @@ jest.mock('@/lib/hooks/use-team', () => ({
           status: 'rejected',
           expiresAt: null,
           createdAt: '2026-04-20T00:00:00.000Z',
-          updatedAt: '2026-04-20T00:00:00.000Z',
+          updatedAt: '2026-04-26T00:00:00.000Z',
           inviterId: 'user_owner',
           memberType: 'member',
           acceptedByUserId: null,
@@ -121,18 +123,18 @@ jest.mock('@/lib/hooks/use-team', () => ({
     isLoading: false,
   }),
   useUpdateOrganizationMember: () => ({
-    mutateAsync: jest.fn(),
+    mutateAsync: vi.fn(),
     isPending: false,
   }),
   useRemoveOrganizationMember: () => ({
-    mutateAsync: jest.fn(),
+    mutateAsync: vi.fn(),
     isPending: false,
   }),
 }))
 
-jest.mock('@/lib/hooks/use-invitations', () => ({
+vi.mock('@/lib/hooks/use-invitations', () => ({
   useSendOrgInvitation: () => ({
-    mutateAsync: jest.fn(),
+    mutateAsync: vi.fn(),
     isPending: false,
   }),
   useRevokeInvitation: () => ({
@@ -140,16 +142,16 @@ jest.mock('@/lib/hooks/use-invitations', () => ({
     isPending: false,
   }),
   useResendInvitation: () => ({
-    mutateAsync: jest.fn(),
+    mutateAsync: vi.fn(),
     isPending: false,
   }),
 }))
 
-jest.mock('@/lib/hooks/use-toast', () => ({
+vi.mock('@/lib/hooks/use-toast', () => ({
   useToast: () => ({
     toast: {
-      success: jest.fn(),
-      error: jest.fn(),
+      success: vi.fn(),
+      error: vi.fn(),
     },
   }),
 }))
@@ -157,6 +159,7 @@ jest.mock('@/lib/hooks/use-toast', () => ({
 describe('OrganizationMembersPage', () => {
   beforeEach(() => {
     actorRole = 'owner'
+    defaultOrganizationId = null
     revokeInvitationMutateAsync.mockResolvedValue({})
     revokeInvitationMutateAsync.mockClear()
   })
@@ -169,12 +172,21 @@ describe('OrganizationMembersPage', () => {
     expect(screen.queryByText('user_developer')).not.toBeInTheDocument()
   })
 
-  it('deduplicates invitation statuses into the member list', () => {
+  it('shows the current pending resend when an older invitation is declined later', () => {
     render(<OrganizationMembersPage />)
 
     expect(screen.getAllByText('new@example.com')).toHaveLength(1)
     expect(screen.getByText('pending')).toBeInTheDocument()
     expect(screen.queryByText('declined')).not.toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove invitation message for new@example.com' })
+    )
+    expect(revokeInvitationMutateAsync).toHaveBeenCalledWith('invite_new')
+  })
+
+  it('hides accepted invitation history from the member list', () => {
+    render(<OrganizationMembersPage />)
+
     expect(screen.queryByText('joined@example.com')).not.toBeInTheDocument()
     expect(screen.queryByText('joined')).not.toBeInTheDocument()
     expect(screen.queryByText('Invitations')).not.toBeInTheDocument()
@@ -193,9 +205,18 @@ describe('OrganizationMembersPage', () => {
   it('allows owners to remove other members but not themselves', () => {
     render(<OrganizationMembersPage />)
 
-    expect(screen.getByRole('button', { name: 'Remove Owner User' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Leave organisation' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Remove Admin User' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Remove Member User' })).toBeEnabled()
+  })
+
+  it('does not allow the current user to leave their default personal organisation', () => {
+    defaultOrganizationId = 'org_1'
+
+    render(<OrganizationMembersPage />)
+
+    expect(screen.getByRole('button', { name: 'Leave organisation' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Remove Admin User' })).toBeEnabled()
   })
 
   it('allows admins to remove lower privilege members only', () => {
@@ -203,7 +224,7 @@ describe('OrganizationMembersPage', () => {
 
     render(<OrganizationMembersPage />)
 
-    expect(screen.getByRole('button', { name: 'Remove Owner User' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Leave organisation' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Remove Admin User' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Remove Member User' })).toBeEnabled()
   })

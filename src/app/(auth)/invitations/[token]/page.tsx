@@ -1,11 +1,10 @@
 'use client'
 
+import { formatDistanceToNow } from 'date-fns'
+import { Building2, Mail, XCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
-
-import { formatDistanceToNow } from 'date-fns'
-import { Building2, Mail, XCircle } from 'lucide-react'
 
 import { InvitationDialog } from '@/components/invitations/invitation-dialog'
 import { Button } from '@/components/ui/button'

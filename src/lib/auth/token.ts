@@ -15,10 +15,12 @@
 export const AUTH_HINT_COOKIE_NAME = 'pv_auth'
 
 export function setClientAuthHint(): void {
+  // biome-ignore lint/suspicious/noDocumentCookie: This non-sensitive hint lets middleware avoid an extra client round trip.
   document.cookie = `${AUTH_HINT_COOKIE_NAME}=1; path=/; SameSite=Lax`
 }
 
 export function clearClientAuthHint(): void {
+  // biome-ignore lint/suspicious/noDocumentCookie: This intentionally expires the non-sensitive auth hint cookie.
   document.cookie = `${AUTH_HINT_COOKIE_NAME}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict`
 }
 

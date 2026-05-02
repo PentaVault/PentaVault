@@ -1,11 +1,10 @@
 'use client'
 
+import { BarChart3, Building2, FolderKanban, LayoutDashboard, User } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
 import type { ReactNode } from 'react'
-
-import { BarChart3, Building2, FolderKanban, LayoutDashboard, User } from 'lucide-react'
+import { useState } from 'react'
 
 import { DashboardNavLink } from '@/components/layout/dashboard-nav-link'
 import { NotificationPanel } from '@/components/layout/notification-panel'
@@ -25,15 +24,16 @@ import { authApi } from '@/lib/api/auth'
 import {
   APP_NAME,
   DASHBOARD_HOME_PATH,
-  SETTINGS_ACCOUNT_PATH,
-  SETTINGS_ORGANIZATION_PATH,
   getOrgDashboardPath,
   getOrgOnboardingPath,
   getOrgProjectsPath,
+  SETTINGS_ACCOUNT_PATH,
+  SETTINGS_ORGANIZATION_PATH,
 } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useNotificationStream } from '@/lib/hooks/use-notifications'
 import { useToast } from '@/lib/hooks/use-toast'
+import { useUiStore } from '@/lib/stores/ui-store'
 import { cn } from '@/lib/utils/cn'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
 
@@ -51,7 +51,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const isSettingsContextRoute =
     pathname.startsWith(SETTINGS_ORGANIZATION_PATH) || pathname.startsWith(SETTINGS_ACCOUNT_PATH)
   const shouldUseContextSidebar = isProjectRoute || isSettingsContextRoute
-  const [isCreateOrgOpen, setIsCreateOrgOpen] = useState(false)
+  const isCreateOrgOpen = useUiStore((state) => state.createOrganizationDialogOpen)
+  const setIsCreateOrgOpen = useUiStore((state) => state.setCreateOrganizationDialogOpen)
   const [organizationName, setOrganizationName] = useState('')
   const [isCreatingOrganization, setIsCreatingOrganization] = useState(false)
 

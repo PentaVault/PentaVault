@@ -3,29 +3,29 @@ import userEvent from '@testing-library/user-event'
 
 import { LoginForm } from '../login-form'
 
-const routerReplace = jest.fn()
-const routerRefresh = jest.fn()
-const authRefresh = jest.fn()
-const toastSuccess = jest.fn()
-const toastInfo = jest.fn()
-const toastError = jest.fn()
-const toastWarning = jest.fn()
-const signInWithEmail = jest.fn()
-const verifyTotp = jest.fn()
-const verifyBackupCode = jest.fn()
-const startRecoveryMfaSetup = jest.fn()
-const completeMfaSetup = jest.fn()
-const sendEmailVerificationOtp = jest.fn()
-const verifyEmailOtp = jest.fn()
+const routerReplace = vi.fn()
+const routerRefresh = vi.fn()
+const authRefresh = vi.fn()
+const toastSuccess = vi.fn()
+const toastInfo = vi.fn()
+const toastError = vi.fn()
+const toastWarning = vi.fn()
+const signInWithEmail = vi.fn()
+const verifyTotp = vi.fn()
+const verifyBackupCode = vi.fn()
+const startRecoveryMfaSetup = vi.fn()
+const completeMfaSetup = vi.fn()
+const sendEmailVerificationOtp = vi.fn()
+const verifyEmailOtp = vi.fn()
 
-jest.mock('@/lib/env', () => ({
+vi.mock('@/lib/env', () => ({
   env: {
     isDev: false,
     mockAuthEnabled: false,
   },
 }))
 
-jest.mock('next/navigation', () => ({
+vi.mock('next/navigation', () => ({
   useRouter: () => ({
     replace: routerReplace,
     refresh: routerRefresh,
@@ -33,13 +33,13 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }))
 
-jest.mock('@/lib/hooks/use-auth', () => ({
+vi.mock('@/lib/hooks/use-auth', () => ({
   useAuth: () => ({
     refresh: authRefresh,
   }),
 }))
 
-jest.mock('@/lib/hooks/use-toast', () => ({
+vi.mock('@/lib/hooks/use-toast', () => ({
   useToast: () => ({
     toast: {
       success: toastSuccess,
@@ -50,7 +50,7 @@ jest.mock('@/lib/hooks/use-toast', () => ({
   }),
 }))
 
-jest.mock('@/lib/api/auth', () => ({
+vi.mock('@/lib/api/auth', () => ({
   authApi: {
     signInWithEmail: (...args: unknown[]) => signInWithEmail(...args),
     verifyTotp: (...args: unknown[]) => verifyTotp(...args),

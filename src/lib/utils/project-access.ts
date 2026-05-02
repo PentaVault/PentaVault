@@ -25,9 +25,5 @@ export function getEffectiveProjectRole(
     return project.membership.role
   }
 
-  if (project.orgRole === 'readonly') {
-    return 'readonly'
-  }
-
-  return 'developer'
+  return 'member'
 }

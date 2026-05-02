@@ -1,4 +1,16 @@
 import { apiClient } from '@/lib/api/client'
+import {
+  accessRequestResponseSchema,
+  createProjectInputSchema,
+  listAccessRequestsResponseSchema,
+  listProjectsResponseSchema,
+  parseApiInput,
+  parseApiResponse,
+  projectMembersResponseSchema,
+  secretAccessRequestResponseSchema,
+  updateProjectInputSchema,
+  userProjectSchema,
+} from '@/lib/api/schemas'
 import type {
   AccessRequestResponse,
   CreateAccessRequestInput,
@@ -14,22 +26,28 @@ import type {
 export const projectsApi = {
   async listProjects(): Promise<ListProjectsResponse> {
     const response = await apiClient.get<ListProjectsResponse>('/v1/projects')
-    return response.data
+    return parseApiResponse(listProjectsResponseSchema, response.data)
   },
 
   async getProject(projectId: string): Promise<ProjectResponse> {
     const response = await apiClient.get<ProjectResponse>(`/v1/projects/${projectId}`)
-    return response.data
+    return parseApiResponse(userProjectSchema, response.data)
   },
 
   async createProject(input: CreateProjectInput): Promise<ProjectResponse> {
-    const response = await apiClient.post<ProjectResponse>('/v1/projects', input)
-    return response.data
+    const response = await apiClient.post<ProjectResponse>(
+      '/v1/projects',
+      parseApiInput(createProjectInputSchema, input)
+    )
+    return parseApiResponse(userProjectSchema, response.data)
   },
 
   async updateProject(projectId: string, input: UpdateProjectInput): Promise<ProjectResponse> {
-    const response = await apiClient.patch<ProjectResponse>(`/v1/projects/${projectId}`, input)
-    return response.data
+    const response = await apiClient.patch<ProjectResponse>(
+      `/v1/projects/${projectId}`,
+      parseApiInput(updateProjectInputSchema, input)
+    )
+    return parseApiResponse(userProjectSchema, response.data)
   },
 
   async deleteProject(projectId: string): Promise<void> {
@@ -40,21 +58,21 @@ export const projectsApi = {
     const response = await apiClient.patch<ProjectResponse>(`/v1/projects/${projectId}`, {
       status: 'archived',
     })
-    return response.data
+    return parseApiResponse(userProjectSchema, response.data)
   },
 
   async unarchiveProject(projectId: string): Promise<ProjectResponse> {
     const response = await apiClient.patch<ProjectResponse>(`/v1/projects/${projectId}`, {
       status: 'active',
     })
-    return response.data
+    return parseApiResponse(userProjectSchema, response.data)
   },
 
   async listMembers(projectId: string): Promise<ProjectMembersResponse> {
     const response = await apiClient.get<ProjectMembersResponse>(
       `/v1/projects/${projectId}/members`
     )
-    return response.data
+    return parseApiResponse(projectMembersResponseSchema, response.data)
   },
 
   async createAccessRequest(
@@ -65,7 +83,7 @@ export const projectsApi = {
       `/v1/projects/${projectId}/access-requests`,
       input
     )
-    return response.data
+    return parseApiResponse(accessRequestResponseSchema, response.data)
   },
 
   async listAccessRequests(
@@ -78,7 +96,7 @@ export const projectsApi = {
         params: status ? { status } : undefined,
       }
     )
-    return response.data
+    return parseApiResponse(listAccessRequestsResponseSchema, response.data)
   },
 
   async reviewAccessRequest(
@@ -89,13 +107,16 @@ export const projectsApi = {
       `/v1/access-requests/${requestId}`,
       input
     )
-    return response.data
+    return parseApiResponse(accessRequestResponseSchema, response.data)
   },
 
-  async createSecretAccessRequest(projectId: string, secretId: string): Promise<{ requested: true }> {
+  async createSecretAccessRequest(
+    projectId: string,
+    secretId: string
+  ): Promise<{ requested: true }> {
     const response = await apiClient.post<{ requested: true }>(
       `/v1/projects/${projectId}/secrets/${secretId}/access-requests`
     )
-    return response.data
+    return parseApiResponse(secretAccessRequestResponseSchema, response.data)
   },
 }

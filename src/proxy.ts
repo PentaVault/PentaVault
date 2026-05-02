@@ -16,12 +16,13 @@ function getApiOrigin(): string | null {
 }
 
 export function proxy(request: NextRequest) {
-  const response = NextResponse.next()
   const apiOrigin = getApiOrigin()
   const isSecureRequest = request.nextUrl.protocol === 'https:'
-  const scriptSources = ["'self'", "'unsafe-inline'"]
+  const nonce = crypto.randomUUID().replaceAll('-', '')
+  const scriptSources = ["'self'", `'nonce-${nonce}'`]
 
   if (process.env.NODE_ENV !== 'production') {
+    scriptSources.push("'unsafe-inline'")
     scriptSources.push("'unsafe-eval'")
   }
 
@@ -37,6 +38,16 @@ export function proxy(request: NextRequest) {
     "form-action 'self'",
     ...(isSecureRequest ? ['upgrade-insecure-requests'] : []),
   ].join('; ')
+
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-nonce', nonce)
+  requestHeaders.set('Content-Security-Policy', csp)
+
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  })
 
   response.headers.set('Content-Security-Policy', csp)
   response.headers.set('X-Frame-Options', 'DENY')

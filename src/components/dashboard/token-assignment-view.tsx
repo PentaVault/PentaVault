@@ -1,10 +1,9 @@
 'use client'
 
+import { ChevronDown, Copy, Plus, RotateCcw, Shield, ShieldCheck, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useMemo, useState } from 'react'
-
-import { ChevronDown, Copy, Plus, RotateCcw, Shield, ShieldCheck, Trash2 } from 'lucide-react'
 
 import {
   AlertDialog,
@@ -375,10 +374,12 @@ function AddVariableAccessDialog({
               {availableSecrets.map((secret) => (
                 <label
                   className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 hover:bg-background-secondary"
+                  htmlFor={`secret-access-${secret.id}`}
                   key={secret.id}
                 >
                   <Checkbox
                     checked={selectedIds.has(secret.id)}
+                    id={`secret-access-${secret.id}`}
                     onCheckedChange={(checked) =>
                       setSelectedIds((current) => {
                         const next = new Set(current)

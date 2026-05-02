@@ -1,22 +1,37 @@
 'use client'
 
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
+import { useState } from 'react'
 
 import { ProjectAccessRequiredState } from '@/components/projects/project-access-required-state'
 import { ErrorState } from '@/components/shared/error-state'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogOverlay,
+  DialogPortal,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Switch, SwitchThumb } from '@/components/ui/switch'
-import { useProject, useUpdateProject } from '@/lib/hooks/use-projects'
+import { PROJECTS_PATH } from '@/lib/constants'
+import { useDeleteProject, useProject, useUpdateProject } from '@/lib/hooks/use-projects'
 import { useToast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils/cn'
 import { getApiErrorCode, getApiFriendlyMessage } from '@/lib/utils/errors'
 
 export default function ProjectSettingsPage() {
   const params = useParams<{ projectId: string }>()
+  const router = useRouter()
   const projectId = typeof params.projectId === 'string' ? params.projectId : null
   const projectQuery = useProject(projectId)
   const updateProject = useUpdateProject()
+  const deleteProject = useDeleteProject()
   const { toast } = useToast()
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [deleteNameInput, setDeleteNameInput] = useState('')
   const project = projectQuery.data?.project
   const effectiveRole = projectQuery.data?.effectiveRole ?? projectQuery.data?.orgRole ?? null
   const canManageSettings = effectiveRole === 'owner' || effectiveRole === 'admin'
@@ -36,6 +51,22 @@ export default function ProjectSettingsPage() {
       toast.success('Project setting updated.')
     } catch (error) {
       toast.error(getApiFriendlyMessage(error, 'Unable to update this project setting right now.'))
+    }
+  }
+
+  async function handleDeleteProject(): Promise<void> {
+    if (!projectId || !project) {
+      return
+    }
+
+    try {
+      await deleteProject.mutateAsync(projectId)
+      toast.success('Project deleted permanently.')
+      setIsDeleteOpen(false)
+      setDeleteNameInput('')
+      router.replace(PROJECTS_PATH)
+    } catch (error) {
+      toast.error(getApiFriendlyMessage(error, 'Unable to delete project right now.'))
     }
   }
 
@@ -127,13 +158,64 @@ export default function ProjectSettingsPage() {
         <div className="mt-6 rounded-lg border border-danger/35 p-4">
           <p className="text-sm font-medium text-danger">Delete project</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Permanent project deletion is available from the project list actions menu.
+            Permanently delete this project, including its secrets, tokens, and memberships.
           </p>
-          <Button className="mt-3" disabled size="sm" type="button" variant="danger">
-            Delete from project list
+          <Button
+            className="mt-3"
+            disabled={!project}
+            onClick={() => setIsDeleteOpen(true)}
+            size="sm"
+            type="button"
+            variant="danger"
+          >
+            Delete project
           </Button>
         </div>
       ) : null}
+
+      <Dialog
+        open={isDeleteOpen}
+        onOpenChange={(open) => {
+          setIsDeleteOpen(open)
+          if (!open) {
+            setDeleteNameInput('')
+          }
+        }}
+      >
+        <DialogPortal>
+          <DialogOverlay className="fixed inset-0 z-50 bg-black/45" />
+          <DialogContent className="fixed top-1/2 left-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-6 shadow-xl">
+            <DialogTitle className="text-xl text-danger">Delete project permanently</DialogTitle>
+            <DialogDescription className="mt-2 text-sm text-muted-foreground">
+              Type the project name to confirm. This action cannot be undone.
+            </DialogDescription>
+            <Input
+              className="mt-4"
+              onChange={(event) => setDeleteNameInput(event.target.value)}
+              placeholder={project?.name ?? 'Project name'}
+              value={deleteNameInput}
+            />
+            <div className="mt-5 flex justify-end gap-2">
+              <Button
+                disabled={deleteProject.isPending}
+                onClick={() => setIsDeleteOpen(false)}
+                type="button"
+                variant="outline"
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={deleteProject.isPending || deleteNameInput.trim() !== project?.name}
+                onClick={() => void handleDeleteProject()}
+                type="button"
+                variant="danger"
+              >
+                {deleteProject.isPending ? 'Deleting...' : 'Delete project'}
+              </Button>
+            </div>
+          </DialogContent>
+        </DialogPortal>
+      </Dialog>
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useCreateProjectAccessRequest } from '@/lib/hooks/use-projects'
 import { useToast } from '@/lib/hooks/use-toast'
+import { queryKeys } from '@/lib/query/keys'
 import type { ListProjectsResponse } from '@/lib/types/api'
 import { getApiErrorPayload, getApiFriendlyMessage } from '@/lib/utils/errors'
 
@@ -47,7 +48,9 @@ export function ProjectAccessRequiredState({
   const activeOrgId = auth.activeOrganization?.organization.id ?? null
   const canRequestAccess =
     auth.activeOrganization?.organization.membersCanRequestProjectAccess !== false
-  const projectList = queryClient.getQueryData<ListProjectsResponse>(['projects', activeOrgId])
+  const projectList = queryClient.getQueryData<ListProjectsResponse>(
+    queryKeys.projects.list(activeOrgId)
+  )
   const projectEntry =
     projectList?.projects.find((project) => project.project.id === projectId) ?? null
 
@@ -56,7 +59,7 @@ export function ProjectAccessRequiredState({
       await createAccessRequest.mutateAsync({
         projectId,
         input: {
-          requestedRole: 'developer',
+          requestedRole: 'member',
         },
       })
       toast.success("Access request sent. You'll be notified when it's reviewed.")

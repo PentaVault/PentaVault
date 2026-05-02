@@ -3,11 +3,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { invitationsApi } from '@/lib/api/invitations'
+import { queryKeys } from '@/lib/query/keys'
 import type { SendOrgInvitationInput } from '@/lib/types/api'
 
 export function useVerifyInvitation(token: string) {
   return useQuery({
-    queryKey: ['invitation', token],
+    queryKey: queryKeys.invitation(token),
     queryFn: () => invitationsApi.verify(token),
     enabled: Boolean(token),
     retry: false,
@@ -26,9 +27,11 @@ export function useSendOrgInvitation(organizationId: string | null) {
       return invitationsApi.send(organizationId, input)
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['organization-members', organizationId] })
       await queryClient.invalidateQueries({
-        queryKey: ['organization-invitations', organizationId],
+        queryKey: queryKeys.organizationMembers.list(organizationId),
+      })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.organizationInvitations.list(organizationId),
       })
     },
   })
@@ -40,8 +43,8 @@ export function useAcceptInvitation() {
   return useMutation({
     mutationFn: (token: string) => invitationsApi.accept(token),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['notifications'] })
-      await queryClient.invalidateQueries({ queryKey: ['organizations'] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.organizations.all })
     },
   })
 }
@@ -52,8 +55,8 @@ export function useAcceptInvitationById() {
   return useMutation({
     mutationFn: (invitationId: string) => invitationsApi.acceptById(invitationId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['notifications'] })
-      await queryClient.invalidateQueries({ queryKey: ['organizations'] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.organizations.all })
     },
   })
 }
@@ -64,7 +67,7 @@ export function useRejectInvitation() {
   return useMutation({
     mutationFn: (token: string) => invitationsApi.reject(token),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
     },
   })
 }
@@ -75,7 +78,7 @@ export function useRejectInvitationById() {
   return useMutation({
     mutationFn: (invitationId: string) => invitationsApi.rejectById(invitationId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
     },
   })
 }
@@ -92,7 +95,9 @@ export function useRevokeInvitation(organizationId: string | null) {
       return invitationsApi.revoke(organizationId, invitationId)
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['organization-members', organizationId] })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.organizationMembers.list(organizationId),
+      })
     },
   })
 }
@@ -109,7 +114,9 @@ export function useResendInvitation(organizationId: string | null) {
       return invitationsApi.resend(organizationId, invitationId)
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['organization-members', organizationId] })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.organizationMembers.list(organizationId),
+      })
     },
   })
 }

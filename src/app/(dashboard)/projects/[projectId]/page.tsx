@@ -57,6 +57,7 @@ export default function ProjectOverviewPage() {
 
   const { project, membership, orgRole } = projectQuery.data
   const roleLabel = projectQuery.data.effectiveRole ?? membership?.role ?? orgRole
+  const canAccessProject = projectQuery.data.canAccess
 
   return (
     <div className="p-6">
@@ -73,7 +74,17 @@ export default function ProjectOverviewPage() {
         </div>
       </div>
 
-      <TokenAssignmentView effectiveRole={roleLabel} projectId={project.id} />
+      {canAccessProject ? (
+        <TokenAssignmentView effectiveRole={roleLabel} projectId={project.id} />
+      ) : (
+        <div className="rounded-lg border border-border bg-card p-6">
+          <p className="text-sm font-medium">Project metadata access</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Your role can review project metadata and audit information, but secrets and tokens are
+            hidden.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

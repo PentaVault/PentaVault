@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api/client'
+import { auditListResponseSchema, parseApiResponse } from '@/lib/api/schemas'
 import type { AuditListQuery, AuditListResponse } from '@/lib/types/api'
 
 export const auditApi = {
@@ -9,6 +10,6 @@ export const auditApi = {
     const response = await apiClient.get<AuditListResponse>(`/v1/projects/${projectId}/audit`, {
       params: query,
     })
-    return response.data
+    return parseApiResponse(auditListResponseSchema, response.data)
   },
 }

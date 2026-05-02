@@ -1,5 +1,10 @@
-import type { AuthSession, AuthSessionListResponse, RevokeSessionRequest } from '@/lib/types/auth'
-import type { OrgInvitation, OrgRole } from '@/lib/types/auth'
+import type {
+  AuthSession,
+  AuthSessionListResponse,
+  OrgInvitation,
+  OrgRole,
+  RevokeSessionRequest,
+} from '@/lib/types/auth'
 import type {
   AccessRequest,
   AuditEvent,
@@ -57,7 +62,7 @@ export interface ProjectTokensResponse {
 }
 
 export interface CreateAccessRequestInput {
-  requestedRole: 'developer' | 'readonly'
+  requestedRole: 'member'
   message?: string
 }
 
@@ -71,7 +76,7 @@ export interface ListAccessRequestsResponse {
 
 export interface ReviewAccessRequestInput {
   status: 'approved' | 'rejected'
-  grantedRole?: 'developer' | 'readonly'
+  grantedRole?: 'member'
   reviewerNote?: string
 }
 

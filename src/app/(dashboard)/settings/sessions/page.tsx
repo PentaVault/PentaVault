@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -31,7 +31,7 @@ export default function SessionsPage() {
   const [sessions, setSessions] = useState<SessionItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  async function refreshSessions(signal?: { cancelled: boolean }): Promise<void> {
+  const refreshSessions = useCallback(async (signal?: { cancelled: boolean }): Promise<void> => {
     if (signal?.cancelled) {
       return
     }
@@ -53,7 +53,7 @@ export default function SessionsPage() {
         setIsPending(false)
       }
     }
-  }
+  }, [])
 
   async function revokeSession(sessionId: string): Promise<void> {
     try {
@@ -75,7 +75,7 @@ export default function SessionsPage() {
       window.clearTimeout(timer)
       signal.cancelled = true
     }
-  }, [])
+  }, [refreshSessions])
 
   return (
     <PageWrapper>

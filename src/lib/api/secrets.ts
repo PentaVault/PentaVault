@@ -1,4 +1,12 @@
 import { apiClient } from '@/lib/api/client'
+import {
+  createSecretResponseSchema,
+  deleteSecretResponseSchema,
+  importSecretsResponseSchema,
+  parseApiResponse,
+  projectSecretsResponseSchema,
+  updateSecretResponseSchema,
+} from '@/lib/api/schemas'
 import type {
   CreateSecretInput,
   CreateSecretResponse,
@@ -14,17 +22,17 @@ export const secretsApi = {
     const response = await apiClient.get<ProjectSecretsResponse>(
       `/v1/projects/${projectId}/secrets`
     )
-    return response.data
+    return parseApiResponse(projectSecretsResponseSchema, response.data)
   },
 
   async createSecret(input: CreateSecretInput): Promise<CreateSecretResponse> {
     const response = await apiClient.post<CreateSecretResponse>('/v1/secrets', input)
-    return response.data
+    return parseApiResponse(createSecretResponseSchema, response.data)
   },
 
   async importSecrets(input: ImportSecretsInput): Promise<ImportSecretsResponse> {
     const response = await apiClient.post<ImportSecretsResponse>('/v1/secrets/import', input)
-    return response.data
+    return parseApiResponse(importSecretsResponseSchema, response.data)
   },
 
   async updateSecret(input: UpdateSecretInput): Promise<UpdateSecretResponse> {
@@ -34,7 +42,7 @@ export const secretsApi = {
         plaintext: input.plaintext,
       }
     )
-    return response.data
+    return parseApiResponse(updateSecretResponseSchema, response.data)
   },
 
   async deleteSecret(input: {
@@ -46,6 +54,6 @@ export const secretsApi = {
       alreadyDeleted?: boolean
       revokedTokenCount?: number
     }>(`/v1/projects/${input.projectId}/secrets/${input.secretId}`)
-    return response.data
+    return parseApiResponse(deleteSecretResponseSchema, response.data)
   },
 }
