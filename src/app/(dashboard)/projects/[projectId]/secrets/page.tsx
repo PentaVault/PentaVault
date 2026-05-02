@@ -2,7 +2,7 @@
 
 import { Plus, Search } from 'lucide-react'
 import { useParams } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { ProjectAccessRequiredState } from '@/components/projects/project-access-required-state'
 import { AddSecretDialog } from '@/components/secrets/add-secret-dialog'
@@ -10,6 +10,14 @@ import { SecretsList } from '@/components/secrets/secrets-list'
 import { ErrorState } from '@/components/shared/error-state'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useProjectEnvironments } from '@/lib/hooks/use-project-configuration'
 import { useProject } from '@/lib/hooks/use-projects'
 import { getApiErrorCode, getApiFriendlyMessage } from '@/lib/utils/errors'
 
@@ -17,8 +25,23 @@ export default function ProjectSecretsPage() {
   const params = useParams<{ projectId: string }>()
   const projectId = typeof params.projectId === 'string' ? params.projectId : null
   const projectQuery = useProject(projectId)
+  const environmentsQuery = useProjectEnvironments(projectId, Boolean(projectId))
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<string | null>(null)
+
+  const environments = environmentsQuery.data?.environments ?? []
+  const selectedEnvironment =
+    environments.find((environment) => environment.id === selectedEnvironmentId) ??
+    environments.find((environment) => environment.isDefault) ??
+    environments[0] ??
+    null
+
+  useEffect(() => {
+    if (!selectedEnvironmentId && selectedEnvironment?.id) {
+      setSelectedEnvironmentId(selectedEnvironment.id)
+    }
+  }, [selectedEnvironment?.id, selectedEnvironmentId])
 
   if (!projectId) {
     return (
@@ -83,7 +106,24 @@ export default function ProjectSecretsPage() {
               value={search}
             />
           </div>
-          {canManageSecrets ? (
+          {environments.length > 0 ? (
+            <Select
+              onValueChange={(value) => setSelectedEnvironmentId(value)}
+              value={selectedEnvironment?.id ?? ''}
+            >
+              <SelectTrigger className="w-44">
+                <SelectValue placeholder="Environment" />
+              </SelectTrigger>
+              <SelectContent align="end">
+                {environments.map((environment) => (
+                  <SelectItem key={environment.id} value={environment.id}>
+                    {environment.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+          {canAccessProject ? (
             <Button onClick={() => setIsAddOpen(true)} type="button">
               <Plus className="mr-2 h-4 w-4" />
               Add variable
@@ -95,12 +135,21 @@ export default function ProjectSecretsPage() {
       <SecretsList
         canManage={canManageSecrets}
         enabled={canAccessProject}
+        environmentId={selectedEnvironment?.id ?? null}
+        environmentSlug={selectedEnvironment?.slug ?? 'development'}
         projectId={projectId}
         search={search}
       />
 
-      {canManageSecrets ? (
-        <AddSecretDialog open={isAddOpen} onOpenChange={setIsAddOpen} projectId={projectId} />
+      {canAccessProject ? (
+        <AddSecretDialog
+          allowProjectScope={canManageSecrets}
+          environmentId={selectedEnvironment?.id ?? null}
+          environmentSlug={selectedEnvironment?.slug ?? 'development'}
+          open={isAddOpen}
+          onOpenChange={setIsAddOpen}
+          projectId={projectId}
+        />
       ) : null}
     </div>
   )

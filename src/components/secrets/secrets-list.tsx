@@ -1,6 +1,17 @@
 'use client'
 
-import { Code2, Eye, EyeOff, KeyRound, MoreHorizontal, Shield, Trash2, X } from 'lucide-react'
+import {
+  Code2,
+  Eye,
+  EyeOff,
+  GitPullRequest,
+  KeyRound,
+  MoreHorizontal,
+  Shield,
+  Trash2,
+  Unlock,
+  X,
+} from 'lucide-react'
 import type { FormEvent } from 'react'
 import { useMemo, useState } from 'react'
 
@@ -32,7 +43,15 @@ import {
 } from '@/components/ui/dropdown'
 import { Input } from '@/components/ui/input'
 import { useCreateSecretAccessRequest } from '@/lib/hooks/use-projects'
-import { useDeleteSecret, useProjectSecrets, useUpdateSecret } from '@/lib/hooks/use-secrets'
+import {
+  useDeleteSecret,
+  usePersonalSecrets,
+  useProjectSecretAccess,
+  useProjectSecrets,
+  usePromotePersonalSecret,
+  usePromotionRequests,
+  useUpdateSecret,
+} from '@/lib/hooks/use-secrets'
 import { useProjectMembers } from '@/lib/hooks/use-team'
 import { useToast } from '@/lib/hooks/use-toast'
 import { useProjectTokens } from '@/lib/hooks/use-tokens'
@@ -44,18 +63,26 @@ import { formatRelativeDate } from '@/lib/utils/format'
 export function SecretsList({
   canManage = false,
   enabled = true,
+  environmentId,
+  environmentSlug,
   projectId,
   search,
 }: {
   canManage?: boolean
   enabled?: boolean
+  environmentId?: string | null
+  environmentSlug?: string
   projectId: string
   search: string
 }) {
   const secretsQuery = useProjectSecrets(projectId, enabled)
+  const personalSecretsQuery = usePersonalSecrets(projectId, enabled)
+  const accessQuery = useProjectSecretAccess(projectId, enabled)
+  const promotionRequestsQuery = usePromotionRequests(projectId, enabled)
   const tokensQuery = useProjectTokens(projectId, enabled)
   const membersQuery = useProjectMembers(projectId, enabled)
   const deleteSecret = useDeleteSecret()
+  const promotePersonalSecret = usePromotePersonalSecret()
   const requestAccess = useCreateSecretAccessRequest(projectId)
   const { toast } = useToast()
 
@@ -66,7 +93,17 @@ export function SecretsList({
   const [deleteImpactTarget, setDeleteImpactTarget] = useState<Secret | null>(null)
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false)
 
-  const secrets = useMemo(() => secretsQuery.data ?? [], [secretsQuery.data])
+  const secrets = useMemo(
+    () => [...(secretsQuery.data ?? []), ...(personalSecretsQuery.data ?? [])],
+    [personalSecretsQuery.data, secretsQuery.data]
+  )
+  const pendingPromotionRequestsBySecretId = useMemo(() => {
+    return new Map(
+      (promotionRequestsQuery.data ?? [])
+        .filter((request) => request.status === 'pending')
+        .map((request) => [request.personalSecretId, request])
+    )
+  }, [promotionRequestsQuery.data])
   const membersByUserId = useMemo(() => {
     return new Map((membersQuery.data?.members ?? []).map((member) => [member.userId, member]))
   }, [membersQuery.data?.members])
@@ -74,42 +111,65 @@ export function SecretsList({
     const map = new Map<string, Array<{ id: string; name: string; email: string | null }>>()
     const seen = new Set<string>()
 
-    for (const token of tokensQuery.data ?? []) {
-      if (token.revokedAt || !token.userId) {
+    for (const access of accessQuery.data ?? []) {
+      if (access.status !== 'active') {
         continue
       }
 
-      const key = `${token.secretId}:${token.userId}`
+      const key = `${access.secretId}:${access.userId}`
       if (seen.has(key)) {
         continue
       }
 
       seen.add(key)
-      const member = membersByUserId.get(token.userId)
-      const name = member?.user?.name ?? member?.user?.email ?? token.userId
+      const member = membersByUserId.get(access.userId)
+      const name = member?.user?.name ?? member?.user?.email ?? access.userId
       const email = member?.user?.email ?? null
-      const users = map.get(token.secretId) ?? []
-      users.push({ id: token.userId, name, email })
-      map.set(token.secretId, users)
+      const users = map.get(access.secretId) ?? []
+      users.push({ id: access.userId, name, email })
+      map.set(access.secretId, users)
     }
 
     return map
-  }, [membersByUserId, tokensQuery.data])
+  }, [accessQuery.data, membersByUserId])
   const assignedSecretIds = useMemo(() => {
     return new Set(
-      (tokensQuery.data ?? [])
-        .filter((token) => token.userId && !token.revokedAt)
-        .map((token) => token.secretId)
+      (accessQuery.data ?? [])
+        .filter((access) => access.status === 'active')
+        .map((access) => access.secretId)
     )
+  }, [accessQuery.data])
+  const activeTokenCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const token of tokensQuery.data ?? []) {
+      if (token.revokedAt) {
+        continue
+      }
+
+      counts.set(token.secretId, (counts.get(token.secretId) ?? 0) + 1)
+    }
+    return counts
   }, [tokensQuery.data])
   const filtered = useMemo(() => {
+    const scopedSecrets = secrets.filter((secret) => {
+      if ((secret.scope ?? 'project') !== 'project') {
+        return false
+      }
+
+      if (environmentId) {
+        return secret.environmentId === environmentId
+      }
+
+      return environmentSlug ? secret.environment === environmentSlug : true
+    })
+
     if (!search.trim()) {
-      return secrets
+      return scopedSecrets
     }
 
     const query = search.toLowerCase()
-    return secrets.filter((secret) => secret.name.toLowerCase().includes(query))
-  }, [secrets, search])
+    return scopedSecrets.filter((secret) => secret.name.toLowerCase().includes(query))
+  }, [environmentId, environmentSlug, secrets, search])
 
   const anySelected = canManage && selectedSecretIds.size > 0
   const selectedSecrets = canManage
@@ -146,6 +206,26 @@ export function SecretsList({
         getApiFriendlyMessageWithRef(
           error,
           'Unable to request access right now. The server did not return a specific reason.'
+        )
+      )
+    }
+  }
+
+  async function handlePromotePersonalSecret(secret: Secret): Promise<void> {
+    try {
+      await promotePersonalSecret.mutateAsync({
+        projectId,
+        secretId: secret.id,
+        targetName: secret.name,
+        targetEnvironment: secret.environment,
+        targetEnvironmentId: secret.environmentId ?? null,
+      })
+      toast.success('Promotion request sent.')
+    } catch (error) {
+      toast.error(
+        getApiFriendlyMessageWithRef(
+          error,
+          'Unable to request promotion right now. The server did not return a specific reason.'
         )
       )
     }
@@ -216,7 +296,7 @@ export function SecretsList({
     }
   }
 
-  if (secretsQuery.isLoading) {
+  if (secretsQuery.isLoading || personalSecretsQuery.isLoading) {
     return <SecretsListSkeleton />
   }
 
@@ -294,11 +374,15 @@ export function SecretsList({
             key={secret.id}
             canManage={canManage}
             hasAccess={assignedSecretIds.has(secret.id)}
+            tokenCount={activeTokenCounts.get(secret.id) ?? 0}
             isRequestingAccess={requestAccess.isPending}
+            isPromoting={promotePersonalSecret.isPending}
             onDelete={() => setDeleteTarget(secret)}
             onEdit={() => setEditTarget(secret)}
+            onPromote={() => void handlePromotePersonalSecret(secret)}
             onRequestAccess={() => void handleRequestAccess(secret)}
             onSelect={handleSelect}
+            promotionPending={pendingPromotionRequestsBySecretId.has(secret.id)}
             secret={secret}
           />
         ))}
@@ -424,29 +508,40 @@ function SecretRow({
   anySelected,
   canManage,
   hasAccess,
+  isPromoting,
+  tokenCount,
   secret,
   isLast,
   isSelected,
   isRequestingAccess,
   onDelete,
   onEdit,
+  onPromote,
   onRequestAccess,
   onSelect,
+  promotionPending,
 }: {
   anySelected: boolean
   canManage: boolean
   hasAccess: boolean
+  isPromoting: boolean
+  tokenCount: number
   secret: Secret
   isLast: boolean
   isSelected: boolean
   isRequestingAccess: boolean
   onDelete: () => void
   onEdit: () => void
+  onPromote: () => void
   onRequestAccess: () => void
   onSelect: (secretId: string, checked: boolean) => void
+  promotionPending: boolean
 }) {
   const [showValue, setShowValue] = useState(false)
   const showCheckbox = canManage && (anySelected || isSelected)
+  const canRevealPlaintextValue =
+    secret.encryptionMode === 'plaintext' && typeof secret.plaintextValue === 'string'
+  const isPersonal = (secret.scope ?? 'project') === 'personal'
 
   return (
     <div
@@ -471,27 +566,86 @@ function SecretRow({
         </div>
       ) : null}
 
-      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded border border-border">
-        <Code2 className="h-3.5 w-3.5 text-muted-foreground" />
+      <div
+        className={cn(
+          'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded border border-border',
+          secret.encryptionMode === 'plaintext' && 'border-warning/45 bg-warning-muted'
+        )}
+      >
+        {secret.encryptionMode === 'plaintext' ? (
+          <Unlock className="h-3.5 w-3.5 text-warning" />
+        ) : (
+          <Code2 className="h-3.5 w-3.5 text-muted-foreground" />
+        )}
       </div>
 
-      <span className="min-w-0 flex-1 truncate font-mono text-sm">{secret.name}</span>
+      <span className="min-w-0 flex-1 truncate font-mono text-sm">
+        {secret.name}
+        <span
+          className={cn(
+            'ml-2 align-middle font-sans text-[11px]',
+            isPersonal ? 'text-accent' : 'text-muted-foreground'
+          )}
+        >
+          {isPersonal ? 'personal' : 'project'}
+        </span>
+        <span
+          className={cn(
+            'ml-2 align-middle font-sans text-[11px]',
+            secret.encryptionMode === 'plaintext' ? 'text-warning' : 'text-muted-foreground'
+          )}
+        >
+          {secret.encryptionMode === 'plaintext' ? 'plaintext' : 'encrypted'}
+        </span>
+      </span>
 
-      {canManage ? (
+      {isPersonal || canManage || hasAccess ? (
         <div className="flex items-center gap-2">
-          <button
-            className="text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => setShowValue((current) => !current)}
-            type="button"
-          >
-            {showValue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </button>
+          {canRevealPlaintextValue ? (
+            <button
+              aria-label={showValue ? `Hide ${secret.name}` : `Show ${secret.name}`}
+              className="text-muted-foreground transition-colors hover:text-foreground"
+              onClick={() => setShowValue((current) => !current)}
+              type="button"
+            >
+              {showValue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          ) : null}
           <span className="font-mono text-sm text-muted-foreground">
-            {showValue ? '(value hidden - edit to update)' : '*************'}
+            {canRevealPlaintextValue
+              ? showValue
+                ? secret.plaintextValue
+                : '*************'
+              : '*************'}
           </span>
+          {canManage ? (
+            <span className="text-xs text-muted-foreground">
+              {tokenCount} token{tokenCount === 1 ? '' : 's'}
+            </span>
+          ) : null}
+          {!canManage && !isPersonal ? (
+            <span className="text-xs text-muted-foreground">Assigned</span>
+          ) : null}
+          {isPersonal ? (
+            promotionPending ? (
+              <span className="rounded border border-border px-2 py-1 text-xs text-muted-foreground">
+                Promotion pending
+              </span>
+            ) : (
+              <Button
+                className="h-8 px-2 text-xs"
+                disabled={isPromoting}
+                onClick={onPromote}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <GitPullRequest className="mr-1.5 h-3.5 w-3.5" />
+                Promote
+              </Button>
+            )
+          ) : null}
         </div>
-      ) : hasAccess ? (
-        <span className="text-xs text-muted-foreground">Assigned</span>
       ) : (
         <Button
           className="h-8 px-2 text-xs"
