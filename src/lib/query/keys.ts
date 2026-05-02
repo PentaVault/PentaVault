@@ -31,6 +31,25 @@ export const queryKeys = {
     list: (projectId: string | null, query: unknown) =>
       ['project-audit', projectId, query] as const,
   },
+  projectAnalytics: {
+    all: ['project-analytics'] as const,
+    project: (projectId: string | null, query: unknown) =>
+      ['project-analytics', projectId, query] as const,
+    secret: (projectId: string | null, secretId: string | null, query: unknown) =>
+      ['project-analytics', projectId, 'secret', secretId, query] as const,
+    user: (projectId: string | null, userId: string | null, query: unknown) =>
+      ['project-analytics', projectId, 'user', userId, query] as const,
+    token: (projectId: string | null, tokenId: string | null, query: unknown) =>
+      ['project-analytics', projectId, 'token', tokenId, query] as const,
+  },
+  projectEnvironments: {
+    all: ['project-environments'] as const,
+    list: (projectId: string | null) => ['project-environments', projectId] as const,
+  },
+  projectSettings: {
+    all: ['project-settings'] as const,
+    detail: (projectId: string | null) => ['project-settings', projectId] as const,
+  },
   projectMembers: {
     all: ['project-members'] as const,
     list: (projectId: string | null) => ['project-members', projectId] as const,
@@ -38,6 +57,12 @@ export const queryKeys = {
   projectSecrets: {
     all: ['project-secrets'] as const,
     list: (projectId: string | null) => ['project-secrets', projectId] as const,
+    personal: (projectId: string | null) => ['project-secrets', projectId, 'personal'] as const,
+    access: (projectId: string | null) => ['project-secrets', projectId, 'access'] as const,
+    secretAccess: (projectId: string | null, secretId: string | null) =>
+      ['project-secrets', projectId, secretId, 'access'] as const,
+    promotionRequests: (projectId: string | null) =>
+      ['project-secrets', projectId, 'promotion-requests'] as const,
   },
   projectSecurityAlerts: {
     all: ['project-security-alerts'] as const,

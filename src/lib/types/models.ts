@@ -13,6 +13,13 @@ export type AccessRequestStatus = 'pending' | 'approved' | 'denied' | 'rejected'
 export type ProjectMembershipGrantSource = 'manual' | 'org_owner' | 'access_request'
 export type SecretMode = (typeof SECRET_MODES)[number]
 export type SecretStatus = (typeof SECRET_STATUSES)[number]
+export type SecretEncryptionMode = 'encrypted' | 'plaintext'
+export type SecretScope = 'project' | 'personal'
+export type ProjectSettingsAccessMode = 'proxy' | 'direct' | 'both'
+export type SecretAccessMode = 'direct' | 'proxy'
+export type UserSecretAccessLevel = 'read'
+export type UserSecretAccessStatus = 'active' | 'revoked'
+export type PersonalSecretPromotionRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
 
 export type SecretVersionState = 'active' | 'superseded' | 'compromised' | 'destroyed'
 export type TokenHashAlgorithm = 'sha256'
@@ -123,11 +130,20 @@ export interface AccessRequest {
 export interface Secret {
   id: string
   projectId: string
+  organizationId?: string | null
   environment: string
+  environmentId?: string | null
   name: string
   mode: SecretMode
+  encryptionMode?: SecretEncryptionMode
+  isSensitive?: boolean
+  scope?: SecretScope
   status: SecretStatus
   currentVersionId: string
+  createdByUserId?: string | null
+  promotedFromSecretId?: string | null
+  version?: number
+  plaintextValue?: string
   createdAt: string
   updatedAt: string
 }
@@ -148,16 +164,110 @@ export interface ProxyToken {
   tokenStart: string
   mode: TokenMode
   secretId: string
+  environmentId?: string | null
   userId: string | null
   issuedByUserId: string | null
   expiresAt: string
   revokedAt: string | null
   activeSessionId: string | null
+  maxRequestsPerSecond?: number | null
+  maxRequestsTotal?: number | null
+  requestCount?: number
+  deviceFingerprint?: string | null
+  allowedIps?: string[] | null
+  ttlSeconds?: number | null
+  lastUsedAt?: string | null
+  lastUsedIp?: string | null
+  lastUsedDevice?: string | null
   rateLimitMax: number | null
   rateLimitRemaining: number | null
   rateLimitResetAt: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface ProjectEnvironment {
+  id: string
+  projectId: string
+  name: string
+  slug: string
+  color: string | null
+  isDefault: boolean
+  createdAt: string
+}
+
+export interface ProjectSettings {
+  projectId: string
+  accessMode: ProjectSettingsAccessMode
+  defaultTtlSeconds: number
+  requireDeviceBinding: boolean
+  maxRequestsPerTokenPerDay: number
+  allowPersonalSecrets: boolean
+  requireMemberApprovalForSecretAccess: boolean
+  updatedAt: string
+}
+
+export interface UserSecretAccess {
+  id: string
+  projectId: string
+  userId: string
+  secretId: string
+  environmentId: string | null
+  accessLevel: UserSecretAccessLevel
+  status: UserSecretAccessStatus
+  grantedBy: string
+  revokedBy: string | null
+  expiresAt: string | null
+  grantedAt: string
+  revokedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PersonalSecretPromotionRequest {
+  id: string
+  projectId: string
+  personalSecretId: string
+  requestedByUserId: string
+  status: PersonalSecretPromotionRequestStatus
+  targetEnvironmentId: string | null
+  targetEnvironment: string
+  targetName: string
+  promotedSecretId: string | null
+  reviewedByUserId: string | null
+  reviewerNote: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SecretAccessEvent {
+  id: string
+  organizationId: string
+  projectId: string
+  environmentId: string | null
+  secretId: string
+  userId: string | null
+  proxyTokenId: string | null
+  accessMode: SecretAccessMode
+  eventType: string
+  deviceFingerprint: string | null
+  ipAddress: string | null
+  userAgent: string | null
+  countryCode: string | null
+  responseTimeMs: number | null
+  upstreamStatus: number | null
+  errorCode: string | null
+  occurredAt: string
+}
+
+export interface ProjectAnalyticsSummary {
+  totalAccesses: number
+  uniqueUsers: number
+  uniqueDevices: number
+  accessByMode: Record<SecretAccessMode, number>
+  errorRate: number
+  avgResponseTimeMs: number | null
+  recentEvents: SecretAccessEvent[]
 }
 
 export interface AuditEvent {

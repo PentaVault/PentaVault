@@ -8,16 +8,22 @@ import type {
 import type {
   AccessRequest,
   AuditEvent,
+  PersonalSecretPromotionRequest,
   Project,
+  ProjectAnalyticsSummary,
+  ProjectEnvironment,
   ProjectMembership,
   ProjectRole,
+  ProjectSettings,
   ProxyToken,
   RotationRecommendation,
   Secret,
+  SecretAccessEvent,
   SecretMode,
   SecurityAlert,
   SecurityAlertStatus,
   UserProject,
+  UserSecretAccess,
 } from '@/lib/types/models'
 
 export interface ApiErrorResponse {
@@ -59,6 +65,117 @@ export interface ProjectSecretsResponse {
 
 export interface ProjectTokensResponse {
   tokens: ProxyToken[]
+}
+
+export interface ProjectEnvironmentsResponse {
+  environments: ProjectEnvironment[]
+}
+
+export interface CreateProjectEnvironmentInput {
+  name: string
+  slug: string
+  color?: string | null
+  isDefault?: boolean
+}
+
+export interface ProjectEnvironmentResponse {
+  environment: ProjectEnvironment
+}
+
+export interface ProjectSettingsResponse {
+  settings: ProjectSettings
+}
+
+export interface ProjectSecretAccessResponse {
+  access: UserSecretAccess[]
+}
+
+export interface SecretAccessResponse {
+  access: UserSecretAccess
+}
+
+export interface RevokeSecretAccessResponse {
+  revoked: boolean
+  access: UserSecretAccess | null
+}
+
+export interface GrantSecretAccessInput {
+  projectId: string
+  secretId: string
+  userId: string
+  environmentId?: string | null
+}
+
+export interface PersonalSecretsResponse {
+  secrets: Secret[]
+}
+
+export interface CreatePersonalSecretInput {
+  projectId: string
+  environment?: string
+  environmentId?: string
+  name: string
+  plaintext: string
+  mode: SecretMode
+  encryptionMode?: Secret['encryptionMode']
+  isSensitive?: boolean
+}
+
+export interface PromotionRequestsResponse {
+  requests: PersonalSecretPromotionRequest[]
+}
+
+export interface PromotionRequestResponse {
+  request: PersonalSecretPromotionRequest
+}
+
+export interface ApprovePromotionRequestResponse {
+  request: PersonalSecretPromotionRequest | null
+  secret: Secret
+}
+
+export interface PromotePersonalSecretInput {
+  projectId: string
+  secretId: string
+  targetName?: string
+  targetEnvironment?: string
+  targetEnvironmentId?: string | null
+}
+
+export interface UpdateProjectSettingsInput {
+  accessMode?: ProjectSettings['accessMode']
+  defaultTtlSeconds?: number
+  requireDeviceBinding?: boolean
+  maxRequestsPerTokenPerDay?: number
+  allowPersonalSecrets?: boolean
+  requireMemberApprovalForSecretAccess?: boolean
+}
+
+export interface ProjectAnalyticsQuery {
+  from?: string
+  to?: string
+  granularity?: 'hour' | 'day' | 'week'
+  limit?: number
+}
+
+export interface ProjectAnalyticsResponse {
+  summary: ProjectAnalyticsSummary
+  events: SecretAccessEvent[]
+  scope?: {
+    projectId: string
+    effectiveRole: ProjectRole
+    granularity: 'hour' | 'day' | 'week'
+    from: string | null
+    to: string | null
+  }
+}
+
+export interface ScopedProjectAnalyticsResponse {
+  summary: ProjectAnalyticsSummary
+  events: SecretAccessEvent[]
+  secretId?: string
+  userId?: string
+  tokenId?: string
 }
 
 export interface CreateAccessRequestInput {
@@ -164,9 +281,13 @@ export interface CreateSecretInput {
   id?: string
   projectId: string
   environment?: string
+  environmentId?: string
   name: string
   plaintext: string
   mode: SecretMode
+  encryptionMode?: Secret['encryptionMode']
+  isSensitive?: boolean
+  scope?: Secret['scope']
 }
 
 export interface CreateSecretResponse {
@@ -188,7 +309,11 @@ export interface UpdateSecretResponse {
 export interface ImportSecretsInput {
   projectId: string
   environment?: string
+  environmentId?: string
   mode: SecretMode
+  encryptionMode?: Secret['encryptionMode']
+  isSensitive?: boolean
+  scope?: Secret['scope']
   issueTokens?: boolean
   secrets: Record<string, string>
 }
@@ -215,10 +340,16 @@ export interface ImportSecretsResponse {
 
 export interface IssueTokenInput {
   secretId: string
+  environmentId?: string
   userId?: string
   mode: SecretMode
   expiresAt?: string
   activeSessionId?: string
+  maxRequestsPerSecond?: number
+  maxRequestsTotal?: number
+  deviceFingerprint?: string
+  allowedIps?: string[]
+  ttlSeconds?: number
   rateLimitMax?: number
   rateLimitRemaining?: number
   rateLimitResetAt?: string
