@@ -196,7 +196,7 @@ export const accessRequestSchema = z.object({
 export const userProjectSchema = z.object({
   project: projectSchema,
   membership: projectMembershipSchema.nullable(),
-  orgRole: z.string(),
+  orgRole: orgRoleSchema,
   canAccess: z.boolean(),
   canRequestAccess: z.boolean().optional(),
   effectiveRole: projectRoleSchema.nullable().optional(),

@@ -29,9 +29,10 @@ export default function ProjectTeamPage() {
   const projectQuery = useProject(projectId)
   const canAccessProject = projectQuery.data?.canAccess ?? false
   const effectiveRole = projectQuery.data?.effectiveRole ?? projectQuery.data?.orgRole ?? null
-  const canReadMembers = canAccessProject || effectiveRole === 'auditor'
+  const canReadMembers =
+    canAccessProject || effectiveRole === 'auditor' || effectiveRole === 'readonly'
   const membersQuery = useProjectMembers(projectId, canReadMembers)
-  const tokensQuery = useProjectTokens(projectId, canAccessProject)
+  const tokensQuery = useProjectTokens(projectId, canReadMembers)
   const reviewRequest = useReviewProjectAccessRequest(projectId)
   const { toast } = useToast()
 

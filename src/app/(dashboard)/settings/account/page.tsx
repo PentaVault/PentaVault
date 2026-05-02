@@ -184,8 +184,26 @@ export default function AccountSettingsPage() {
       setPasswordOtp('')
       setPasswordOtpSent(false)
       toast.success('Password changed successfully. Please sign in again.')
-      await authApi.signOut()
-      await auth.refresh()
+
+      let signOutFailed = false
+      try {
+        await authApi.signOut()
+      } catch {
+        signOutFailed = true
+        clearClientAuthHint()
+        auth.clear()
+      }
+
+      try {
+        await auth.refresh()
+      } catch {
+        auth.clear()
+      }
+
+      if (signOutFailed) {
+        toast.error('Password changed, but automatic sign-out did not complete.')
+      }
+
       router.replace(LOGIN_PATH)
     } catch (error) {
       const fields = getApiFieldErrors(error)

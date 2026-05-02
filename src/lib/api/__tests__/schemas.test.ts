@@ -155,7 +155,7 @@ describe('API schema parsing', () => {
         grantSource: 'manual',
         createdAt: '2026-04-29T00:00:00.000Z',
       },
-      orgRole: 'developer',
+      orgRole: 'readonly',
       canAccess: true,
       canRequestAccess: false,
       effectiveRole: 'readonly',
@@ -166,6 +166,7 @@ describe('API schema parsing', () => {
 
     expect(parsed.membership?.role).toBe('member')
     expect(parsed.effectiveRole).toBe('member')
+    expect(parsed.orgRole).toBe('auditor')
   })
 
   it('normalizes legacy readonly organization roles in invitation responses', () => {
