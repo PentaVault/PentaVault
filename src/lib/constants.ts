@@ -64,6 +64,10 @@ export function getOrgProjectUsagePath(orgId: string, projectId: string): string
   return `${getOrgProjectPath(orgId, projectId)}/usage`
 }
 
+export function getOrgProjectAnalyticsPath(orgId: string, projectId: string): string {
+  return `${getOrgProjectPath(orgId, projectId)}/analytics`
+}
+
 export function getOrgProjectSecurityPath(orgId: string, projectId: string): string {
   return `${getOrgProjectPath(orgId, projectId)}/security`
 }
@@ -118,6 +122,10 @@ export function getProjectAuditPath(projectId: string): string {
 
 export function getProjectUsagePath(projectId: string): string {
   return `${getProjectPath(projectId)}/usage`
+}
+
+export function getProjectAnalyticsPath(projectId: string): string {
+  return `${getProjectPath(projectId)}/analytics`
 }
 
 export function getProjectSecurityPath(projectId: string): string {

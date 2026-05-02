@@ -7,6 +7,7 @@ import type { ReactNode } from 'react'
 
 import { DashboardNavLink } from '@/components/layout/dashboard-nav-link'
 import {
+  getOrgProjectAnalyticsPath,
   getOrgProjectAuditPath,
   getOrgProjectPath,
   getOrgProjectSecretsPath,
@@ -15,6 +16,7 @@ import {
   getOrgProjectsPath,
   getOrgProjectTeamPath,
   getOrgProjectUsagePath,
+  getProjectAnalyticsPath,
   getProjectAuditPath,
   getProjectPath,
   getProjectSecretsPath,
@@ -58,6 +60,7 @@ export function ProjectLayout({ children }: ProjectLayoutProps) {
         { href: getOrgProjectAuditPath(orgIdForProjectUrls, projectId), label: 'Audit log' },
         { href: getOrgProjectSecurityPath(orgIdForProjectUrls, projectId), label: 'Security' },
         { href: getOrgProjectUsagePath(orgIdForProjectUrls, projectId), label: 'Usage' },
+        { href: getOrgProjectAnalyticsPath(orgIdForProjectUrls, projectId), label: 'Analytics' },
       ]
     : [
         { href: getProjectPath(projectId), label: 'Overview', exact: true },
@@ -66,10 +69,14 @@ export function ProjectLayout({ children }: ProjectLayoutProps) {
         { href: getProjectAuditPath(projectId), label: 'Audit log' },
         { href: getProjectSecurityPath(projectId), label: 'Security' },
         { href: getProjectUsagePath(projectId), label: 'Usage' },
+        { href: getProjectAnalyticsPath(projectId), label: 'Analytics' },
       ]
   const navItems = canUseRestrictedProjectPages
     ? baseNavItems
-    : baseNavItems.filter((item) => item.label !== 'Audit log' && item.label !== 'Security')
+    : baseNavItems.filter(
+        (item) =>
+          item.label !== 'Audit log' && item.label !== 'Security' && item.label !== 'Analytics'
+      )
   const allProjectsHref = orgIdForProjectUrls
     ? getOrgProjectsPath(orgIdForProjectUrls)
     : PROJECTS_PATH
