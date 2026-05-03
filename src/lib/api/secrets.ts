@@ -9,6 +9,7 @@ import {
   projectSecretsResponseSchema,
   promotionRequestResponseSchema,
   promotionRequestsResponseSchema,
+  rejectSecretAccessRequestResponseSchema,
   revokeSecretAccessResponseSchema,
   secretAccessResponseSchema,
   updateSecretResponseSchema,
@@ -27,6 +28,7 @@ import type {
   PromotePersonalSecretInput,
   PromotionRequestResponse,
   PromotionRequestsResponse,
+  RejectSecretAccessRequestResponse,
   RevokeSecretAccessResponse,
   SecretAccessResponse,
   UpdateSecretInput,
@@ -133,6 +135,17 @@ export const secretsApi = {
       `/v1/projects/${input.projectId}/secrets/${input.secretId}/access/${input.userId}`
     )
     return parseApiResponse(revokeSecretAccessResponseSchema, response.data)
+  },
+
+  async rejectSecretAccessRequest(input: {
+    projectId: string
+    secretId: string
+    userId: string
+  }): Promise<RejectSecretAccessRequestResponse> {
+    const response = await apiClient.post<RejectSecretAccessRequestResponse>(
+      `/v1/projects/${input.projectId}/secrets/${input.secretId}/access-requests/${input.userId}/reject`
+    )
+    return parseApiResponse(rejectSecretAccessRequestResponseSchema, response.data)
   },
 
   async listPromotionRequests(projectId: string): Promise<PromotionRequestsResponse> {

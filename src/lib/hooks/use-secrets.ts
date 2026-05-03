@@ -155,6 +155,7 @@ export function useGrantSecretAccess() {
         queryClient.invalidateQueries({
           queryKey: queryKeys.projectSecrets.secretAccess(payload.projectId, payload.secretId),
         }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all }),
       ])
     },
   })
@@ -178,6 +179,25 @@ export function useRevokeSecretAccess() {
   })
 }
 
+export function useRejectSecretAccessRequest() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: secretsApi.rejectSecretAccessRequest,
+    onSuccess: async (_result, payload) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.access(payload.projectId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.secretAccess(payload.projectId, payload.secretId),
+        }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all }),
+      ])
+    },
+  })
+}
+
 export function useApprovePromotionRequest() {
   const queryClient = useQueryClient()
 
@@ -191,6 +211,7 @@ export function useApprovePromotionRequest() {
         queryClient.invalidateQueries({
           queryKey: queryKeys.projectSecrets.list(payload.projectId),
         }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all }),
       ])
     },
   })
@@ -205,6 +226,7 @@ export function useRejectPromotionRequest() {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.projectSecrets.promotionRequests(payload.projectId),
       })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
     },
   })
 }

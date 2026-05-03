@@ -9,6 +9,10 @@ const deleteNotificationMutate = vi.fn()
 const acceptInvitationMutateAsync = vi.fn()
 const rejectInvitationMutateAsync = vi.fn()
 const reviewAccessRequestMutateAsync = vi.fn()
+const grantSecretAccessMutateAsync = vi.fn()
+const rejectSecretAccessMutateAsync = vi.fn()
+const approvePromotionMutateAsync = vi.fn()
+const rejectPromotionMutateAsync = vi.fn()
 const routerPush = vi.fn()
 let notificationsData: unknown
 const setActiveOrganization = vi.fn()
@@ -61,6 +65,25 @@ vi.mock('@/lib/hooks/use-projects', () => ({
   }),
 }))
 
+vi.mock('@/lib/hooks/use-secrets', () => ({
+  useGrantSecretAccess: () => ({
+    mutateAsync: grantSecretAccessMutateAsync,
+    isPending: false,
+  }),
+  useRejectSecretAccessRequest: () => ({
+    mutateAsync: rejectSecretAccessMutateAsync,
+    isPending: false,
+  }),
+  useApprovePromotionRequest: () => ({
+    mutateAsync: approvePromotionMutateAsync,
+    isPending: false,
+  }),
+  useRejectPromotionRequest: () => ({
+    mutateAsync: rejectPromotionMutateAsync,
+    isPending: false,
+  }),
+}))
+
 vi.mock('@/lib/hooks/use-toast', () => ({
   useToast: () => ({
     toast: {
@@ -96,6 +119,14 @@ describe('NotificationPanel', () => {
     rejectInvitationMutateAsync.mockClear()
     reviewAccessRequestMutateAsync.mockResolvedValue({})
     reviewAccessRequestMutateAsync.mockClear()
+    grantSecretAccessMutateAsync.mockResolvedValue({})
+    grantSecretAccessMutateAsync.mockClear()
+    rejectSecretAccessMutateAsync.mockResolvedValue({})
+    rejectSecretAccessMutateAsync.mockClear()
+    approvePromotionMutateAsync.mockResolvedValue({})
+    approvePromotionMutateAsync.mockClear()
+    rejectPromotionMutateAsync.mockResolvedValue({})
+    rejectPromotionMutateAsync.mockClear()
     routerPush.mockClear()
     notificationsData = {
       unreadCount: 1,

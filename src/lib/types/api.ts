@@ -99,6 +99,10 @@ export interface RevokeSecretAccessResponse {
   access: UserSecretAccess | null
 }
 
+export interface RejectSecretAccessRequestResponse {
+  rejected: boolean
+}
+
 export interface GrantSecretAccessInput {
   projectId: string
   secretId: string

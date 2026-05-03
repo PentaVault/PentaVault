@@ -27,10 +27,12 @@ import {
 } from '@/components/ui/dialog'
 import { getOrgProjectSecretsPath, getProjectSecretsPath } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useNotifications } from '@/lib/hooks/use-notifications'
 import { useProjectSecrets } from '@/lib/hooks/use-secrets'
 import { useProjectMembers } from '@/lib/hooks/use-team'
 import { useToast } from '@/lib/hooks/use-toast'
 import {
+  useGenerateToken,
   useGenerateTokensForMember,
   useProjectTokens,
   useRevokeToken,
@@ -43,6 +45,14 @@ type GeneratedToken = {
   secretId: string
   rawToken: string
   tokenStart: string
+  createdAt: string
+}
+
+type PendingSecretRequest = {
+  id: string
+  secretId: string
+  secretName: string
+  requesterId: string
   createdAt: string
 }
 
@@ -64,6 +74,7 @@ export function TokenAssignmentView({
   const membersQuery = useProjectMembers(projectId)
   const secretsQuery = useProjectSecrets(projectId)
   const tokensQuery = useProjectTokens(projectId)
+  const notificationsQuery = useNotifications()
 
   if (membersQuery.isLoading || secretsQuery.isLoading || tokensQuery.isLoading) {
     return <TokenAssignmentSkeleton />
@@ -72,6 +83,38 @@ export function TokenAssignmentView({
   const members = membersQuery.data?.members ?? []
   const secrets = secretsQuery.data ?? []
   const tokens = tokensQuery.data ?? []
+  const pendingRequestsByUserId = new Map<string, PendingSecretRequest[]>()
+  for (const notification of notificationsQuery.data?.notifications ?? []) {
+    const data = notification.data
+    const notificationProjectId = typeof data.projectId === 'string' ? data.projectId : null
+    const secretId = typeof data.secretId === 'string' ? data.secretId : null
+    const requesterId = typeof data.requesterId === 'string' ? data.requesterId : null
+    if (
+      notificationProjectId !== projectId ||
+      !secretId ||
+      !requesterId ||
+      data.requestStatus !== 'pending' ||
+      (notification.type !== 'secret_access_request' &&
+        notification.type !== 'secret_access_status')
+    ) {
+      continue
+    }
+
+    const requests = pendingRequestsByUserId.get(requesterId) ?? []
+    if (!requests.some((request) => request.secretId === secretId)) {
+      requests.push({
+        id: notification.id,
+        secretId,
+        secretName:
+          typeof data.secretName === 'string'
+            ? data.secretName
+            : (secrets.find((secret) => secret.id === secretId)?.name ?? 'Unknown'),
+        requesterId,
+        createdAt: notification.createdAt,
+      })
+      pendingRequestsByUserId.set(requesterId, requests)
+    }
+  }
 
   if (secrets.length === 0) {
     return (
@@ -133,6 +176,7 @@ export function TokenAssignmentView({
               key={member.userId}
               member={member}
               memberTokens={memberTokens}
+              pendingRequests={pendingRequestsByUserId.get(member.userId) ?? []}
               projectId={projectId}
               secrets={secrets}
             />
@@ -147,6 +191,7 @@ export function TokenAssignmentView({
             key={member.userId}
             member={member}
             memberTokens={memberTokens}
+            pendingRequests={pendingRequestsByUserId.get(member.userId) ?? []}
             projectId={projectId}
             secrets={secrets}
           />
@@ -160,12 +205,14 @@ function MemberAccordion({
   canManage,
   member,
   memberTokens,
+  pendingRequests,
   projectId,
   secrets,
 }: {
   canManage: boolean
   member: ProjectMembership
   memberTokens: ProxyToken[]
+  pendingRequests: PendingSecretRequest[]
   projectId: string
   secrets: Secret[]
 }) {
@@ -205,6 +252,7 @@ function MemberAccordion({
           canManageTokens={canManage}
           member={member}
           memberTokens={memberTokens}
+          pendingRequests={pendingRequests}
           projectId={projectId}
           secrets={secrets}
         />
@@ -219,6 +267,7 @@ function MemberAccessSection({
   canManageTokens = false,
   member,
   memberTokens,
+  pendingRequests,
   projectId,
   secrets,
 }: {
@@ -227,6 +276,7 @@ function MemberAccessSection({
   canManageTokens?: boolean
   member: ProjectMembership
   memberTokens: ProxyToken[]
+  pendingRequests: PendingSecretRequest[]
   projectId: string
   secrets: Secret[]
 }) {
@@ -246,6 +296,7 @@ function MemberAccessSection({
           {memberTokens.map((token) => (
             <AssignedTokenRow
               canManage={canManageTokens}
+              canGenerateSelfToken={!canManageTokens}
               key={token.tokenHash}
               memberId={member.userId}
               onGenerated={setRevealTokens}
@@ -258,6 +309,24 @@ function MemberAccessSection({
       ) : (
         <div className="px-4 py-3 text-xs text-muted-foreground">No variables assigned yet.</div>
       )}
+
+      {pendingRequests.length > 0 ? (
+        <div className="border-t border-border">
+          {pendingRequests.map((request) => (
+            <div className="flex items-center gap-4 px-4 py-2.5" key={request.id}>
+              <span className="min-w-0 flex-1 truncate font-mono text-sm">
+                {request.secretName}
+              </span>
+              <span className="rounded border border-border px-2 py-1 text-xs text-muted-foreground">
+                Pending
+              </span>
+              <span className="w-28 text-right text-xs text-muted-foreground">
+                {formatRelativeDate(request.createdAt)}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {canAddVariables ? (
         <div className="border-t border-border px-4 py-2">
@@ -512,6 +581,7 @@ function TokenRevealDialog({
 
 function AssignedTokenRow({
   canManage,
+  canGenerateSelfToken,
   memberId,
   onGenerated,
   projectId,
@@ -519,6 +589,7 @@ function AssignedTokenRow({
   token,
 }: {
   canManage: boolean
+  canGenerateSelfToken: boolean
   memberId: string
   onGenerated: (tokens: GeneratedToken[]) => void
   projectId: string
@@ -526,6 +597,7 @@ function AssignedTokenRow({
   token: ProxyToken
 }) {
   const revokeToken = useRevokeToken()
+  const generateToken = useGenerateToken()
   const generateTokens = useGenerateTokensForMember()
   const { toast } = useToast()
 
@@ -540,6 +612,26 @@ function AssignedTokenRow({
       onGenerated(response.tokens)
     } catch {
       toast.error('Unable to refresh this token right now.')
+    }
+  }
+
+  async function generateSelfToken(): Promise<void> {
+    try {
+      const response = await generateToken.mutateAsync({
+        projectId,
+        secretId: token.secretId,
+        mode: token.mode,
+      })
+      onGenerated([
+        {
+          secretId: response.secretId,
+          rawToken: response.token,
+          tokenStart: response.tokenStart,
+          createdAt: new Date().toISOString(),
+        },
+      ])
+    } catch {
+      toast.error('Unable to generate a token for this variable right now.')
     }
   }
 
@@ -587,6 +679,16 @@ function AssignedTokenRow({
             </AlertDialogContent>
           </AlertDialog>
         </>
+      ) : null}
+      {!canManage && canGenerateSelfToken ? (
+        <button
+          className="text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+          disabled={generateToken.isPending}
+          onClick={() => void generateSelfToken()}
+          type="button"
+        >
+          New token
+        </button>
       ) : null}
     </div>
   )

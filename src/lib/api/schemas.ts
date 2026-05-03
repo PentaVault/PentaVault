@@ -324,6 +324,10 @@ export const revokeSecretAccessResponseSchema = z.object({
   access: userSecretAccessSchema.nullable(),
 })
 
+export const rejectSecretAccessRequestResponseSchema = z.object({
+  rejected: z.boolean(),
+})
+
 export const personalSecretPromotionRequestSchema = z.object({
   id: z.string(),
   projectId: z.string(),
