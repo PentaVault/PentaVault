@@ -87,7 +87,7 @@ export function TeamMemberRow({
         'grid gap-3 border-b border-border px-4 py-3 last:border-b-0 md:items-center',
         canManage
           ? 'md:grid-cols-[minmax(0,1fr)_150px_160px_96px]'
-          : 'md:grid-cols-[minmax(0,1fr)_150px_120px]'
+          : 'md:grid-cols-[minmax(0,1fr)_150px_minmax(120px,max-content)]'
       )}
     >
       <div className="min-w-0">
@@ -140,12 +140,11 @@ export function TeamMemberRow({
           </Button>
         </>
       ) : canLeaveRow ? (
-        <>
+        <div className="flex items-center gap-3 justify-self-start md:justify-self-end">
           <p className="justify-self-start font-mono text-xs text-muted-foreground md:justify-self-center">
             {membership.role}
           </p>
           <Button
-            className="justify-self-start md:justify-self-end"
             disabled={removeMember.isPending}
             onClick={() => void removeMemberRow()}
             size="sm"
@@ -154,7 +153,7 @@ export function TeamMemberRow({
           >
             Leave
           </Button>
-        </>
+        </div>
       ) : canManage ? (
         <p className="justify-self-start font-mono text-xs text-muted-foreground md:justify-self-center">
           {membership.role}

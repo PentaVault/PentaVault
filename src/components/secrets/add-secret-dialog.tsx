@@ -39,6 +39,10 @@ type SecretRowInput = {
   id: string
 }
 
+const SECRET_NAME_PATTERN = /^[A-Z0-9_]+$/
+const MEMBER_DEVELOPMENT_ONLY_MESSAGE =
+  'Members can create personal variables only in the development environment.'
+
 function createEmptyRow(): SecretRowInput {
   return { key: '', value: '', id: crypto.randomUUID() }
 }
@@ -91,6 +95,7 @@ export function AddSecretDialog({
   const [scope, setScope] = useState<'project' | 'personal'>(
     allowProjectScope ? 'project' : 'personal'
   )
+  const [formError, setFormError] = useState<string | null>(null)
   const [pendingPlaintextRows, setPendingPlaintextRows] = useState<SecretRowInput[] | null>(null)
   const createSecrets = useCreateSecrets()
   const createPersonalSecret = useCreatePersonalSecret()
@@ -117,6 +122,7 @@ export function AddSecretDialog({
   }
 
   function updateRow(id: string, field: 'key' | 'value', value: string) {
+    setFormError(null)
     setRows((current) =>
       current.map((row) =>
         row.id === id ? { ...row, [field]: field === 'key' ? value.toUpperCase() : value } : row
@@ -129,6 +135,7 @@ export function AddSecretDialog({
     setShowValues({})
     setEncryptionMode('encrypted')
     setScope(allowProjectScope ? 'project' : 'personal')
+    setFormError(null)
     setPendingPlaintextRows(null)
   }
 
@@ -205,6 +212,42 @@ export function AddSecretDialog({
       .map((row) => ({ ...row, key: row.key.trim(), value: row.value.trim() }))
       .filter((row) => row.key && row.value)
 
+    if (!allowProjectScope && (environmentSlug ?? 'development') !== 'development') {
+      setFormError(MEMBER_DEVELOPMENT_ONLY_MESSAGE)
+      return
+    }
+
+    if (validRows.length === 0) {
+      setFormError('Add at least one KEY=VALUE pair before saving.')
+      return
+    }
+
+    const invalidName = validRows.find((row) => !SECRET_NAME_PATTERN.test(row.key))
+    if (invalidName) {
+      setFormError(
+        `${invalidName.key} is not a valid variable name. Use uppercase letters, numbers, and underscores only.`
+      )
+      return
+    }
+
+    const seen = new Set<string>()
+    const duplicate = validRows.find((row) => {
+      if (seen.has(row.key)) {
+        return true
+      }
+      seen.add(row.key)
+      return false
+    })
+    if (duplicate) {
+      setFormError(`${duplicate.key} appears more than once. Remove duplicates before saving.`)
+      return
+    }
+
+    if (validRows.length > 100) {
+      setFormError('No more than 100 variables can be saved at once.')
+      return
+    }
+
     if (encryptionMode === 'plaintext') {
       setPendingPlaintextRows(validRows)
       return
@@ -274,7 +317,8 @@ export function AddSecretDialog({
                 </Select>
                 {!allowProjectScope ? (
                   <p className="text-xs text-muted-foreground">
-                    Members save variables to Personal first, then request promotion to the project.
+                    Members save personal development variables first, then request approval to
+                    promote them to project development.
                   </p>
                 ) : null}
               </div>
@@ -340,6 +384,12 @@ export function AddSecretDialog({
               <Plus className="h-4 w-4" />
               Add another
             </button>
+
+            {formError ? (
+              <p className="mt-3 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
+                {formError}
+              </p>
+            ) : null}
 
             <div className="mt-4 flex items-start justify-between gap-4 border-t border-border pt-3">
               <p className="min-w-0 text-xs text-muted-foreground">

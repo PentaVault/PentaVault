@@ -10,11 +10,13 @@ describe('ProjectSecretsPage', () => {
   it('uses a top-level environment dropdown instead of environment tabs', () => {
     expect(source).toContain('@/components/ui/select')
     expect(source).toContain('setSelectedEnvironmentId(value)')
+    expect(source).toContain('canManageSecrets && environments.length > 0')
     expect(source).not.toContain('scopeTab')
   })
 
   it('always opens the add variable dialog with role-aware project scope permissions', () => {
     expect(source).toContain('Add variable')
     expect(source).toContain('allowProjectScope={canManageSecrets}')
+    expect(source).toContain("environment.slug === 'development'")
   })
 })

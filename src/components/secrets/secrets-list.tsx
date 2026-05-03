@@ -1,11 +1,11 @@
 'use client'
 
 import {
-  Code2,
   Eye,
   EyeOff,
   GitPullRequest,
   KeyRound,
+  Lock,
   MoreHorizontal,
   Shield,
   Trash2,
@@ -42,14 +42,17 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown'
 import { Input } from '@/components/ui/input'
+import { useNotifications } from '@/lib/hooks/use-notifications'
 import { useCreateSecretAccessRequest } from '@/lib/hooks/use-projects'
 import {
+  useApprovePromotionRequest,
   useDeleteSecret,
   usePersonalSecrets,
   useProjectSecretAccess,
   useProjectSecrets,
   usePromotePersonalSecret,
   usePromotionRequests,
+  useRejectPromotionRequest,
   useUpdateSecret,
 } from '@/lib/hooks/use-secrets'
 import { useProjectMembers } from '@/lib/hooks/use-team'
@@ -76,13 +79,16 @@ export function SecretsList({
   search: string
 }) {
   const secretsQuery = useProjectSecrets(projectId, enabled)
-  const personalSecretsQuery = usePersonalSecrets(projectId, enabled)
+  const personalSecretsQuery = usePersonalSecrets(projectId, enabled && !canManage)
   const accessQuery = useProjectSecretAccess(projectId, enabled)
   const promotionRequestsQuery = usePromotionRequests(projectId, enabled)
   const tokensQuery = useProjectTokens(projectId, enabled)
   const membersQuery = useProjectMembers(projectId, enabled)
+  const notificationsQuery = useNotifications()
   const deleteSecret = useDeleteSecret()
   const promotePersonalSecret = usePromotePersonalSecret()
+  const approvePromotionRequest = useApprovePromotionRequest()
+  const rejectPromotionRequest = useRejectPromotionRequest()
   const requestAccess = useCreateSecretAccessRequest(projectId)
   const { toast } = useToast()
 
@@ -92,6 +98,9 @@ export function SecretsList({
   const [deleteTarget, setDeleteTarget] = useState<Secret | null>(null)
   const [deleteImpactTarget, setDeleteImpactTarget] = useState<Secret | null>(null)
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false)
+  const [requestingSecretId, setRequestingSecretId] = useState<string | null>(null)
+  const [locallyPendingSecretIds, setLocallyPendingSecretIds] = useState<Set<string>>(new Set())
+  const [requestCooldownUntil, setRequestCooldownUntil] = useState<Record<string, number>>({})
 
   const secrets = useMemo(
     () => [...(secretsQuery.data ?? []), ...(personalSecretsQuery.data ?? [])],
@@ -104,6 +113,10 @@ export function SecretsList({
         .map((request) => [request.personalSecretId, request])
     )
   }, [promotionRequestsQuery.data])
+  const pendingPromotionRequests = useMemo(
+    () => (promotionRequestsQuery.data ?? []).filter((request) => request.status === 'pending'),
+    [promotionRequestsQuery.data]
+  )
   const membersByUserId = useMemo(() => {
     return new Map((membersQuery.data?.members ?? []).map((member) => [member.userId, member]))
   }, [membersQuery.data?.members])
@@ -139,6 +152,20 @@ export function SecretsList({
         .map((access) => access.secretId)
     )
   }, [accessQuery.data])
+  const pendingAccessSecretIds = useMemo(() => {
+    const pending = new Set(locallyPendingSecretIds)
+    for (const notification of notificationsQuery.data?.notifications ?? []) {
+      if (
+        notification.type === 'secret_access_status' &&
+        notification.data.requestStatus === 'pending' &&
+        notification.data.projectId === projectId &&
+        typeof notification.data.secretId === 'string'
+      ) {
+        pending.add(notification.data.secretId)
+      }
+    }
+    return pending
+  }, [locallyPendingSecretIds, notificationsQuery.data?.notifications, projectId])
   const activeTokenCounts = useMemo(() => {
     const counts = new Map<string, number>()
     for (const token of tokensQuery.data ?? []) {
@@ -152,10 +179,6 @@ export function SecretsList({
   }, [tokensQuery.data])
   const filtered = useMemo(() => {
     const scopedSecrets = secrets.filter((secret) => {
-      if ((secret.scope ?? 'project') !== 'project') {
-        return false
-      }
-
       if (environmentId) {
         return secret.environmentId === environmentId
       }
@@ -198,8 +221,20 @@ export function SecretsList({
   }
 
   async function handleRequestAccess(secret: Secret): Promise<void> {
+    const cooldownUntil = requestCooldownUntil[secret.id] ?? 0
+    if (cooldownUntil > Date.now()) {
+      toast.error('Please wait before requesting this variable again.')
+      return
+    }
+
     try {
+      setRequestingSecretId(secret.id)
       await requestAccess.mutateAsync({ secretId: secret.id })
+      setLocallyPendingSecretIds((current) => new Set(current).add(secret.id))
+      setRequestCooldownUntil((current) => ({
+        ...current,
+        [secret.id]: Date.now() + 30_000,
+      }))
       toast.success('Access request sent.')
     } catch (error) {
       toast.error(
@@ -208,6 +243,8 @@ export function SecretsList({
           'Unable to request access right now. The server did not return a specific reason.'
         )
       )
+    } finally {
+      setRequestingSecretId(null)
     }
   }
 
@@ -226,6 +263,32 @@ export function SecretsList({
         getApiFriendlyMessageWithRef(
           error,
           'Unable to request promotion right now. The server did not return a specific reason.'
+        )
+      )
+    }
+  }
+
+  async function handleReviewPromotionRequest(
+    requestId: string,
+    status: 'approved' | 'rejected'
+  ): Promise<void> {
+    try {
+      if (status === 'approved') {
+        await approvePromotionRequest.mutateAsync({ projectId, requestId })
+        toast.success('Promotion request approved.')
+      } else {
+        await rejectPromotionRequest.mutateAsync({
+          projectId,
+          requestId,
+          reviewerNote: 'Declined from project secrets review.',
+        })
+        toast.success('Promotion request declined.')
+      }
+    } catch (error) {
+      toast.error(
+        getApiFriendlyMessageWithRef(
+          error,
+          'Unable to review this promotion request right now. The server did not return a specific reason.'
         )
       )
     }
@@ -365,6 +428,54 @@ export function SecretsList({
         </div>
       ) : null}
 
+      {canManage && pendingPromotionRequests.length > 0 ? (
+        <div className="mb-3 overflow-hidden rounded-lg border border-border bg-background-secondary">
+          <div className="border-b border-border px-4 py-3">
+            <p className="text-sm font-medium">Promotion requests</p>
+          </div>
+          {pendingPromotionRequests.map((request) => (
+            <div
+              className="grid gap-3 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_9rem_11rem] md:items-center"
+              key={request.id}
+            >
+              <div className="min-w-0">
+                <p className="truncate font-mono text-sm">{request.targetName}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  Requested by{' '}
+                  {membersByUserId.get(request.requestedByUserId)?.user?.name ??
+                    membersByUserId.get(request.requestedByUserId)?.user?.email ??
+                    request.requestedByUserId}
+                </p>
+              </div>
+              <span className="justify-self-start font-mono text-xs text-muted-foreground md:justify-self-center">
+                {request.targetEnvironment}
+              </span>
+              <div className="flex justify-start gap-2 md:justify-end">
+                <Button
+                  className="h-8 px-2 text-xs"
+                  disabled={approvePromotionRequest.isPending || rejectPromotionRequest.isPending}
+                  onClick={() => void handleReviewPromotionRequest(request.id, 'rejected')}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  Decline
+                </Button>
+                <Button
+                  className="h-8 px-2 text-xs"
+                  disabled={approvePromotionRequest.isPending || rejectPromotionRequest.isPending}
+                  onClick={() => void handleReviewPromotionRequest(request.id, 'approved')}
+                  size="sm"
+                  type="button"
+                >
+                  Approve
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       <div className="overflow-hidden rounded-lg border border-border">
         {filtered.map((secret, index) => (
           <SecretRow
@@ -374,8 +485,9 @@ export function SecretsList({
             key={secret.id}
             canManage={canManage}
             hasAccess={assignedSecretIds.has(secret.id)}
+            isPendingAccess={pendingAccessSecretIds.has(secret.id)}
             tokenCount={activeTokenCounts.get(secret.id) ?? 0}
-            isRequestingAccess={requestAccess.isPending}
+            isRequestingAccess={requestingSecretId === secret.id}
             isPromoting={promotePersonalSecret.isPending}
             onDelete={() => setDeleteTarget(secret)}
             onEdit={() => setEditTarget(secret)}
@@ -388,7 +500,7 @@ export function SecretsList({
         ))}
       </div>
 
-      {canManage ? (
+      {canManage || editTarget ? (
         <EditSecretDialog
           key={`${Boolean(editTarget) || isBulkEditOpen}:${editTargets.map((secret) => secret.id).join(':')}`}
           onOpenChange={(open) => {
@@ -514,6 +626,7 @@ function SecretRow({
   isLast,
   isSelected,
   isRequestingAccess,
+  isPendingAccess,
   onDelete,
   onEdit,
   onPromote,
@@ -530,6 +643,7 @@ function SecretRow({
   isLast: boolean
   isSelected: boolean
   isRequestingAccess: boolean
+  isPendingAccess: boolean
   onDelete: () => void
   onEdit: () => void
   onPromote: () => void
@@ -542,6 +656,7 @@ function SecretRow({
   const canRevealPlaintextValue =
     secret.encryptionMode === 'plaintext' && typeof secret.plaintextValue === 'string'
   const isPersonal = (secret.scope ?? 'project') === 'personal'
+  const canOpenMenu = canManage || isPersonal
 
   return (
     <div
@@ -575,42 +690,46 @@ function SecretRow({
         {secret.encryptionMode === 'plaintext' ? (
           <Unlock className="h-3.5 w-3.5 text-warning" />
         ) : (
-          <Code2 className="h-3.5 w-3.5 text-muted-foreground" />
+          <Lock className="h-3.5 w-3.5 text-muted-foreground" />
         )}
       </div>
 
-      <span className="min-w-0 flex-1 truncate font-mono text-sm">
-        {secret.name}
+      <div className="grid min-w-0 flex-1 grid-cols-[minmax(10rem,1fr)_6.5rem_7.25rem] items-center gap-3">
+        <span className="truncate font-mono text-sm flex items-center gap-3">
+          {secret.name}
+          <span
+            className={cn(
+              'text-center font-sans text-[11px]',
+              secret.encryptionMode === 'plaintext' ? 'text-warning' : 'text-muted-foreground'
+            )}
+          >
+            {secret.encryptionMode === 'plaintext' ? 'unencrypted' : null}
+          </span>
+        </span>
         <span
           className={cn(
-            'ml-2 align-middle font-sans text-[11px]',
+            'text-center font-sans text-[11px]',
             isPersonal ? 'text-accent' : 'text-muted-foreground'
           )}
         >
           {isPersonal ? 'personal' : 'project'}
         </span>
-        <span
-          className={cn(
-            'ml-2 align-middle font-sans text-[11px]',
-            secret.encryptionMode === 'plaintext' ? 'text-warning' : 'text-muted-foreground'
-          )}
-        >
-          {secret.encryptionMode === 'plaintext' ? 'plaintext' : 'encrypted'}
-        </span>
-      </span>
+      </div>
 
       {isPersonal || canManage || hasAccess ? (
-        <div className="flex items-center gap-2">
-          {canRevealPlaintextValue ? (
-            <button
-              aria-label={showValue ? `Hide ${secret.name}` : `Show ${secret.name}`}
-              className="text-muted-foreground transition-colors hover:text-foreground"
-              onClick={() => setShowValue((current) => !current)}
-              type="button"
-            >
-              {showValue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          ) : null}
+        <div className="flex min-w-[17rem] items-center justify-end gap-2">
+          <span className="flex w-4 items-center justify-center">
+            {canRevealPlaintextValue ? (
+              <button
+                aria-label={showValue ? `Hide ${secret.name}` : `Show ${secret.name}`}
+                className="text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => setShowValue((current) => !current)}
+                type="button"
+              >
+                {showValue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            ) : null}
+          </span>
           <span className="font-mono text-sm text-muted-foreground">
             {canRevealPlaintextValue
               ? showValue
@@ -623,32 +742,14 @@ function SecretRow({
               {tokenCount} token{tokenCount === 1 ? '' : 's'}
             </span>
           ) : null}
-          {!canManage && !isPersonal ? (
-            <span className="text-xs text-muted-foreground">Assigned</span>
-          ) : null}
-          {isPersonal ? (
-            promotionPending ? (
-              <span className="rounded border border-border px-2 py-1 text-xs text-muted-foreground">
-                Promotion pending
-              </span>
-            ) : (
-              <Button
-                className="h-8 px-2 text-xs"
-                disabled={isPromoting}
-                onClick={onPromote}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                <GitPullRequest className="mr-1.5 h-3.5 w-3.5" />
-                Promote
-              </Button>
-            )
-          ) : null}
         </div>
+      ) : isPendingAccess ? (
+        <span className="flex min-w-[17rem] justify-center rounded border border-border px-2 py-1 text-xs text-muted-foreground">
+          Pending
+        </span>
       ) : (
         <Button
-          className="h-8 px-2 text-xs"
+          className="h-8 min-w-[17rem] justify-center px-2 text-xs"
           disabled={isRequestingAccess}
           onClick={onRequestAccess}
           size="sm"
@@ -664,22 +765,34 @@ function SecretRow({
         {formatRelativeDate(secret.updatedAt)}
       </span>
 
-      {canManage ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button className="h-7 w-7 p-0" size="sm" type="button" variant="ghost">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={onEdit}>Edit value</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-danger" onSelect={onDelete}>
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : null}
+      <div className="flex w-8 justify-end">
+        {canOpenMenu ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="h-7 w-7 p-0" size="sm" type="button" variant="ghost">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={onEdit}>Edit value</DropdownMenuItem>
+              {isPersonal ? (
+                promotionPending ? (
+                  <DropdownMenuItem disabled>Promotion pending</DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem disabled={isPromoting} onSelect={onPromote}>
+                    <GitPullRequest className="mr-2 h-3.5 w-3.5" />
+                    Promote
+                  </DropdownMenuItem>
+                )
+              ) : null}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-danger" onSelect={onDelete}>
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
     </div>
   )
 }

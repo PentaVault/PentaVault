@@ -33,6 +33,8 @@ describe('AddSecretDialog', () => {
 
     expect(source).toContain('allowProjectScope')
     expect(source).toContain('Save as')
-    expect(source).toContain('Members save variables to Personal first')
+    expect(source).toContain('Members save personal development variables first')
+    expect(source).toContain('MEMBER_DEVELOPMENT_ONLY_MESSAGE')
+    expect(source).toContain('SECRET_NAME_PATTERN')
   })
 })

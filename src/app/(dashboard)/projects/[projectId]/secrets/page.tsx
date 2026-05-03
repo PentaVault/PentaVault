@@ -31,17 +31,24 @@ export default function ProjectSecretsPage() {
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<string | null>(null)
 
   const environments = environmentsQuery.data?.environments ?? []
+  const canAccessProject = projectQuery.data?.canAccess ?? false
+  const effectiveRole = projectQuery.data?.effectiveRole ?? projectQuery.data?.orgRole ?? null
+  const canManageSecrets = effectiveRole === 'owner' || effectiveRole === 'admin'
+  const developmentEnvironment =
+    environments.find((environment) => environment.slug === 'development') ?? null
   const selectedEnvironment =
-    environments.find((environment) => environment.id === selectedEnvironmentId) ??
+    (canManageSecrets
+      ? environments.find((environment) => environment.id === selectedEnvironmentId)
+      : developmentEnvironment) ??
     environments.find((environment) => environment.isDefault) ??
     environments[0] ??
     null
 
   useEffect(() => {
-    if (!selectedEnvironmentId && selectedEnvironment?.id) {
+    if (canManageSecrets && !selectedEnvironmentId && selectedEnvironment?.id) {
       setSelectedEnvironmentId(selectedEnvironment.id)
     }
-  }, [selectedEnvironment?.id, selectedEnvironmentId])
+  }, [canManageSecrets, selectedEnvironment?.id, selectedEnvironmentId])
 
   if (!projectId) {
     return (
@@ -83,21 +90,17 @@ export default function ProjectSecretsPage() {
     )
   }
 
-  const canAccessProject = projectQuery.data?.canAccess ?? false
-  const effectiveRole = projectQuery.data?.effectiveRole ?? projectQuery.data?.orgRole ?? null
-  const canManageSecrets = effectiveRole === 'owner' || effectiveRole === 'admin'
-
   return (
     <div className="p-6">
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div className="min-w-0">
+      <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0 shrink-0">
           <h2 className="text-lg font-semibold">Environment Variables</h2>
           <p className="text-sm text-muted-foreground">
             Store and manage your project secrets securely.
           </p>
         </div>
-        <div className="flex flex-shrink-0 items-center gap-3">
-          <div className="relative w-[min(28rem,34vw)] min-w-64">
+        <div className="flex w-full flex-wrap items-center gap-3 xl:w-auto xl:flex-nowrap">
+          <div className="relative min-w-64 flex-1 xl:w-[min(28rem,34vw)] xl:flex-none">
             <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="h-9 pl-9"
@@ -106,7 +109,7 @@ export default function ProjectSecretsPage() {
               value={search}
             />
           </div>
-          {environments.length > 0 ? (
+          {canManageSecrets && environments.length > 0 ? (
             <Select
               onValueChange={(value) => setSelectedEnvironmentId(value)}
               value={selectedEnvironment?.id ?? ''}
