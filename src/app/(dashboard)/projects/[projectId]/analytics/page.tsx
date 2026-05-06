@@ -155,7 +155,7 @@ export default function ProjectAnalyticsPage() {
       <PageWrapper>
         <Card>
           <CardHeader>
-            <CardTitle>Analytics</CardTitle>
+            <CardTitle>Observability</CardTitle>
             <CardDescription>Loading project permissions...</CardDescription>
           </CardHeader>
         </Card>
@@ -168,7 +168,7 @@ export default function ProjectAnalyticsPage() {
       <PageWrapper>
         <Card>
           <CardHeader>
-            <CardTitle>Analytics unavailable</CardTitle>
+            <CardTitle>Observability unavailable</CardTitle>
             <CardDescription>
               The selected project could not be loaded or you do not have access.
             </CardDescription>
@@ -183,7 +183,7 @@ export default function ProjectAnalyticsPage() {
       <PageWrapper>
         <Card>
           <CardHeader>
-            <CardTitle>Analytics</CardTitle>
+            <CardTitle>Observability</CardTitle>
             <CardDescription>Redirecting to the project overview...</CardDescription>
           </CardHeader>
         </Card>
@@ -196,7 +196,7 @@ export default function ProjectAnalyticsPage() {
       <div className="space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-3xl tracking-[-0.16px] text-foreground">Analytics</h1>
+            <h1 className="text-3xl tracking-[-0.16px] text-foreground">Observability</h1>
             <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
               Secret access activity, proxy behavior, and recent resolve events for this project.
             </p>
@@ -216,9 +216,9 @@ export default function ProjectAnalyticsPage() {
         {analyticsQuery.isError ? (
           <Card>
             <CardHeader>
-              <CardTitle>Unable to load analytics</CardTitle>
+              <CardTitle>Unable to load observability data</CardTitle>
               <CardDescription>
-                Analytics data is unavailable right now. Retry after the backend is reachable.
+                Observability data is unavailable right now. Retry after the backend is reachable.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -351,7 +351,7 @@ export default function ProjectAnalyticsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-xl">Recent Events</CardTitle>
-              <CardDescription>Last {DEFAULT_ANALYTICS_LIMIT} analytics events.</CardDescription>
+              <CardDescription>Last {DEFAULT_ANALYTICS_LIMIT} access events.</CardDescription>
             </CardHeader>
             <CardContent>
               {events.length === 0 ? (

@@ -48,6 +48,20 @@ export function useProjectSecretAccess(projectId: string | null, enabled = true)
   })
 }
 
+export function useSecretAccessRequests(projectId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.projectSecrets.accessRequests(projectId),
+    queryFn: async () => {
+      if (!projectId) {
+        throw new Error('projectId is required to list secret access requests')
+      }
+
+      return secretsApi.listSecretAccessRequests(projectId).then((response) => response.requests)
+    },
+    enabled: Boolean(projectId) && enabled,
+  })
+}
+
 export function useSecretAccess(projectId: string | null, secretId: string | null, enabled = true) {
   return useQuery({
     queryKey: queryKeys.projectSecrets.secretAccess(projectId, secretId),
@@ -75,6 +89,26 @@ export function usePromotionRequests(projectId: string | null, enabled = true) {
       return secretsApi.listPromotionRequests(projectId).then((response) => response.requests)
     },
     enabled: Boolean(projectId) && enabled,
+  })
+}
+
+export function useSecretVersions(
+  projectId: string | null,
+  secretId: string | null,
+  enabled = true
+) {
+  return useQuery({
+    queryKey: queryKeys.projectSecrets.versions(projectId, secretId),
+    queryFn: async () => {
+      if (!projectId || !secretId) {
+        throw new Error('projectId and secretId are required to list secret versions')
+      }
+
+      return secretsApi
+        .listSecretVersions({ projectId, secretId })
+        .then((response) => response.versions)
+    },
+    enabled: Boolean(projectId && secretId) && enabled,
   })
 }
 
@@ -155,7 +189,13 @@ export function useGrantSecretAccess() {
         queryClient.invalidateQueries({
           queryKey: queryKeys.projectSecrets.secretAccess(payload.projectId, payload.secretId),
         }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectTokens.list(payload.projectId),
+        }),
         queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.accessRequests(payload.projectId),
+        }),
       ])
     },
   })
@@ -173,6 +213,12 @@ export function useRevokeSecretAccess() {
         }),
         queryClient.invalidateQueries({
           queryKey: queryKeys.projectSecrets.secretAccess(payload.projectId, payload.secretId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectTokens.list(payload.projectId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.accessRequests(payload.projectId),
         }),
       ])
     },
@@ -192,6 +238,25 @@ export function useRejectSecretAccessRequest() {
         queryClient.invalidateQueries({
           queryKey: queryKeys.projectSecrets.secretAccess(payload.projectId, payload.secretId),
         }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.accessRequests(payload.projectId),
+        }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all }),
+      ])
+    },
+  })
+}
+
+export function useCancelSecretAccessRequest() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: secretsApi.cancelSecretAccessRequest,
+    onSuccess: async (_result, payload) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.accessRequests(payload.projectId),
+        }),
         queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all }),
       ])
     },
@@ -210,6 +275,15 @@ export function useApprovePromotionRequest() {
         }),
         queryClient.invalidateQueries({
           queryKey: queryKeys.projectSecrets.list(payload.projectId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.personal(payload.projectId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.access(payload.projectId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectTokens.list(payload.projectId),
         }),
         queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all }),
       ])
@@ -239,6 +313,9 @@ export function useDeleteSecret() {
     onSuccess: async (_result, input) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.projectSecrets.list(input.projectId) }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.personal(input.projectId),
+        }),
         queryClient.invalidateQueries({ queryKey: queryKeys.projectTokens.list(input.projectId) }),
       ])
     },
@@ -251,9 +328,32 @@ export function useUpdateSecret() {
   return useMutation({
     mutationFn: secretsApi.updateSecret,
     onSuccess: async (_result, input) => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.projectSecrets.list(input.projectId),
-      })
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.list(input.projectId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.personal(input.projectId),
+        }),
+      ])
+    },
+  })
+}
+
+export function useRestoreSecretVersion() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: secretsApi.restoreSecretVersion,
+    onSuccess: async (_result, input) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.list(input.projectId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.versions(input.projectId, input.secretId),
+        }),
+      ])
     },
   })
 }

@@ -20,6 +20,7 @@ export type SecretAccessMode = 'direct' | 'proxy'
 export type UserSecretAccessLevel = 'read'
 export type UserSecretAccessStatus = 'active' | 'revoked'
 export type PersonalSecretPromotionRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
+export type SecretAccessRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
 
 export type SecretVersionState = 'active' | 'superseded' | 'compromised' | 'destroyed'
 export type TokenHashAlgorithm = 'sha256'
@@ -153,6 +154,18 @@ export interface SecretVersion {
   secretId: string
   versionNumber: number
   state: SecretVersionState
+  createdByUserId?: string | null
+  createdFrom?: string
+  restoredFromVersionId?: string | null
+  supersededAt?: string | null
+  supersededByVersionId?: string | null
+  compromisedAt?: string | null
+  compromiseReason?: string | null
+  envelopeVersion?: number
+  envelopeAlgorithm?: string
+  wrappedKeyProvider?: string
+  wrappedKeyRef?: string
+  wrappedKeyAlgorithm?: string
   createdAt: string
 }
 
@@ -236,6 +249,19 @@ export interface PersonalSecretPromotionRequest {
   promotedSecretId: string | null
   reviewedByUserId: string | null
   reviewerNote: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SecretAccessRequest {
+  id: string
+  projectId: string
+  secretId: string
+  requesterId: string
+  status: SecretAccessRequestStatus
+  reviewedByUserId: string | null
+  reviewerNote: string | null
+  reviewedAt: string | null
   createdAt: string
   updatedAt: string
 }

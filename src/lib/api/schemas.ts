@@ -125,6 +125,7 @@ const secretModeSchema = z.enum(SECRET_MODES)
 const secretEncryptionModeSchema = z.enum(['encrypted', 'plaintext'])
 const secretScopeSchema = z.enum(['project', 'personal'])
 const secretStatusSchema = z.enum(SECRET_STATUSES)
+const secretVersionStateSchema = z.enum(['active', 'superseded', 'compromised', 'destroyed'])
 const auditOutcomeSchema = z.enum(AUDIT_OUTCOMES)
 const projectSettingsAccessModeSchema = z.enum(['proxy', 'direct', 'both'])
 const secretAccessModeSchema = z.enum(['direct', 'proxy'])
@@ -136,6 +137,7 @@ const personalSecretPromotionRequestStatusSchema = z.enum([
   'rejected',
   'cancelled',
 ])
+const secretAccessRequestStatusSchema = z.enum(['pending', 'approved', 'rejected', 'cancelled'])
 
 export const projectSchema = z.object({
   id: z.string(),
@@ -322,10 +324,24 @@ export const secretAccessResponseSchema = z.object({
 export const revokeSecretAccessResponseSchema = z.object({
   revoked: z.boolean(),
   access: userSecretAccessSchema.nullable(),
+  revokedTokenCount: z.number().optional(),
 })
 
 export const rejectSecretAccessRequestResponseSchema = z.object({
   rejected: z.boolean(),
+})
+
+export const secretAccessRequestRecordSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  secretId: z.string(),
+  requesterId: z.string(),
+  status: secretAccessRequestStatusSchema,
+  reviewedByUserId: nullableStringSchema,
+  reviewerNote: nullableStringSchema,
+  reviewedAt: nullableStringSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
 })
 
 export const personalSecretPromotionRequestSchema = z.object({
@@ -365,6 +381,36 @@ export const createSecretResponseSchema = z.object({
 
 export const updateSecretResponseSchema = z.object({
   secret: secretSchema,
+})
+
+export const secretVersionSchema = z.object({
+  id: z.string(),
+  secretId: z.string(),
+  versionNumber: z.number(),
+  state: secretVersionStateSchema,
+  createdByUserId: optionalNullableStringSchema,
+  createdFrom: z.string().optional(),
+  restoredFromVersionId: optionalNullableStringSchema,
+  supersededAt: optionalNullableStringSchema,
+  supersededByVersionId: optionalNullableStringSchema,
+  compromisedAt: optionalNullableStringSchema,
+  compromiseReason: optionalNullableStringSchema,
+  envelopeVersion: z.number().optional(),
+  envelopeAlgorithm: z.string().optional(),
+  wrappedKeyProvider: z.string().optional(),
+  wrappedKeyRef: z.string().optional(),
+  wrappedKeyAlgorithm: z.string().optional(),
+  createdAt: z.string(),
+})
+
+export const secretVersionsResponseSchema = z.object({
+  versions: z.array(secretVersionSchema),
+  retentionMonths: z.number(),
+})
+
+export const restoreSecretVersionResponseSchema = z.object({
+  secret: secretSchema,
+  currentVersion: secretVersionSchema,
 })
 
 export const importSecretsResponseSchema = z.object({
@@ -542,6 +588,16 @@ export const accessRequestResponseSchema = z.object({
 
 export const secretAccessRequestResponseSchema = z.object({
   requested: z.literal(true),
+  request: secretAccessRequestRecordSchema.nullable().optional(),
+})
+
+export const secretAccessRequestsResponseSchema = z.object({
+  requests: z.array(secretAccessRequestRecordSchema),
+})
+
+export const cancelSecretAccessRequestResponseSchema = z.object({
+  cancelled: z.boolean(),
+  request: secretAccessRequestRecordSchema.nullable(),
 })
 
 export const listAccessRequestsResponseSchema = z.object({

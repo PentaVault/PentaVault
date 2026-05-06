@@ -7,6 +7,7 @@ import {
   KeyRound,
   Lock,
   MoreHorizontal,
+  RotateCw,
   Shield,
   Trash2,
   Unlock,
@@ -42,10 +43,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown'
 import { Input } from '@/components/ui/input'
-import { useNotifications } from '@/lib/hooks/use-notifications'
 import { useCreateSecretAccessRequest } from '@/lib/hooks/use-projects'
 import {
   useApprovePromotionRequest,
+  useCancelSecretAccessRequest,
   useDeleteSecret,
   usePersonalSecrets,
   useProjectSecretAccess,
@@ -53,15 +54,17 @@ import {
   usePromotePersonalSecret,
   usePromotionRequests,
   useRejectPromotionRequest,
+  useRestoreSecretVersion,
+  useSecretAccessRequests,
+  useSecretVersions,
   useUpdateSecret,
 } from '@/lib/hooks/use-secrets'
 import { useProjectMembers } from '@/lib/hooks/use-team'
 import { useToast } from '@/lib/hooks/use-toast'
-import { useProjectTokens } from '@/lib/hooks/use-tokens'
-import type { Secret } from '@/lib/types/models'
+import type { Secret, SecretAccessRequest, SecretAccessRequestStatus } from '@/lib/types/models'
 import { cn } from '@/lib/utils/cn'
 import { getApiFriendlyMessageWithRef } from '@/lib/utils/errors'
-import { formatRelativeDate } from '@/lib/utils/format'
+import { formatDateTime, formatRelativeDate } from '@/lib/utils/format'
 
 export function SecretsList({
   canManage = false,
@@ -81,31 +84,41 @@ export function SecretsList({
   const secretsQuery = useProjectSecrets(projectId, enabled)
   const personalSecretsQuery = usePersonalSecrets(projectId, enabled && !canManage)
   const accessQuery = useProjectSecretAccess(projectId, enabled)
+  const secretAccessRequestsQuery = useSecretAccessRequests(projectId, enabled)
   const promotionRequestsQuery = usePromotionRequests(projectId, enabled)
-  const tokensQuery = useProjectTokens(projectId, enabled)
   const membersQuery = useProjectMembers(projectId, enabled)
-  const notificationsQuery = useNotifications()
   const deleteSecret = useDeleteSecret()
   const promotePersonalSecret = usePromotePersonalSecret()
   const approvePromotionRequest = useApprovePromotionRequest()
   const rejectPromotionRequest = useRejectPromotionRequest()
   const requestAccess = useCreateSecretAccessRequest(projectId)
+  const cancelAccessRequest = useCancelSecretAccessRequest()
   const { toast } = useToast()
 
   const [selectedSecretIds, setSelectedSecretIds] = useState<Set<string>>(new Set())
   const [editTarget, setEditTarget] = useState<Secret | null>(null)
+  const [historyTarget, setHistoryTarget] = useState<Secret | null>(null)
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Secret | null>(null)
   const [deleteImpactTarget, setDeleteImpactTarget] = useState<Secret | null>(null)
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false)
   const [requestingSecretId, setRequestingSecretId] = useState<string | null>(null)
   const [locallyPendingSecretIds, setLocallyPendingSecretIds] = useState<Set<string>>(new Set())
+  const [locallyCancelledSecretIds, setLocallyCancelledSecretIds] = useState<Set<string>>(new Set())
   const [requestCooldownUntil, setRequestCooldownUntil] = useState<Record<string, number>>({})
 
-  const secrets = useMemo(
-    () => [...(secretsQuery.data ?? []), ...(personalSecretsQuery.data ?? [])],
-    [personalSecretsQuery.data, secretsQuery.data]
-  )
+  const secrets = useMemo(() => {
+    const projectSecrets = secretsQuery.data ?? []
+    const projectSecretKeys = new Set(
+      projectSecrets.map((secret) => `${secret.environmentId ?? secret.environment}:${secret.name}`)
+    )
+    const visiblePersonalSecrets = (personalSecretsQuery.data ?? []).filter(
+      (secret) =>
+        !projectSecretKeys.has(`${secret.environmentId ?? secret.environment}:${secret.name}`)
+    )
+
+    return [...projectSecrets, ...visiblePersonalSecrets]
+  }, [personalSecretsQuery.data, secretsQuery.data])
   const pendingPromotionRequestsBySecretId = useMemo(() => {
     return new Map(
       (promotionRequestsQuery.data ?? [])
@@ -152,31 +165,51 @@ export function SecretsList({
         .map((access) => access.secretId)
     )
   }, [accessQuery.data])
-  const pendingAccessSecretIds = useMemo(() => {
-    const pending = new Set(locallyPendingSecretIds)
-    for (const notification of notificationsQuery.data?.notifications ?? []) {
-      if (
-        notification.type === 'secret_access_status' &&
-        notification.data.requestStatus === 'pending' &&
-        notification.data.projectId === projectId &&
-        typeof notification.data.secretId === 'string'
-      ) {
-        pending.add(notification.data.secretId)
-      }
-    }
-    return pending
-  }, [locallyPendingSecretIds, notificationsQuery.data?.notifications, projectId])
-  const activeTokenCounts = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const token of tokensQuery.data ?? []) {
-      if (token.revokedAt) {
+  const latestAccessRequestBySecretId = useMemo(() => {
+    const bySecretId = new Map<string, SecretAccessRequest>()
+
+    for (const request of secretAccessRequestsQuery.data ?? []) {
+      if (locallyCancelledSecretIds.has(request.secretId)) {
         continue
       }
 
-      counts.set(token.secretId, (counts.get(token.secretId) ?? 0) + 1)
+      const current = bySecretId.get(request.secretId)
+      if (!current || request.updatedAt.localeCompare(current.updatedAt) > 0) {
+        bySecretId.set(request.secretId, request)
+      }
+    }
+
+    for (const secretId of locallyPendingSecretIds) {
+      if (!locallyCancelledSecretIds.has(secretId) && !bySecretId.has(secretId)) {
+        bySecretId.set(secretId, {
+          id: `local:${secretId}`,
+          projectId,
+          secretId,
+          requesterId: '',
+          status: 'pending',
+          reviewedByUserId: null,
+          reviewerNote: null,
+          reviewedAt: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+      }
+    }
+
+    return bySecretId
+  }, [
+    locallyCancelledSecretIds,
+    locallyPendingSecretIds,
+    projectId,
+    secretAccessRequestsQuery.data,
+  ])
+  const activeUserAccessCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const [secretId, users] of secretAccessUsers) {
+      counts.set(secretId, users.length)
     }
     return counts
-  }, [tokensQuery.data])
+  }, [secretAccessUsers])
   const filtered = useMemo(() => {
     const scopedSecrets = secrets.filter((secret) => {
       if (environmentId) {
@@ -231,6 +264,11 @@ export function SecretsList({
       setRequestingSecretId(secret.id)
       await requestAccess.mutateAsync({ secretId: secret.id })
       setLocallyPendingSecretIds((current) => new Set(current).add(secret.id))
+      setLocallyCancelledSecretIds((current) => {
+        const next = new Set(current)
+        next.delete(secret.id)
+        return next
+      })
       setRequestCooldownUntil((current) => ({
         ...current,
         [secret.id]: Date.now() + 30_000,
@@ -246,6 +284,36 @@ export function SecretsList({
     } finally {
       setRequestingSecretId(null)
     }
+  }
+
+  async function handleCancelAccessRequest(secret: Secret): Promise<void> {
+    try {
+      await cancelAccessRequest.mutateAsync({ projectId, secretId: secret.id })
+      setLocallyPendingSecretIds((current) => {
+        const next = new Set(current)
+        next.delete(secret.id)
+        return next
+      })
+      setLocallyCancelledSecretIds((current) => new Set(current).add(secret.id))
+      toast.success('Access request cancelled.')
+    } catch (error) {
+      toast.error(
+        getApiFriendlyMessageWithRef(
+          error,
+          'Unable to cancel this access request right now. The server did not return a specific reason.'
+        )
+      )
+    }
+  }
+
+  async function handleResendAccessRequest(secret: Secret): Promise<void> {
+    try {
+      await cancelAccessRequest.mutateAsync({ projectId, secretId: secret.id })
+    } catch {
+      // A stale pending indicator should not block sending a fresh request.
+    }
+
+    await handleRequestAccess(secret)
   }
 
   async function handlePromotePersonalSecret(secret: Secret): Promise<void> {
@@ -485,14 +553,19 @@ export function SecretsList({
             key={secret.id}
             canManage={canManage}
             hasAccess={assignedSecretIds.has(secret.id)}
-            isPendingAccess={pendingAccessSecretIds.has(secret.id)}
-            tokenCount={activeTokenCounts.get(secret.id) ?? 0}
+            accessRequestStatus={latestAccessRequestBySecretId.get(secret.id)?.status ?? null}
+            accessUserCount={activeUserAccessCounts.get(secret.id) ?? 0}
+            showAccessCount={canManage}
             isRequestingAccess={requestingSecretId === secret.id}
+            isCancellingRequest={cancelAccessRequest.isPending}
             isPromoting={promotePersonalSecret.isPending}
             onDelete={() => setDeleteTarget(secret)}
             onEdit={() => setEditTarget(secret)}
+            onHistory={() => setHistoryTarget(secret)}
             onPromote={() => void handlePromotePersonalSecret(secret)}
+            onCancelRequest={() => void handleCancelAccessRequest(secret)}
             onRequestAccess={() => void handleRequestAccess(secret)}
+            onResendRequest={() => void handleResendAccessRequest(secret)}
             onSelect={handleSelect}
             promotionPending={pendingPromotionRequestsBySecretId.has(secret.id)}
             secret={secret}
@@ -514,6 +587,17 @@ export function SecretsList({
           targets={editTargets}
         />
       ) : null}
+
+      <SecretVersionsDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setHistoryTarget(null)
+          }
+        }}
+        open={Boolean(historyTarget)}
+        projectId={projectId}
+        secret={historyTarget}
+      />
 
       <AlertDialog
         onOpenChange={(open) => {
@@ -617,37 +701,47 @@ export function SecretsList({
 }
 
 function SecretRow({
+  accessRequestStatus,
   anySelected,
   canManage,
   hasAccess,
+  isCancellingRequest,
   isPromoting,
-  tokenCount,
+  accessUserCount,
+  showAccessCount,
   secret,
   isLast,
   isSelected,
   isRequestingAccess,
-  isPendingAccess,
   onDelete,
   onEdit,
+  onHistory,
   onPromote,
+  onCancelRequest,
   onRequestAccess,
+  onResendRequest,
   onSelect,
   promotionPending,
 }: {
+  accessRequestStatus: SecretAccessRequestStatus | null
   anySelected: boolean
   canManage: boolean
   hasAccess: boolean
+  isCancellingRequest: boolean
   isPromoting: boolean
-  tokenCount: number
+  accessUserCount: number
+  showAccessCount: boolean
   secret: Secret
   isLast: boolean
   isSelected: boolean
   isRequestingAccess: boolean
-  isPendingAccess: boolean
   onDelete: () => void
   onEdit: () => void
+  onHistory: () => void
   onPromote: () => void
+  onCancelRequest: () => void
   onRequestAccess: () => void
+  onResendRequest: () => void
   onSelect: (secretId: string, checked: boolean) => void
   promotionPending: boolean
 }) {
@@ -737,19 +831,45 @@ function SecretRow({
                 : '*************'
               : '*************'}
           </span>
-          {canManage ? (
+          {showAccessCount ? (
             <span className="text-xs text-muted-foreground">
-              {tokenCount} token{tokenCount === 1 ? '' : 's'}
+              {accessUserCount} user{accessUserCount === 1 ? '' : 's'}
             </span>
           ) : null}
         </div>
-      ) : isPendingAccess ? (
-        <span className="flex min-w-[17rem] justify-center rounded border border-border px-2 py-1 text-xs text-muted-foreground">
-          Pending
-        </span>
+      ) : accessRequestStatus && accessRequestStatus !== 'cancelled' ? (
+        <div className="flex min-w-[17rem] justify-end">
+          <div className="flex h-8 min-w-[10rem] items-center justify-between rounded-md border border-border bg-background px-3 text-xs text-muted-foreground">
+            <span className="capitalize">
+              {accessRequestStatus === 'rejected' ? 'Declined' : accessRequestStatus}
+            </span>
+            {accessRequestStatus === 'pending' ? (
+              <span className="ml-3 flex items-center gap-2">
+                <button
+                  aria-label={`Resend access request for ${secret.name}`}
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                  disabled={isRequestingAccess}
+                  onClick={onResendRequest}
+                  type="button"
+                >
+                  <RotateCw className={cn('h-3.5 w-3.5', isRequestingAccess && 'animate-spin')} />
+                </button>
+                <button
+                  aria-label={`Cancel access request for ${secret.name}`}
+                  className="text-muted-foreground transition-colors hover:text-danger"
+                  disabled={isCancellingRequest}
+                  onClick={onCancelRequest}
+                  type="button"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            ) : null}
+          </div>
+        </div>
       ) : (
         <Button
-          className="h-8 min-w-[17rem] justify-center px-2 text-xs"
+          className="ml-auto h-8 min-w-[10rem] ml-[6rem] justify-center text-xs"
           disabled={isRequestingAccess}
           onClick={onRequestAccess}
           size="sm"
@@ -775,6 +895,9 @@ function SecretRow({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={onEdit}>Edit value</DropdownMenuItem>
+              {canManage ? (
+                <DropdownMenuItem onSelect={onHistory}>Back to older version</DropdownMenuItem>
+              ) : null}
               {isPersonal ? (
                 promotionPending ? (
                   <DropdownMenuItem disabled>Promotion pending</DropdownMenuItem>
@@ -795,6 +918,122 @@ function SecretRow({
       </div>
     </div>
   )
+}
+
+function SecretVersionsDialog({
+  onOpenChange,
+  open,
+  projectId,
+  secret,
+}: {
+  onOpenChange: (open: boolean) => void
+  open: boolean
+  projectId: string
+  secret: Secret | null
+}) {
+  const versionsQuery = useSecretVersions(projectId, secret?.id ?? null, open && Boolean(secret))
+  const restoreVersion = useRestoreSecretVersion()
+  const { toast } = useToast()
+  const currentVersionId = secret?.currentVersionId ?? null
+  const restorableVersions = (versionsQuery.data ?? []).filter(
+    (version) =>
+      version.id !== currentVersionId &&
+      version.state !== 'destroyed' &&
+      version.state !== 'compromised'
+  )
+
+  async function restore(versionId: string): Promise<void> {
+    if (!secret) {
+      return
+    }
+
+    try {
+      await restoreVersion.mutateAsync({
+        projectId,
+        secretId: secret.id,
+        versionId,
+      })
+      toast.success('Variable restored to the selected version.')
+      onOpenChange(false)
+    } catch {
+      toast.error('Unable to restore this variable version right now.')
+    }
+  }
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogPortal>
+        <DialogOverlay className="fixed inset-0 bg-black/45" />
+        <DialogContent className="fixed top-1/2 left-1/2 w-[95vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-5">
+          <DialogTitle className="text-lg font-medium">
+            Back to older version{secret ? `: ${secret.name}` : ''}
+          </DialogTitle>
+          <DialogDescription className="mt-1 text-sm text-muted-foreground">
+            Restoring creates a new active version from the selected encrypted envelope. Older
+            versions remain in history for the six month retention window.
+          </DialogDescription>
+
+          <div className="mt-4 max-h-96 overflow-auto rounded-md border border-border">
+            {versionsQuery.isLoading ? (
+              <p className="p-4 text-sm text-muted-foreground">Loading versions...</p>
+            ) : restorableVersions.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">No previous versions available.</p>
+            ) : (
+              <div className="divide-y divide-border">
+                {restorableVersions.map((version) => (
+                  <div
+                    className="grid gap-3 px-4 py-3 md:grid-cols-[5rem_minmax(0,1fr)_8rem_auto] md:items-center"
+                    key={version.id}
+                  >
+                    <span className="font-mono text-sm">v{version.versionNumber}</span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm">{formatVersionSource(version.createdFrom)}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {formatDateTime(version.createdAt)}
+                      </p>
+                    </div>
+                    <span className="rounded border border-border px-2 py-1 text-center text-xs text-muted-foreground">
+                      {version.state}
+                    </span>
+                    <Button
+                      disabled={restoreVersion.isPending}
+                      onClick={() => void restore(version.id)}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      Restore
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <Button onClick={() => onOpenChange(false)} size="sm" type="button">
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </DialogPortal>
+    </Dialog>
+  )
+}
+
+function formatVersionSource(value?: string) {
+  switch (value) {
+    case 'manual_create':
+      return 'Initial version'
+    case 'manual_update':
+      return 'Manual update'
+    case 'restore':
+      return 'Restored from older version'
+    case 'bootstrap':
+      return 'Bootstrap import'
+    default:
+      return value ?? 'Unknown source'
+  }
 }
 
 function EditSecretDialog({

@@ -56,6 +56,15 @@ function isAuthOrganizationsRequest(url: string | undefined): boolean {
   )
 }
 
+function isProjectAuditRequest(url: string | undefined): boolean {
+  if (!url) {
+    return false
+  }
+
+  const normalizedUrl = normalizeUrlPath(url)
+  return /^v1\/projects\/[^/]+\/audit(?:\?|$)/.test(normalizedUrl)
+}
+
 function isUpstreamUnavailableResponse(error: unknown): boolean {
   if (!axios.isAxiosError(error)) {
     return false
@@ -178,6 +187,12 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     error.response?.status === 400 &&
     authOrganizationsErrorCode === 'ORG_DELETE_DEFAULT_NOT_ALLOWED'
 
+  const isProjectAuditReadRateLimited =
+    error.config?.method?.toLowerCase() === 'get' &&
+    isProjectAuditRequest(error.config?.url) &&
+    error.response?.status === 429 &&
+    errorCode === 'RATE_LIMITED'
+
   return (
     isProjectDeleteNotFound ||
     isProjectCreateSlugConflict ||
@@ -187,6 +202,7 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     isAuthOrganizationsUnavailable ||
     isAuthSetActiveKnownFailure ||
     isOrgDeleteGuardedFailure ||
+    isProjectAuditReadRateLimited ||
     isExpectedEmailNotVerified
   )
 }

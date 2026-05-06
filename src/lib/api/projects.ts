@@ -15,6 +15,7 @@ import type {
   AccessRequestResponse,
   CreateAccessRequestInput,
   CreateProjectInput,
+  CreateSecretAccessRequestResponse,
   ListAccessRequestsResponse,
   ListProjectsResponse,
   ProjectMembersResponse,
@@ -113,8 +114,8 @@ export const projectsApi = {
   async createSecretAccessRequest(
     projectId: string,
     secretId: string
-  ): Promise<{ requested: true }> {
-    const response = await apiClient.post<{ requested: true }>(
+  ): Promise<CreateSecretAccessRequestResponse> {
+    const response = await apiClient.post<CreateSecretAccessRequestResponse>(
       `/v1/projects/${projectId}/secrets/${secretId}/access-requests`
     )
     return parseApiResponse(secretAccessRequestResponseSchema, response.data)

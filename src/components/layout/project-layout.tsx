@@ -7,23 +7,21 @@ import type { ReactNode } from 'react'
 
 import { DashboardNavLink } from '@/components/layout/dashboard-nav-link'
 import {
-  getOrgProjectAnalyticsPath,
   getOrgProjectAuditPath,
+  getOrgProjectObservabilityPath,
   getOrgProjectPath,
   getOrgProjectSecretsPath,
   getOrgProjectSecurityPath,
   getOrgProjectSettingsPath,
   getOrgProjectsPath,
   getOrgProjectTeamPath,
-  getOrgProjectUsagePath,
-  getProjectAnalyticsPath,
   getProjectAuditPath,
+  getProjectObservabilityPath,
   getProjectPath,
   getProjectSecretsPath,
   getProjectSecurityPath,
   getProjectSettingsPath,
   getProjectTeamPath,
-  getProjectUsagePath,
   PROJECTS_PATH,
 } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
@@ -59,8 +57,10 @@ export function ProjectLayout({ children }: ProjectLayoutProps) {
         { href: getOrgProjectTeamPath(orgIdForProjectUrls, projectId), label: 'Team & Access' },
         { href: getOrgProjectAuditPath(orgIdForProjectUrls, projectId), label: 'Audit log' },
         { href: getOrgProjectSecurityPath(orgIdForProjectUrls, projectId), label: 'Security' },
-        { href: getOrgProjectUsagePath(orgIdForProjectUrls, projectId), label: 'Usage' },
-        { href: getOrgProjectAnalyticsPath(orgIdForProjectUrls, projectId), label: 'Analytics' },
+        {
+          href: getOrgProjectObservabilityPath(orgIdForProjectUrls, projectId),
+          label: 'Observability',
+        },
       ]
     : [
         { href: getProjectPath(projectId), label: 'Overview', exact: true },
@@ -68,14 +68,13 @@ export function ProjectLayout({ children }: ProjectLayoutProps) {
         { href: getProjectTeamPath(projectId), label: 'Team & Access' },
         { href: getProjectAuditPath(projectId), label: 'Audit log' },
         { href: getProjectSecurityPath(projectId), label: 'Security' },
-        { href: getProjectUsagePath(projectId), label: 'Usage' },
-        { href: getProjectAnalyticsPath(projectId), label: 'Analytics' },
+        { href: getProjectObservabilityPath(projectId), label: 'Observability' },
       ]
   const navItems = canUseRestrictedProjectPages
     ? baseNavItems
     : baseNavItems.filter(
         (item) =>
-          item.label !== 'Audit log' && item.label !== 'Security' && item.label !== 'Analytics'
+          item.label !== 'Audit log' && item.label !== 'Security' && item.label !== 'Observability'
       )
   const allProjectsHref = orgIdForProjectUrls
     ? getOrgProjectsPath(orgIdForProjectUrls)

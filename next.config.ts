@@ -9,7 +9,38 @@ const nextConfig: NextConfig = {
   },
   env: {},
   async redirects() {
-    return []
+    return [
+      {
+        source: '/dashboard/projects',
+        destination: '/projects',
+        permanent: false,
+      },
+      {
+        source: '/dashboard/projects/:path*',
+        destination: '/projects/:path*',
+        permanent: false,
+      },
+      {
+        source: '/dashboard/org/:orgId/projects',
+        destination: '/projects',
+        permanent: false,
+      },
+      {
+        source: '/dashboard/org/:orgId/projects/:path*',
+        destination: '/projects/:path*',
+        permanent: false,
+      },
+      {
+        source: '/projects/:projectId/usage',
+        destination: '/projects/:projectId/observability',
+        permanent: false,
+      },
+      {
+        source: '/projects/:projectId/analytics',
+        destination: '/projects/:projectId/observability',
+        permanent: false,
+      },
+    ]
   },
   async headers() {
     return [

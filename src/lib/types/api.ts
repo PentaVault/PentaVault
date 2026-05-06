@@ -19,7 +19,9 @@ import type {
   RotationRecommendation,
   Secret,
   SecretAccessEvent,
+  SecretAccessRequest,
   SecretMode,
+  SecretVersion,
   SecurityAlert,
   SecurityAlertStatus,
   UserProject,
@@ -97,10 +99,25 @@ export interface SecretAccessResponse {
 export interface RevokeSecretAccessResponse {
   revoked: boolean
   access: UserSecretAccess | null
+  revokedTokenCount?: number
 }
 
 export interface RejectSecretAccessRequestResponse {
   rejected: boolean
+}
+
+export interface SecretAccessRequestsResponse {
+  requests: SecretAccessRequest[]
+}
+
+export interface CreateSecretAccessRequestResponse {
+  requested: true
+  request: SecretAccessRequest | null
+}
+
+export interface CancelSecretAccessRequestResponse {
+  cancelled: boolean
+  request: SecretAccessRequest | null
 }
 
 export interface GrantSecretAccessInput {
@@ -308,6 +325,16 @@ export interface UpdateSecretInput {
 
 export interface UpdateSecretResponse {
   secret: Secret
+}
+
+export interface SecretVersionsResponse {
+  versions: SecretVersion[]
+  retentionMonths: number
+}
+
+export interface RestoreSecretVersionResponse {
+  secret: Secret
+  currentVersion: SecretVersion
 }
 
 export interface ImportSecretsInput {

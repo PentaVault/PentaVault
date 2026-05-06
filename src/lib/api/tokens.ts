@@ -20,8 +20,16 @@ import type {
 } from '@/lib/types/api'
 
 export const tokensApi = {
-  async listProjectTokens(projectId: string): Promise<ProjectTokensResponse> {
-    const response = await apiClient.get<ProjectTokensResponse>(`/v1/projects/${projectId}/tokens`)
+  async listProjectTokens(
+    projectId: string,
+    scope: 'all' | 'self' = 'all'
+  ): Promise<ProjectTokensResponse> {
+    const response = await apiClient.get<ProjectTokensResponse>(
+      `/v1/projects/${projectId}/tokens`,
+      {
+        params: scope === 'self' ? { scope } : undefined,
+      }
+    )
     return parseApiResponse(projectTokensResponseSchema, response.data)
   },
 

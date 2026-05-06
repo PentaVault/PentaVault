@@ -59,8 +59,12 @@ export const queryKeys = {
     list: (projectId: string | null) => ['project-secrets', projectId] as const,
     personal: (projectId: string | null) => ['project-secrets', projectId, 'personal'] as const,
     access: (projectId: string | null) => ['project-secrets', projectId, 'access'] as const,
+    accessRequests: (projectId: string | null) =>
+      ['project-secrets', projectId, 'access-requests'] as const,
     secretAccess: (projectId: string | null, secretId: string | null) =>
       ['project-secrets', projectId, secretId, 'access'] as const,
+    versions: (projectId: string | null, secretId: string | null) =>
+      ['project-secrets', projectId, secretId, 'versions'] as const,
     promotionRequests: (projectId: string | null) =>
       ['project-secrets', projectId, 'promotion-requests'] as const,
   },
@@ -74,7 +78,8 @@ export const queryKeys = {
   },
   projectTokens: {
     all: ['project-tokens'] as const,
-    list: (projectId: string | null) => ['project-tokens', projectId] as const,
+    list: (projectId: string | null, scope: 'all' | 'self' = 'all') =>
+      ['project-tokens', projectId, scope] as const,
   },
   userSearchAll: ['user-search'] as const,
   userSearch: (organizationId: string | null, query: string) =>

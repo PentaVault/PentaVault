@@ -126,7 +126,12 @@ export function useCreateSecretAccessRequest(projectId?: string | null) {
       return projectsApi.createSecretAccessRequest(projectId, payload.secretId)
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.accessRequests(projectId ?? null),
+        }),
+      ])
     },
   })
 }

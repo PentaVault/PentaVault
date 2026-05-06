@@ -1,6 +1,7 @@
 import { apiClient } from '@/lib/api/client'
 import {
   approvePromotionRequestResponseSchema,
+  cancelSecretAccessRequestResponseSchema,
   createSecretResponseSchema,
   deleteSecretResponseSchema,
   importSecretsResponseSchema,
@@ -10,12 +11,16 @@ import {
   promotionRequestResponseSchema,
   promotionRequestsResponseSchema,
   rejectSecretAccessRequestResponseSchema,
+  restoreSecretVersionResponseSchema,
   revokeSecretAccessResponseSchema,
+  secretAccessRequestsResponseSchema,
   secretAccessResponseSchema,
+  secretVersionsResponseSchema,
   updateSecretResponseSchema,
 } from '@/lib/api/schemas'
 import type {
   ApprovePromotionRequestResponse,
+  CancelSecretAccessRequestResponse,
   CreatePersonalSecretInput,
   CreateSecretInput,
   CreateSecretResponse,
@@ -29,8 +34,11 @@ import type {
   PromotionRequestResponse,
   PromotionRequestsResponse,
   RejectSecretAccessRequestResponse,
+  RestoreSecretVersionResponse,
   RevokeSecretAccessResponse,
+  SecretAccessRequestsResponse,
   SecretAccessResponse,
+  SecretVersionsResponse,
   UpdateSecretInput,
   UpdateSecretResponse,
 } from '@/lib/types/api'
@@ -55,6 +63,13 @@ export const secretsApi = {
       `/v1/projects/${projectId}/secret-access`
     )
     return parseApiResponse(projectSecretAccessResponseSchema, response.data)
+  },
+
+  async listSecretAccessRequests(projectId: string): Promise<SecretAccessRequestsResponse> {
+    const response = await apiClient.get<SecretAccessRequestsResponse>(
+      `/v1/projects/${projectId}/secret-access-requests`
+    )
+    return parseApiResponse(secretAccessRequestsResponseSchema, response.data)
   },
 
   async listSecretAccess(input: {
@@ -103,6 +118,27 @@ export const secretsApi = {
     return parseApiResponse(updateSecretResponseSchema, response.data)
   },
 
+  async listSecretVersions(input: {
+    projectId: string
+    secretId: string
+  }): Promise<SecretVersionsResponse> {
+    const response = await apiClient.get<SecretVersionsResponse>(
+      `/v1/projects/${input.projectId}/secrets/${input.secretId}/versions`
+    )
+    return parseApiResponse(secretVersionsResponseSchema, response.data)
+  },
+
+  async restoreSecretVersion(input: {
+    projectId: string
+    secretId: string
+    versionId: string
+  }): Promise<RestoreSecretVersionResponse> {
+    const response = await apiClient.post<RestoreSecretVersionResponse>(
+      `/v1/projects/${input.projectId}/secrets/${input.secretId}/versions/${input.versionId}/restore`
+    )
+    return parseApiResponse(restoreSecretVersionResponseSchema, response.data)
+  },
+
   async deleteSecret(input: {
     projectId: string
     secretId: string
@@ -146,6 +182,18 @@ export const secretsApi = {
       `/v1/projects/${input.projectId}/secrets/${input.secretId}/access-requests/${input.userId}/reject`
     )
     return parseApiResponse(rejectSecretAccessRequestResponseSchema, response.data)
+  },
+
+  async cancelSecretAccessRequest(input: {
+    projectId: string
+    secretId: string
+    userId?: string
+  }): Promise<CancelSecretAccessRequestResponse> {
+    const url = input.userId
+      ? `/v1/projects/${input.projectId}/secrets/${input.secretId}/access-requests/${input.userId}`
+      : `/v1/projects/${input.projectId}/secrets/${input.secretId}/access-requests`
+    const response = await apiClient.delete<CancelSecretAccessRequestResponse>(url)
+    return parseApiResponse(cancelSecretAccessRequestResponseSchema, response.data)
   },
 
   async listPromotionRequests(projectId: string): Promise<PromotionRequestsResponse> {

@@ -336,7 +336,7 @@ describe('NotificationPanel', () => {
     expect(markReadMutate).toHaveBeenCalledWith('notification_access')
     await waitFor(() => {
       expect(setActiveOrganization).toHaveBeenCalledWith({ organizationId: 'org_1' })
-      expect(routerPush).toHaveBeenCalledWith('/dashboard/org/org_1/projects/project_1/team')
+      expect(routerPush).toHaveBeenCalledWith('/projects/project_1/team')
     })
   })
 
@@ -370,7 +370,7 @@ describe('NotificationPanel', () => {
 
     await waitFor(() => {
       expect(setActiveOrganization).toHaveBeenCalledWith({ organizationId: 'org_1' })
-      expect(routerPush).toHaveBeenCalledWith('/dashboard/org/org_1/projects/project_1')
+      expect(routerPush).toHaveBeenCalledWith('/projects/project_1')
     })
   })
 
@@ -404,7 +404,7 @@ describe('NotificationPanel', () => {
 
     await waitFor(() => {
       expect(setActiveOrganization).toHaveBeenCalledWith({ organizationId: 'org_1' })
-      expect(routerPush).toHaveBeenCalledWith('/dashboard/org/org_1/projects/project_1/secrets')
+      expect(routerPush).toHaveBeenCalledWith('/projects/project_1/secrets')
     })
   })
 

@@ -6,15 +6,19 @@ import { tokensApi } from '@/lib/api/tokens'
 import { queryKeys } from '@/lib/query/keys'
 import type { BatchIssueTokensInput, IssueTokenInput, RevokeTokenInput } from '@/lib/types/api'
 
-export function useProjectTokens(projectId: string | null, enabled = true) {
+export function useProjectTokens(
+  projectId: string | null,
+  enabled = true,
+  scope: 'all' | 'self' = 'all'
+) {
   return useQuery({
-    queryKey: queryKeys.projectTokens.list(projectId),
+    queryKey: queryKeys.projectTokens.list(projectId, scope),
     queryFn: async () => {
       if (!projectId) {
         throw new Error('projectId is required to list tokens')
       }
 
-      return tokensApi.listProjectTokens(projectId).then((response) => response.tokens)
+      return tokensApi.listProjectTokens(projectId, scope).then((response) => response.tokens)
     },
     enabled: Boolean(projectId) && enabled,
   })
@@ -24,11 +28,14 @@ export function useGenerateToken() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (input: IssueTokenInput & { projectId: string }) =>
-      tokensApi.issueToken(input),
+    mutationFn: async ({
+      projectId: _projectId,
+      ...input
+    }: IssueTokenInput & { projectId: string }) => tokensApi.issueToken(input),
     onSuccess: async (_result, input) => {
+      void input
       await queryClient.invalidateQueries({
-        queryKey: queryKeys.projectTokens.list(input.projectId),
+        queryKey: queryKeys.projectTokens.all,
       })
     },
   })
@@ -40,8 +47,9 @@ export function useGenerateTokensForMember() {
   return useMutation({
     mutationFn: async (input: BatchIssueTokensInput) => tokensApi.batchIssueTokens(input),
     onSuccess: async (_result, input) => {
+      void input
       await queryClient.invalidateQueries({
-        queryKey: queryKeys.projectTokens.list(input.projectId),
+        queryKey: queryKeys.projectTokens.all,
       })
     },
   })
@@ -63,8 +71,9 @@ export function useRevokeToken() {
       throw new Error('token or tokenHash is required')
     },
     onSuccess: async (_result, input) => {
+      void input
       await queryClient.invalidateQueries({
-        queryKey: queryKeys.projectTokens.list(input.projectId),
+        queryKey: queryKeys.projectTokens.all,
       })
     },
   })
