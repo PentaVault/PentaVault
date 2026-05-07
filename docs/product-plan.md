@@ -1,5 +1,6 @@
 # PentaVault Product Plan
 
+Completion Status: Active - living roadmap, product not complete
 Updated: 2026-04-23
 
 ## 1) Purpose
@@ -210,6 +211,7 @@ Goal: satisfy larger buyers without compromising the small-team workflow.
 - Introduce environments/configs and migrate current secret/token tables safely.
 - Add service account and service token schema.
 - Add secret access log tables distinct from general audit events.
+- Add the internal KMS path described in `docs/implementation/internal-kms-blueprint.md` before treating managed encryption as production-ready.
 - Add webhook delivery worker with retry, idempotency, signing, and delivery logs.
 - Add sync target abstraction before adding many providers.
 

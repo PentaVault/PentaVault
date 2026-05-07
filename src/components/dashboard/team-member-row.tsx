@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 
+import { MemberAccessDialog } from '@/components/dashboard/token-assignment-view'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -13,9 +14,10 @@ import {
 } from '@/components/ui/select'
 import { useRemoveProjectMember, useUpdateProjectMember } from '@/lib/hooks/use-team'
 import { useToast } from '@/lib/hooks/use-toast'
-import type { ProjectMembership } from '@/lib/types/models'
+import type { ProjectMembership, Secret, UserSecretAccess } from '@/lib/types/models'
 import { cn } from '@/lib/utils/cn'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
+import type { PendingSecretRequest } from '@/lib/utils/secret-access-requests'
 
 type TeamMemberRowProps = {
   projectId: string
@@ -23,6 +25,9 @@ type TeamMemberRowProps = {
   assignedCount: number
   canManage: boolean
   currentUserId: string | null
+  memberAccess?: UserSecretAccess[]
+  pendingRequests?: PendingSecretRequest[]
+  secrets?: Secret[]
 }
 
 type EditableRole = 'admin' | 'member'
@@ -35,8 +40,11 @@ export function TeamMemberRow({
   assignedCount,
   canManage,
   currentUserId,
+  memberAccess = [],
   projectId,
   membership,
+  pendingRequests = [],
+  secrets = [],
 }: TeamMemberRowProps) {
   const updateMember = useUpdateProjectMember(projectId)
   const removeMember = useRemoveProjectMember(projectId)
@@ -47,6 +55,12 @@ export function TeamMemberRow({
   const isCurrentUser = Boolean(currentUserId) && membership.userId === currentUserId
   const canManageRow = canManage && !isImmutableOwner && !isCurrentUser
   const canLeaveRow = isCurrentUser && !isImmutableOwner
+  const [isVariableAccessOpen, setIsVariableAccessOpen] = useState(false)
+  const canManageVariableAccess = canManageRow && membership.role === 'member' && secrets.length > 0
+  const variableLabel =
+    membership.role === 'owner' || membership.role === 'admin'
+      ? 'full access'
+      : `${assignedCount} variable${assignedCount === 1 ? '' : 's'}`
 
   async function updateRole(nextRole: EditableRole): Promise<void> {
     if (!canManageRow) {
@@ -87,7 +101,7 @@ export function TeamMemberRow({
         'grid gap-3 border-b border-border px-4 py-3 last:border-b-0 md:items-center',
         canManage
           ? 'md:grid-cols-[minmax(0,1fr)_150px_160px_96px]'
-          : 'md:grid-cols-[minmax(0,1fr)_150px_120px]'
+          : 'md:grid-cols-[minmax(0,1fr)_150px_minmax(120px,max-content)]'
       )}
     >
       <div className="min-w-0">
@@ -106,9 +120,19 @@ export function TeamMemberRow({
         </p>
       </div>
 
-      <p className="justify-self-start font-mono text-xs text-muted-foreground md:justify-self-center">
-        {assignedCount} variable{assignedCount === 1 ? '' : 's'}
-      </p>
+      {canManageVariableAccess ? (
+        <button
+          className="justify-self-start text-left font-mono text-xs text-muted-foreground transition-colors hover:text-accent md:justify-self-center"
+          onClick={() => setIsVariableAccessOpen(true)}
+          type="button"
+        >
+          {variableLabel}
+        </button>
+      ) : (
+        <p className="justify-self-start font-mono text-xs text-muted-foreground md:justify-self-center">
+          {variableLabel}
+        </p>
+      )}
 
       {canManageRow ? (
         <>
@@ -140,12 +164,11 @@ export function TeamMemberRow({
           </Button>
         </>
       ) : canLeaveRow ? (
-        <>
+        <div className="flex items-center gap-3 justify-self-start md:justify-self-end">
           <p className="justify-self-start font-mono text-xs text-muted-foreground md:justify-self-center">
             {membership.role}
           </p>
           <Button
-            className="justify-self-start md:justify-self-end"
             disabled={removeMember.isPending}
             onClick={() => void removeMemberRow()}
             size="sm"
@@ -154,12 +177,21 @@ export function TeamMemberRow({
           >
             Leave
           </Button>
-        </>
+        </div>
       ) : canManage ? (
         <p className="justify-self-start font-mono text-xs text-muted-foreground md:justify-self-center">
           {membership.role}
         </p>
       ) : null}
+      <MemberAccessDialog
+        member={membership}
+        memberAccess={memberAccess}
+        onOpenChange={setIsVariableAccessOpen}
+        open={isVariableAccessOpen}
+        pendingRequests={pendingRequests}
+        projectId={projectId}
+        secrets={secrets}
+      />
     </div>
   )
 }

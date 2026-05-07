@@ -53,7 +53,16 @@ export function useNotificationStream() {
           }
         })
 
-        if (['org_invitation', 'project_access_approved'].includes(notification.type)) {
+        if (
+          [
+            'org_invitation',
+            'project_access_approved',
+            'secret_access_request',
+            'secret_access_status',
+            'personal_secret_promotion_request',
+            'personal_secret_promotion_status',
+          ].includes(notification.type)
+        ) {
           toast(notification.title, { description: notification.body })
         }
       })

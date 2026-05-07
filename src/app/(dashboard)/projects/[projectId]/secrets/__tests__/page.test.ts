@@ -1,0 +1,28 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
+describe('ProjectSecretsPage', () => {
+  const source = readFileSync(
+    join(process.cwd(), 'src/app/(dashboard)/projects/[projectId]/secrets/page.tsx'),
+    'utf8'
+  )
+
+  it('uses a top-level environment dropdown instead of environment tabs', () => {
+    expect(source).toContain('@/components/ui/select')
+    expect(source).toContain('setSelectedEnvironmentId(value)')
+    expect(source).toContain('canManageSecrets && environments.length > 0')
+    expect(source).not.toContain('scopeTab')
+  })
+
+  it('opens the add variable dialog only for writable project roles', () => {
+    expect(source).toContain('Add variable')
+    expect(source).toContain('const canCreateSecrets =')
+    expect(source).toContain('canAccessProject &&')
+    expect(source).toContain("effectiveRole === 'developer'")
+    expect(source).toContain("effectiveRole === 'member'")
+    expect(source).toContain('{canCreateSecrets ? (')
+    expect(source).toContain('allowProjectScope={canManageSecrets}')
+    expect(source).toContain("environment.slug === 'development'")
+    expect(source).not.toContain('{canAccessProject ? (\n            <Button')
+  })
+})

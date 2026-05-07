@@ -37,39 +37,58 @@ export function getOrgDashboardPath(orgId: string): string {
 }
 
 export function getOrgProjectsPath(orgId: string): string {
-  return `${getOrgDashboardPath(orgId)}/projects`
+  void orgId
+  return PROJECTS_PATH
 }
 
 export function getOrgProjectPath(orgId: string, projectId: string): string {
-  return `${getOrgProjectsPath(orgId)}/${projectId}`
+  void orgId
+  return getProjectPath(projectId)
 }
 
 export function getOrgProjectSecretsPath(orgId: string, projectId: string): string {
-  return `${getOrgProjectPath(orgId, projectId)}/secrets`
+  void orgId
+  return getProjectSecretsPath(projectId)
 }
 
 export function getOrgProjectTokensPath(orgId: string, projectId: string): string {
-  return `${getOrgProjectPath(orgId, projectId)}/tokens`
+  void orgId
+  return getProjectTokensPath(projectId)
 }
 
 export function getOrgProjectTeamPath(orgId: string, projectId: string): string {
-  return `${getOrgProjectPath(orgId, projectId)}/team`
+  void orgId
+  return getProjectTeamPath(projectId)
 }
 
 export function getOrgProjectAuditPath(orgId: string, projectId: string): string {
-  return `${getOrgProjectPath(orgId, projectId)}/audit`
+  void orgId
+  return getProjectAuditPath(projectId)
 }
 
 export function getOrgProjectUsagePath(orgId: string, projectId: string): string {
-  return `${getOrgProjectPath(orgId, projectId)}/usage`
+  void orgId
+  return getProjectUsagePath(projectId)
+}
+
+export function getOrgProjectAnalyticsPath(orgId: string, projectId: string): string {
+  void orgId
+  return getProjectAnalyticsPath(projectId)
+}
+
+export function getOrgProjectObservabilityPath(orgId: string, projectId: string): string {
+  void orgId
+  return getProjectObservabilityPath(projectId)
 }
 
 export function getOrgProjectSecurityPath(orgId: string, projectId: string): string {
-  return `${getOrgProjectPath(orgId, projectId)}/security`
+  void orgId
+  return getProjectSecurityPath(projectId)
 }
 
 export function getOrgProjectSettingsPath(orgId: string, projectId: string): string {
-  return `${getOrgProjectPath(orgId, projectId)}/settings`
+  void orgId
+  return getProjectSettingsPath(projectId)
 }
 
 export function getOrgSettingsPath(orgId: string): string {
@@ -117,7 +136,15 @@ export function getProjectAuditPath(projectId: string): string {
 }
 
 export function getProjectUsagePath(projectId: string): string {
-  return `${getProjectPath(projectId)}/usage`
+  return getProjectAnalyticsPath(projectId)
+}
+
+export function getProjectAnalyticsPath(projectId: string): string {
+  return `${getProjectPath(projectId)}/analytics`
+}
+
+export function getProjectObservabilityPath(projectId: string): string {
+  return getProjectAnalyticsPath(projectId)
 }
 
 export function getProjectSecurityPath(projectId: string): string {

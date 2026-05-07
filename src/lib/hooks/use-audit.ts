@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { auditApi } from '@/lib/api/audit'
 import { queryKeys } from '@/lib/query/keys'
 import type { AuditListQuery } from '@/lib/types/api'
+import { getApiErrorStatus } from '@/lib/utils/errors'
 
 export function useAudit(projectId: string | null, query: AuditListQuery = {}, enabled = true) {
   return useQuery({
@@ -17,5 +18,9 @@ export function useAudit(projectId: string | null, query: AuditListQuery = {}, e
       return auditApi.listProjectAudit(projectId, query)
     },
     enabled: Boolean(projectId) && enabled,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+    retry: (failureCount, error) => getApiErrorStatus(error) !== 429 && failureCount < 1,
+    staleTime: 30_000,
   })
 }
