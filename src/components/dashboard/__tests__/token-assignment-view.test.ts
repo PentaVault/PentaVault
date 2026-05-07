@@ -190,3 +190,19 @@ describe('buildPendingSecretRequestsByUser', () => {
     expect(pending.get('user_1')).toBeUndefined()
   })
 })
+
+describe('TokenAssignmentView source guards', () => {
+  it('makes a selected history token current by revoking newer active tokens', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const source = readFileSync(
+      join(process.cwd(), 'src/components/dashboard/token-assignment-view.tsx'),
+      'utf8'
+    )
+
+    expect(source).toContain('const newerActiveTokens = tokenHistory.filter')
+    expect(source).toContain('tokenTimestamp(candidate) > historyTokenCreatedAt')
+    expect(source).toContain('candidate.tokenHash !== historyToken.tokenHash')
+    expect(source).toContain('newerActiveTokens.map((candidate)')
+  })
+})
