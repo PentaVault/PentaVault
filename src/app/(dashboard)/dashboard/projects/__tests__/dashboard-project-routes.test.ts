@@ -18,7 +18,6 @@ const projectRouteFiles = [
   ['overview', '[projectId]/page.tsx'],
   ['analytics', '[projectId]/analytics/page.tsx'],
   ['audit', '[projectId]/audit/page.tsx'],
-  ['observability', '[projectId]/observability/page.tsx'],
   ['secrets', '[projectId]/secrets/page.tsx'],
   ['security', '[projectId]/security/page.tsx'],
   ['settings', '[projectId]/settings/page.tsx'],

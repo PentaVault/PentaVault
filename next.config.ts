@@ -32,12 +32,12 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/projects/:projectId/usage',
-        destination: '/projects/:projectId/observability',
+        destination: '/projects/:projectId/analytics',
         permanent: false,
       },
       {
-        source: '/projects/:projectId/analytics',
-        destination: '/projects/:projectId/observability',
+        source: '/projects/:projectId/observability',
+        destination: '/projects/:projectId/analytics',
         permanent: false,
       },
     ]

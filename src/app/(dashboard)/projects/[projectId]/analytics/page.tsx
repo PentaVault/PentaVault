@@ -155,7 +155,7 @@ export default function ProjectAnalyticsPage() {
       <PageWrapper>
         <Card>
           <CardHeader>
-            <CardTitle>Observability</CardTitle>
+            <CardTitle>Analytics</CardTitle>
             <CardDescription>Loading project permissions...</CardDescription>
           </CardHeader>
         </Card>
@@ -168,7 +168,7 @@ export default function ProjectAnalyticsPage() {
       <PageWrapper>
         <Card>
           <CardHeader>
-            <CardTitle>Observability unavailable</CardTitle>
+            <CardTitle>Analytics unavailable</CardTitle>
             <CardDescription>
               The selected project could not be loaded or you do not have access.
             </CardDescription>
@@ -183,7 +183,7 @@ export default function ProjectAnalyticsPage() {
       <PageWrapper>
         <Card>
           <CardHeader>
-            <CardTitle>Observability</CardTitle>
+            <CardTitle>Analytics</CardTitle>
             <CardDescription>Redirecting to the project overview...</CardDescription>
           </CardHeader>
         </Card>
@@ -196,7 +196,7 @@ export default function ProjectAnalyticsPage() {
       <div className="space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-3xl tracking-[-0.16px] text-foreground">Observability</h1>
+            <h1 className="text-3xl tracking-[-0.16px] text-foreground">Analytics</h1>
             <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
               Secret access activity, proxy behavior, and recent resolve events for this project.
             </p>
@@ -216,9 +216,9 @@ export default function ProjectAnalyticsPage() {
         {analyticsQuery.isError ? (
           <Card>
             <CardHeader>
-              <CardTitle>Unable to load observability data</CardTitle>
+              <CardTitle>Unable to load analytics data</CardTitle>
               <CardDescription>
-                Observability data is unavailable right now. Retry after the backend is reachable.
+                Analytics data is unavailable right now. Retry after the backend is reachable.
               </CardDescription>
             </CardHeader>
           </Card>

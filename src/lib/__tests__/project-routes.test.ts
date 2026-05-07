@@ -39,8 +39,9 @@ describe('project route helpers', () => {
     expect(getOrgProjectObservabilityPath('org_1', 'project_1')).toBe(
       getProjectObservabilityPath('project_1')
     )
-    expect(getProjectUsagePath('project_1')).toBe(getProjectObservabilityPath('project_1'))
-    expect(getProjectAnalyticsPath('project_1')).toBe(getProjectObservabilityPath('project_1'))
+    expect(getProjectAnalyticsPath('project_1')).toBe('/projects/project_1/analytics')
+    expect(getProjectUsagePath('project_1')).toBe(getProjectAnalyticsPath('project_1'))
+    expect(getProjectObservabilityPath('project_1')).toBe(getProjectAnalyticsPath('project_1'))
     expect(getOrgProjectSecurityPath('org_1', 'project_1')).toBe(
       getProjectSecurityPath('project_1')
     )
@@ -72,11 +73,11 @@ describe('project route helpers', () => {
         }),
         expect.objectContaining({
           source: '/projects/:projectId/usage',
-          destination: '/projects/:projectId/observability',
+          destination: '/projects/:projectId/analytics',
         }),
         expect.objectContaining({
-          source: '/projects/:projectId/analytics',
-          destination: '/projects/:projectId/observability',
+          source: '/projects/:projectId/observability',
+          destination: '/projects/:projectId/analytics',
         }),
       ])
     )
