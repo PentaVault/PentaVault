@@ -1,22 +1,20 @@
 'use client'
 
+import { ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import { useParams, usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 
-import { ChevronLeft } from 'lucide-react'
-
 import { DashboardNavLink } from '@/components/layout/dashboard-nav-link'
 import {
-  PROJECTS_PATH,
   getOrgProjectAuditPath,
   getOrgProjectPath,
   getOrgProjectSecretsPath,
   getOrgProjectSecurityPath,
   getOrgProjectSettingsPath,
+  getOrgProjectsPath,
   getOrgProjectTeamPath,
   getOrgProjectUsagePath,
-  getOrgProjectsPath,
   getProjectAuditPath,
   getProjectPath,
   getProjectSecretsPath,
@@ -24,6 +22,7 @@ import {
   getProjectSettingsPath,
   getProjectTeamPath,
   getProjectUsagePath,
+  PROJECTS_PATH,
 } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useProject } from '@/lib/hooks/use-projects'

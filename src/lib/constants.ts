@@ -130,7 +130,7 @@ export function getProjectSettingsPath(projectId: string): string {
 
 export const DEFAULT_QUERY_STALE_TIME_MS = 30_000
 
-export const PROJECT_ROLES = ['owner', 'admin', 'member', 'developer', 'readonly'] as const
+export const PROJECT_ROLES = ['owner', 'admin', 'member'] as const
 export const PROJECT_STATUSES = ['active', 'archived'] as const
 
 export const SECRET_MODES = ['compatibility', 'gateway'] as const

@@ -3,15 +3,15 @@ import userEvent from '@testing-library/user-event'
 
 import { MfaSettingsCard } from '../mfa-settings-card'
 
-const toastSuccess = jest.fn()
-const toastError = jest.fn()
-const disableMfa = jest.fn()
-const startMfaChange = jest.fn()
-const enableMfa = jest.fn()
-const verifyTotp = jest.fn()
-const completeMfaSetup = jest.fn()
+const toastSuccess = vi.fn()
+const toastError = vi.fn()
+const disableMfa = vi.fn()
+const startMfaChange = vi.fn()
+const enableMfa = vi.fn()
+const verifyTotp = vi.fn()
+const completeMfaSetup = vi.fn()
 
-jest.mock('@/lib/hooks/use-toast', () => ({
+vi.mock('@/lib/hooks/use-toast', () => ({
   useToast: () => ({
     toast: {
       success: toastSuccess,
@@ -20,7 +20,7 @@ jest.mock('@/lib/hooks/use-toast', () => ({
   }),
 }))
 
-jest.mock('@/lib/api/auth', () => ({
+vi.mock('@/lib/api/auth', () => ({
   authApi: {
     disableMfa: (...args: unknown[]) => disableMfa(...args),
     startMfaChange: (...args: unknown[]) => startMfaChange(...args),
@@ -43,7 +43,7 @@ describe('MfaSettingsCard', () => {
 
   it('disables MFA with password and authenticator code', async () => {
     const user = userEvent.setup()
-    const onChanged = jest.fn().mockResolvedValue(undefined)
+    const onChanged = vi.fn().mockResolvedValue(undefined)
 
     disableMfa.mockResolvedValue(undefined)
 
@@ -88,7 +88,7 @@ describe('MfaSettingsCard', () => {
 
     render(
       <MfaSettingsCard
-        onChanged={jest.fn().mockResolvedValue(undefined)}
+        onChanged={vi.fn().mockResolvedValue(undefined)}
         user={{
           id: 'user_1',
           email: 'user@example.com',

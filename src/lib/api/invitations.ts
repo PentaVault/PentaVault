@@ -1,4 +1,13 @@
+import { z } from 'zod'
 import { apiClient } from '@/lib/api/client'
+import {
+  orgInvitationResponseSchema,
+  orgInvitationSchema,
+  parseApiInput,
+  parseApiResponse,
+  sendOrgInvitationInputSchema,
+  verifyInvitationResponseSchema,
+} from '@/lib/api/schemas'
 import type {
   OrgInvitationResponse,
   SendOrgInvitationInput,
@@ -13,44 +22,44 @@ export const invitationsApi = {
   ): Promise<OrgInvitationResponse> {
     const response = await apiClient.post<OrgInvitationResponse>(
       `/v1/organizations/${organizationId}/invitations`,
-      input
+      parseApiInput(sendOrgInvitationInputSchema, input)
     )
-    return response.data
+    return parseApiResponse(orgInvitationResponseSchema, response.data)
   },
 
   async list(organizationId: string): Promise<{ invitations: OrgInvitation[] }> {
     const response = await apiClient.get<{ invitations: OrgInvitation[] }>(
       `/v1/organizations/${organizationId}/invitations`
     )
-    return response.data
+    return parseApiResponse(z.object({ invitations: z.array(orgInvitationSchema) }), response.data)
   },
 
   async revoke(organizationId: string, invitationId: string): Promise<OrgInvitationResponse> {
     const response = await apiClient.delete<OrgInvitationResponse>(
       `/v1/organizations/${organizationId}/invitations/${invitationId}`
     )
-    return response.data
+    return parseApiResponse(orgInvitationResponseSchema, response.data)
   },
 
   async resend(organizationId: string, invitationId: string): Promise<OrgInvitationResponse> {
     const response = await apiClient.post<OrgInvitationResponse>(
       `/v1/organizations/${organizationId}/invitations/${invitationId}/resend`
     )
-    return response.data
+    return parseApiResponse(orgInvitationResponseSchema, response.data)
   },
 
   async verify(token: string): Promise<VerifyInvitationResponse> {
     const response = await apiClient.get<VerifyInvitationResponse>(
       `/v1/invitations/${encodeURIComponent(token)}/verify`
     )
-    return response.data
+    return parseApiResponse(verifyInvitationResponseSchema, response.data)
   },
 
   async accept(token: string): Promise<OrgInvitationResponse> {
     const response = await apiClient.post<OrgInvitationResponse>(
       `/v1/invitations/${encodeURIComponent(token)}/accept`
     )
-    return response.data
+    return parseApiResponse(orgInvitationResponseSchema, response.data)
   },
 
   async acceptById(invitationId: string): Promise<OrgInvitationResponse> {
@@ -58,14 +67,14 @@ export const invitationsApi = {
       `/v1/invitations/by-id/${encodeURIComponent(invitationId)}/accept`,
       {}
     )
-    return response.data
+    return parseApiResponse(orgInvitationResponseSchema, response.data)
   },
 
   async reject(token: string): Promise<OrgInvitationResponse> {
     const response = await apiClient.post<OrgInvitationResponse>(
       `/v1/invitations/${encodeURIComponent(token)}/reject`
     )
-    return response.data
+    return parseApiResponse(orgInvitationResponseSchema, response.data)
   },
 
   async rejectById(invitationId: string): Promise<OrgInvitationResponse> {
@@ -73,6 +82,6 @@ export const invitationsApi = {
       `/v1/invitations/by-id/${encodeURIComponent(invitationId)}/reject`,
       {}
     )
-    return response.data
+    return parseApiResponse(orgInvitationResponseSchema, response.data)
   },
 }

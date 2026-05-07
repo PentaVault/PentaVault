@@ -1,12 +1,13 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 
 import { DASHBOARD_HOME_PATH } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useToast } from '@/lib/hooks/use-toast'
+import { clearProjectScopedQueryCache } from '@/lib/query/cache'
+import { queryKeys } from '@/lib/query/keys'
 import { getApiErrorCode, getApiFriendlyMessage } from '@/lib/utils/errors'
 
 export function useSwitchOrganization() {
@@ -23,16 +24,10 @@ export function useSwitchOrganization() {
     onSuccess: async () => {
       router.replace(DASHBOARD_HOME_PATH)
       await auth.refresh()
-      queryClient.removeQueries({ queryKey: ['project'] })
-      queryClient.removeQueries({ queryKey: ['project-members'] })
-      queryClient.removeQueries({ queryKey: ['project-secrets'] })
-      queryClient.removeQueries({ queryKey: ['project-tokens'] })
-      queryClient.removeQueries({ queryKey: ['project-audit'] })
-      queryClient.removeQueries({ queryKey: ['project-security-alerts'] })
-      queryClient.removeQueries({ queryKey: ['project-security-recommendations'] })
+      clearProjectScopedQueryCache(queryClient)
       await queryClient.invalidateQueries({ refetchType: 'none' })
-      await queryClient.invalidateQueries({ queryKey: ['projects'] })
-      await queryClient.invalidateQueries({ queryKey: ['organization-members'] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.projects.all })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.organizationMembers.all })
     },
     onError: (error) => {
       const message =

@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-
 import { Check, ChevronsUpDown, Plus } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 import {
   DropdownMenu,

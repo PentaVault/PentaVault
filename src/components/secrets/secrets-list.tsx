@@ -1,9 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import type { FormEvent } from 'react'
-
 import { Code2, Eye, EyeOff, KeyRound, MoreHorizontal, Shield, Trash2, X } from 'lucide-react'
+import type { FormEvent } from 'react'
+import { useMemo, useState } from 'react'
 
 import {
   AlertDialog,
@@ -447,26 +446,26 @@ function SecretRow({
   onSelect: (secretId: string, checked: boolean) => void
 }) {
   const [showValue, setShowValue] = useState(false)
-  const [hovered, setHovered] = useState(false)
-  const showCheckbox = canManage && (hovered || anySelected || isSelected)
+  const showCheckbox = canManage && (anySelected || isSelected)
 
   return (
     <div
       className={cn(
-        'flex items-center gap-3 px-4 py-3 transition-colors hover:bg-card-elevated',
+        'group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-card-elevated',
         isSelected && 'bg-accent/8',
         !isLast && 'border-b border-border'
       )}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
       {canManage ? (
         <div
-          className={cn('transition-opacity', showCheckbox ? 'opacity-100' : 'opacity-0')}
-          onClick={(event) => event.stopPropagation()}
+          className={cn(
+            'transition-opacity group-hover:opacity-100',
+            showCheckbox ? 'opacity-100' : 'opacity-0'
+          )}
         >
           <Checkbox
             checked={isSelected}
+            onClick={(event) => event.stopPropagation()}
             onCheckedChange={(checked) => onSelect(secret.id, checked)}
           />
         </div>
@@ -602,12 +601,16 @@ function EditSecretDialog({
             <div className="max-h-[52vh] space-y-3 overflow-y-auto p-1">
               {targets.map((secret) => (
                 <div className="space-y-1" key={secret.id}>
-                  <label className="font-mono text-xs font-medium text-muted-foreground">
+                  <label
+                    className="font-mono text-xs font-medium text-muted-foreground"
+                    htmlFor={`secret-value-${secret.id}`}
+                  >
                     {secret.name}
                   </label>
                   <div className="relative">
                     <Input
                       className="pr-9 font-mono text-sm"
+                      id={`secret-value-${secret.id}`}
                       onChange={(event) =>
                         setValues((current) => ({
                           ...current,

@@ -1,9 +1,8 @@
 'use client'
 
+import { Copy } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-
-import { Copy } from 'lucide-react'
 
 import { InlineEditField } from '@/components/settings/inline-edit-field'
 import { MfaSettingsCard } from '@/components/settings/mfa-settings-card'
@@ -21,8 +20,9 @@ import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { authApi } from '@/lib/api/auth'
 import { clearClientAuthHint } from '@/lib/auth/token'
-import { REGISTER_PATH } from '@/lib/constants'
+import { LOGIN_PATH } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useEmailCooldown } from '@/lib/hooks/use-email-cooldown'
 import { useToast } from '@/lib/hooks/use-toast'
 import { getApiErrorPayload, getApiFieldErrors, getApiFriendlyMessage } from '@/lib/utils/errors'
 
@@ -30,6 +30,7 @@ export default function AccountSettingsPage() {
   const auth = useAuth()
   const router = useRouter()
   const { toast } = useToast()
+  const passwordEmailCooldown = useEmailCooldown()
   const [emailInput, setEmailInput] = useState('')
   const [totpCode, setTotpCode] = useState('')
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -71,21 +72,32 @@ export default function AccountSettingsPage() {
     setIsDeleting(true)
 
     try {
-      await authApi.deleteAccount({
+      const deletion = await authApi.deleteAccount({
         email: user.email,
         ...(user.twoFactorEnabled ? { totpCode } : {}),
       })
       clearClientAuthHint()
       auth.clear()
+      // biome-ignore lint/suspicious/noDocumentCookie: Better Auth stores these browser session cookies outside the app state.
       document.cookie = 'better-auth.session_token=; path=/; max-age=0'
+      // biome-ignore lint/suspicious/noDocumentCookie: Clear the secure Better Auth cookie variant after account deletion.
       document.cookie = '__Secure-better-auth.session_token=; path=/; max-age=0'
-      toast.success('Your account has been permanently deleted.')
-      router.replace(REGISTER_PATH)
+      const purgeDate = deletion.purgeAfter
+        ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
+            new Date(deletion.purgeAfter)
+          )
+        : null
+      toast.success(
+        purgeDate
+          ? `Account deletion scheduled. Sign in before ${purgeDate} to restore it.`
+          : 'Account deletion scheduled. Sign in within 6 months to restore it.'
+      )
+      router.replace(LOGIN_PATH)
     } catch (error) {
       toast.error(
         getApiFriendlyMessage(
           error,
-          'Account deletion failed. No data was deleted. Please try again.'
+          'Account deletion failed. No account data was changed. Please try again.'
         )
       )
     } finally {
@@ -102,9 +114,14 @@ export default function AccountSettingsPage() {
       setIsSendingPasswordOtp(true)
       setPasswordErrors({})
       await authApi.requestPasswordResetOtp({ email: user.email })
+      passwordEmailCooldown.startCooldown(60)
       setPasswordOtpSent(true)
       toast.success('Password code sent. Check your email.')
     } catch (error) {
+      const payload = getApiErrorPayload(error)
+      if (payload?.code === 'RATE_LIMITED' && typeof payload.retryAfter === 'number') {
+        passwordEmailCooldown.startCooldown(payload.retryAfter)
+      }
       toast.error(getApiFriendlyMessage(error, 'Unable to send a password code right now.'))
     } finally {
       setIsSendingPasswordOtp(false)
@@ -125,6 +142,8 @@ export default function AccountSettingsPage() {
     }
     if (!newPassword) {
       nextErrors.newPassword = 'Enter a new password.'
+    } else if (passwordMode === 'current' && currentPassword && currentPassword === newPassword) {
+      nextErrors.newPassword = 'New password must be different from your current password.'
     }
     if (!confirmPassword) {
       nextErrors.confirmPassword = 'Confirm your new password.'
@@ -164,7 +183,28 @@ export default function AccountSettingsPage() {
       setPasswordTotpCode('')
       setPasswordOtp('')
       setPasswordOtpSent(false)
-      toast.success('Password changed successfully.')
+      toast.success('Password changed successfully. Please sign in again.')
+
+      let signOutFailed = false
+      try {
+        await authApi.signOut()
+      } catch {
+        signOutFailed = true
+        clearClientAuthHint()
+        auth.clear()
+      }
+
+      try {
+        await auth.refresh()
+      } catch {
+        auth.clear()
+      }
+
+      if (signOutFailed) {
+        toast.error('Password changed, but automatic sign-out did not complete.')
+      }
+
+      router.replace(LOGIN_PATH)
     } catch (error) {
       const fields = getApiFieldErrors(error)
       if (fields && Object.keys(fields).length > 0) {
@@ -299,11 +339,15 @@ export default function AccountSettingsPage() {
 
             {passwordMode === 'current' ? (
               <div className="space-y-1">
-                <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                <label
+                  className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+                  htmlFor="current-password"
+                >
                   Current password
                 </label>
                 <PasswordInput
                   autoComplete="current-password"
+                  id="current-password"
                   value={currentPassword}
                   onChange={(event) => {
                     setCurrentPassword(event.target.value)
@@ -317,12 +361,16 @@ export default function AccountSettingsPage() {
             ) : (
               <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
                 <div className="space-y-1">
-                  <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                  <label
+                    className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+                    htmlFor="password-email-code"
+                  >
                     Email code
                   </label>
                   <Input
                     autoComplete="one-time-code"
                     className="h-11 text-center font-mono text-base tracking-[0.4em]"
+                    id="password-email-code"
                     inputMode="numeric"
                     maxLength={6}
                     onChange={(event) => {
@@ -338,26 +386,32 @@ export default function AccountSettingsPage() {
                 </div>
                 <Button
                   className="mt-6 h-11"
-                  disabled={isSendingPasswordOtp}
+                  disabled={isSendingPasswordOtp || passwordEmailCooldown.isOnCooldown}
                   onClick={() => void handleSendPasswordOtp()}
                   type="button"
                   variant="outline"
                 >
                   {isSendingPasswordOtp
                     ? 'Sending...'
-                    : passwordOtpSent
-                      ? 'Send again'
-                      : 'Send code'}
+                    : passwordEmailCooldown.isOnCooldown
+                      ? `Send again in ${passwordEmailCooldown.secondsLeft}s`
+                      : passwordOtpSent
+                        ? 'Send again'
+                        : 'Send code'}
                 </Button>
               </div>
             )}
 
             <div className="space-y-1">
-              <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+              <label
+                className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+                htmlFor="new-password"
+              >
                 New password
               </label>
               <PasswordInput
                 autoComplete="new-password"
+                id="new-password"
                 value={newPassword}
                 onChange={(event) => {
                   setNewPassword(event.target.value)
@@ -372,11 +426,15 @@ export default function AccountSettingsPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+              <label
+                className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+                htmlFor="confirm-password"
+              >
                 Confirm password
               </label>
               <PasswordInput
                 autoComplete="new-password"
+                id="confirm-password"
                 value={confirmPassword}
                 onChange={(event) => {
                   setConfirmPassword(event.target.value)
@@ -390,12 +448,16 @@ export default function AccountSettingsPage() {
 
             {passwordMode === 'current' && user.twoFactorEnabled ? (
               <div className="space-y-1">
-                <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                <label
+                  className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+                  htmlFor="password-totp-code"
+                >
                   Authenticator code
                 </label>
                 <Input
                   autoComplete="one-time-code"
                   className="h-11 text-center font-mono text-base tracking-[0.4em]"
+                  id="password-totp-code"
                   inputMode="numeric"
                   maxLength={6}
                   onChange={(event) => {
@@ -427,8 +489,8 @@ export default function AccountSettingsPage() {
           <CardHeader>
             <CardTitle className="text-danger">Danger zone</CardTitle>
             <CardDescription>
-              Deleting your account permanently removes all organisations you own, their projects,
-              secrets, tokens, API keys, sessions, and audit history.
+              Deleting your account immediately signs you out and revokes active credentials. Your
+              retained account data is purged after a 6-month recovery window.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-end">
@@ -454,17 +516,17 @@ export default function AccountSettingsPage() {
             aria-describedby="delete-account-description"
             className="fixed top-1/2 left-1/2 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-visible rounded-xl border border-border bg-card p-5"
           >
-            <DialogTitle className="text-danger">Delete your account permanently</DialogTitle>
+            <DialogTitle className="text-danger">Schedule account deletion</DialogTitle>
             <DialogDescription
               className="mt-2 text-sm text-muted-foreground"
               id="delete-account-description"
             >
-              This will permanently delete your account and all associated data.
+              Your account will be disabled now and permanently purged after the recovery window.
             </DialogDescription>
             <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-              <li>All organisations you own and their projects, secrets, and tokens</li>
-              <li>All your API keys and active sessions</li>
-              <li>Your complete audit history</li>
+              <li>Active sessions, API keys, and proxy tokens are revoked immediately</li>
+              <li>Owned organisations and project data are retained until final purge</li>
+              <li>Signing in again before the purge date restores the account</li>
             </ul>
             <div className="mt-4 space-y-2 pt-1">
               <p className="text-sm">Type your email address to confirm:</p>
@@ -514,7 +576,7 @@ export default function AccountSettingsPage() {
                 type="button"
                 variant="danger"
               >
-                {isDeleting ? 'Deleting account...' : 'Delete account permanently'}
+                {isDeleting ? 'Scheduling deletion...' : 'Schedule deletion'}
               </Button>
             </div>
           </DialogContent>

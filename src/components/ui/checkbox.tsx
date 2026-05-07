@@ -1,8 +1,7 @@
 'use client'
 
-import type { InputHTMLAttributes } from 'react'
-
 import { Check } from 'lucide-react'
+import type { InputHTMLAttributes } from 'react'
 
 import { cn } from '@/lib/utils/cn'
 

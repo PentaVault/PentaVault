@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/shared/empty-state'
 import { ErrorState } from '@/components/shared/error-state'
 import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/lib/hooks/use-auth'
 import {
   useProject,
   useProjectAccessRequests,
@@ -24,15 +25,18 @@ import { getApiErrorCode, getApiFriendlyMessage } from '@/lib/utils/errors'
 export default function ProjectTeamPage() {
   const params = useParams<{ projectId: string }>()
   const projectId = typeof params.projectId === 'string' ? params.projectId : null
+  const auth = useAuth()
   const projectQuery = useProject(projectId)
   const canAccessProject = projectQuery.data?.canAccess ?? false
-  const membersQuery = useProjectMembers(projectId, canAccessProject)
-  const tokensQuery = useProjectTokens(projectId, canAccessProject)
+  const effectiveRole = projectQuery.data?.effectiveRole ?? projectQuery.data?.orgRole ?? null
+  const canReadMembers =
+    canAccessProject || effectiveRole === 'auditor' || effectiveRole === 'readonly'
+  const membersQuery = useProjectMembers(projectId, canReadMembers)
+  const tokensQuery = useProjectTokens(projectId, canReadMembers)
   const reviewRequest = useReviewProjectAccessRequest(projectId)
   const { toast } = useToast()
 
   const projectName = projectQuery.data?.project.name ?? 'Project'
-  const effectiveRole = projectQuery.data?.effectiveRole ?? projectQuery.data?.orgRole ?? null
   const canManageMembers = effectiveRole === 'owner' || effectiveRole === 'admin'
   const requestsQuery = useProjectAccessRequests(projectId, 'pending', canManageMembers)
   const members = useMemo(() => membersQuery.data?.members ?? [], [membersQuery.data?.members])
@@ -41,6 +45,18 @@ export default function ProjectTeamPage() {
     [requestsQuery.data?.requests]
   )
   const tokens = tokensQuery.data ?? []
+  const currentUserId = auth.session?.user.id ?? null
+  const orderedMembers = useMemo(() => {
+    if (!currentUserId) {
+      return members
+    }
+
+    return [...members].sort((left, right) => {
+      if (left.userId === currentUserId) return -1
+      if (right.userId === currentUserId) return 1
+      return left.createdAt.localeCompare(right.createdAt)
+    })
+  }, [currentUserId, members])
   const existingUserIds = useMemo(() => new Set(members.map((member) => member.userId)), [members])
   const organizationId = projectQuery.data?.project.organizationId ?? null
 
@@ -81,7 +97,7 @@ export default function ProjectTeamPage() {
     return (
       <div className="p-6">
         <ProjectAccessRequiredState
-          description="You need project access before you can view members, tokens, and pending requests."
+          description="You need project access before you can view tokens and pending requests."
           projectId={projectId}
           title="Access required"
         />
@@ -171,7 +187,7 @@ export default function ProjectTeamPage() {
               onRetry={() => void membersQuery.refetch()}
             />
           </div>
-        ) : members.length === 0 ? (
+        ) : orderedMembers.length === 0 ? (
           <div className="p-6">
             <EmptyState
               title="No team members yet"
@@ -179,10 +195,11 @@ export default function ProjectTeamPage() {
             />
           </div>
         ) : (
-          members.map((membership) => (
+          orderedMembers.map((membership) => (
             <TeamMemberRow
               assignedCount={tokens.filter((token) => token.userId === membership.userId).length}
               canManage={canManageMembers}
+              currentUserId={currentUserId}
               key={membership.id}
               membership={membership}
               projectId={projectId}

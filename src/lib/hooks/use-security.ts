@@ -3,11 +3,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { securityApi } from '@/lib/api/security'
+import { queryKeys } from '@/lib/query/keys'
 import type { CreateProbableLeakAlertInput, UpdateSecurityAlertInput } from '@/lib/types/api'
 
 export function useProjectSecurity(projectId: string | null, enabled = true) {
   const alertsQuery = useQuery({
-    queryKey: ['project-security-alerts', projectId],
+    queryKey: queryKeys.projectSecurityAlerts.list(projectId),
     queryFn: async () => {
       if (!projectId) {
         throw new Error('projectId is required to load security alerts')
@@ -19,7 +20,7 @@ export function useProjectSecurity(projectId: string | null, enabled = true) {
   })
 
   const recommendationsQuery = useQuery({
-    queryKey: ['project-security-recommendations', projectId],
+    queryKey: queryKeys.projectSecurityRecommendations.list(projectId),
     queryFn: async () => {
       if (!projectId) {
         throw new Error('projectId is required to load rotation recommendations')
@@ -49,9 +50,11 @@ export function useCreateProbableLeakAlert(projectId: string | null) {
     },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['project-security-alerts', projectId] }),
         queryClient.invalidateQueries({
-          queryKey: ['project-security-recommendations', projectId],
+          queryKey: queryKeys.projectSecurityAlerts.list(projectId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecurityRecommendations.list(projectId),
         }),
       ])
     },
@@ -71,9 +74,11 @@ export function useUpdateSecurityAlert(projectId: string | null) {
     },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['project-security-alerts', projectId] }),
         queryClient.invalidateQueries({
-          queryKey: ['project-security-recommendations', projectId],
+          queryKey: queryKeys.projectSecurityAlerts.list(projectId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecurityRecommendations.list(projectId),
         }),
       ])
     },

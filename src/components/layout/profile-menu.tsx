@@ -14,16 +14,16 @@ import {
 import { authApi } from '@/lib/api/auth'
 import {
   DASHBOARD_HOME_PATH,
-  LOGIN_PATH,
-  PROJECTS_PATH,
-  SETTINGS_API_KEYS_PATH,
-  SETTINGS_ORGANIZATION_PATH,
-  SETTINGS_SESSIONS_PATH,
   getOrgDashboardPath,
   getOrgProjectsPath,
   getOrgSettingsApiKeysPath,
   getOrgSettingsPath,
   getOrgSettingsSessionsPath,
+  LOGIN_PATH,
+  PROJECTS_PATH,
+  SETTINGS_API_KEYS_PATH,
+  SETTINGS_ORGANIZATION_PATH,
+  SETTINGS_SESSIONS_PATH,
 } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useToast } from '@/lib/hooks/use-toast'

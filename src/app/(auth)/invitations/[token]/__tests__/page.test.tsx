@@ -2,14 +2,14 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 import InvitationPage from '../page'
 
-const routerReplace = jest.fn()
+const routerReplace = vi.fn()
 let authState: unknown
 let invitationState: unknown
-const acceptMutateAsync = jest.fn()
-const rejectMutateAsync = jest.fn()
-const setActiveOrganization = jest.fn()
+const acceptMutateAsync = vi.fn()
+const rejectMutateAsync = vi.fn()
+const setActiveOrganization = vi.fn()
 
-jest.mock('next/navigation', () => ({
+vi.mock('next/navigation', () => ({
   useParams: () => ({
     token: 'token_1',
   }),
@@ -18,18 +18,18 @@ jest.mock('next/navigation', () => ({
   }),
 }))
 
-jest.mock('@/lib/hooks/use-auth', () => ({
+vi.mock('@/lib/hooks/use-auth', () => ({
   useAuth: () => authState,
 }))
 
-jest.mock('@/lib/hooks/use-invitations', () => ({
+vi.mock('@/lib/hooks/use-invitations', () => ({
   useVerifyInvitation: () => invitationState,
   useAcceptInvitation: () => ({
     mutateAsync: acceptMutateAsync,
     isPending: false,
   }),
   useAcceptInvitationById: () => ({
-    mutateAsync: jest.fn(),
+    mutateAsync: vi.fn(),
     isPending: false,
   }),
   useRejectInvitation: () => ({
@@ -37,16 +37,16 @@ jest.mock('@/lib/hooks/use-invitations', () => ({
     isPending: false,
   }),
   useRejectInvitationById: () => ({
-    mutateAsync: jest.fn(),
+    mutateAsync: vi.fn(),
     isPending: false,
   }),
 }))
 
-jest.mock('@/lib/hooks/use-toast', () => ({
+vi.mock('@/lib/hooks/use-toast', () => ({
   useToast: () => ({
     toast: {
-      success: jest.fn(),
-      error: jest.fn(),
+      success: vi.fn(),
+      error: vi.fn(),
     },
   }),
 }))
@@ -70,7 +70,7 @@ describe('InvitationPage', () => {
     rejectMutateAsync.mockReset()
     authState = {
       session: null,
-      refresh: jest.fn(),
+      refresh: vi.fn(),
       setActiveOrganization,
     }
     setActiveOrganization.mockResolvedValue(undefined)
@@ -100,7 +100,7 @@ describe('InvitationPage', () => {
           email: 'user@example.com',
         },
       },
-      refresh: jest.fn(),
+      refresh: vi.fn(),
       setActiveOrganization,
     }
 
@@ -117,7 +117,7 @@ describe('InvitationPage', () => {
           email: 'user@example.com',
         },
       },
-      refresh: jest.fn(),
+      refresh: vi.fn(),
       setActiveOrganization,
     }
 
@@ -137,7 +137,7 @@ describe('InvitationPage', () => {
           email: 'other@example.com',
         },
       },
-      refresh: jest.fn(),
+      refresh: vi.fn(),
       setActiveOrganization,
     }
 

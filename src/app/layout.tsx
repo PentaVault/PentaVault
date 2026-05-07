@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Manrope, Source_Code_Pro } from 'next/font/google'
+import { headers } from 'next/headers'
 import type { ReactNode } from 'react'
 
 import { APP_DESCRIPTION, APP_NAME } from '@/lib/constants'
@@ -28,7 +29,10 @@ type RootLayoutProps = {
   children: ReactNode
 }
 
-export default function RootLayout({ children }: RootLayoutProps) {
+export default async function RootLayout({ children }: RootLayoutProps) {
+  const nonce = (await headers()).get('x-nonce') ?? undefined
+  const providerProps = nonce ? { nonce } : {}
+
   return (
     <html
       lang="en"
@@ -36,7 +40,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
       suppressHydrationWarning
     >
       <body className="min-h-full bg-background text-foreground antialiased">
-        <AppProviders>{children}</AppProviders>
+        <AppProviders {...providerProps}>{children}</AppProviders>
       </body>
     </html>
   )

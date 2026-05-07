@@ -1,9 +1,8 @@
 'use client'
 
+import { Plus, Search } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { useState } from 'react'
-
-import { Plus, Search } from 'lucide-react'
 
 import { ProjectAccessRequiredState } from '@/components/projects/project-access-required-state'
 import { AddSecretDialog } from '@/components/secrets/add-secret-dialog'

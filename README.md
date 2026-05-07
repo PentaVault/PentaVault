@@ -40,7 +40,9 @@ Open [http://localhost:3000](http://localhost:3000)
 - TanStack Query
 - Radix UI primitives
 - Zod validation
+- Vitest + jsdom for frontend tests
+- Biome for frontend linting and formatting
 
 ## Contributing
 
-Conventional commits are required. Run `pnpm run lint` and `pnpm run type-check` before pushing.
+Conventional commits are required. Run `pnpm run lint`, `pnpm run type-check`, and `pnpm test` before pushing. See `AGENTS.md` before making security-sensitive auth, role, project-access, token, or secret changes.

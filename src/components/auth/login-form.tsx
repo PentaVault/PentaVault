@@ -1,13 +1,12 @@
 'use client'
 
+import { Copy, QrCode } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import QRCode from 'qrcode'
 import type { FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
-
-import { Copy, QrCode } from 'lucide-react'
-import QRCode from 'qrcode'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,6 +29,11 @@ import {
 type LoginFormProps = {
   nextPath: string | null
 }
+
+const RECOVERY_CODE_INPUT_KEYS = Array.from(
+  { length: 10 },
+  (_, index) => `login-recovery-code-character-${index}`
+)
 
 export function LoginForm({ nextPath }: LoginFormProps) {
   const router = useRouter()
@@ -536,10 +540,10 @@ export function LoginForm({ nextPath }: LoginFormProps) {
           <div className="space-y-2">
             <p className="text-sm font-medium">Backup codes</p>
             <div className="grid grid-cols-2 gap-2 rounded-md border border-border bg-background p-3 font-mono text-[11px] sm:grid-cols-5">
-              {recoverySetup.backupCodes.map((backupCode, index) => (
+              {recoverySetup.backupCodes.map((backupCode) => (
                 <span
                   className="min-w-0 overflow-hidden rounded border border-border bg-background-secondary px-1.5 py-1 text-center leading-tight break-all"
-                  key={`${backupCode}-${index}`}
+                  key={backupCode}
                 >
                   {backupCode}
                 </span>
@@ -635,9 +639,9 @@ export function LoginForm({ nextPath }: LoginFormProps) {
               Recovery code
             </label>
             <div className="grid grid-cols-10 gap-1">
-              {Array.from({ length: 10 }, (_, index) => (
+              {RECOVERY_CODE_INPUT_KEYS.map((key, index) => (
                 <Input
-                  key={index}
+                  key={key}
                   autoComplete={index === 0 ? 'one-time-code' : 'off'}
                   className={cn(
                     'h-11 px-0 text-center font-mono text-sm',

@@ -3,11 +3,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { secretsApi } from '@/lib/api/secrets'
+import { queryKeys } from '@/lib/query/keys'
 import type { CreateSecretInput } from '@/lib/types/api'
 
 export function useProjectSecrets(projectId: string | null, enabled = true) {
   return useQuery({
-    queryKey: ['project-secrets', projectId],
+    queryKey: queryKeys.projectSecrets.list(projectId),
     queryFn: async () => {
       if (!projectId) {
         throw new Error('projectId is required to list secrets')
@@ -36,7 +37,9 @@ export function useCreateSecrets() {
       })
     },
     onSuccess: async (_result, payload) => {
-      await queryClient.invalidateQueries({ queryKey: ['project-secrets', payload.projectId] })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.projectSecrets.list(payload.projectId),
+      })
     },
   })
 }
@@ -48,8 +51,8 @@ export function useDeleteSecret() {
     mutationFn: secretsApi.deleteSecret,
     onSuccess: async (_result, input) => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['project-secrets', input.projectId] }),
-        queryClient.invalidateQueries({ queryKey: ['project-tokens', input.projectId] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectSecrets.list(input.projectId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectTokens.list(input.projectId) }),
       ])
     },
   })
@@ -61,7 +64,9 @@ export function useUpdateSecret() {
   return useMutation({
     mutationFn: secretsApi.updateSecret,
     onSuccess: async (_result, input) => {
-      await queryClient.invalidateQueries({ queryKey: ['project-secrets', input.projectId] })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.projectSecrets.list(input.projectId),
+      })
     },
   })
 }
@@ -73,19 +78,25 @@ export function useSecrets() {
     createSecret: useMutation({
       mutationFn: secretsApi.createSecret,
       onSuccess: async (_result, input: CreateSecretInput) => {
-        await queryClient.invalidateQueries({ queryKey: ['project-secrets', input.projectId] })
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.list(input.projectId),
+        })
       },
     }),
     importSecrets: useMutation({
       mutationFn: secretsApi.importSecrets,
       onSuccess: async (_result, input) => {
-        await queryClient.invalidateQueries({ queryKey: ['project-secrets', input.projectId] })
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.list(input.projectId),
+        })
       },
     }),
     updateSecret: useMutation({
       mutationFn: secretsApi.updateSecret,
       onSuccess: async (_result, input) => {
-        await queryClient.invalidateQueries({ queryKey: ['project-secrets', input.projectId] })
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.list(input.projectId),
+        })
       },
     }),
   }
