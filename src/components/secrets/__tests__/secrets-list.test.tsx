@@ -23,4 +23,10 @@ describe('SecretsList', () => {
     expect(source).toContain(": '*************'}")
     expect(source).not.toContain('Encrypted value hidden after save')
   })
+
+  it('falls back to legacy environment slugs when environment ids are missing', () => {
+    expect(source).toContain('secret.environmentId')
+    expect(source).toContain('secret.environmentId === environmentId')
+    expect(source).toContain('secret.environment === environmentSlug')
+  })
 })

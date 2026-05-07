@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 
-import { getProjectObservabilityPath } from '@/lib/constants'
+import { getProjectAnalyticsPath } from '@/lib/constants'
 
 export default function ProjectUsageRedirectPage() {
   const params = useParams<{ projectId: string }>()
@@ -12,7 +12,7 @@ export default function ProjectUsageRedirectPage() {
 
   useEffect(() => {
     if (projectId) {
-      router.replace(getProjectObservabilityPath(projectId))
+      router.replace(getProjectAnalyticsPath(projectId))
     }
   }, [projectId, router])
 

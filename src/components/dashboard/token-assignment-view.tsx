@@ -1230,7 +1230,19 @@ function AssignedTokenRow({
         currentToken={token}
         onMakeCurrent={async (historyToken) => {
           try {
-            await revokeToken.mutateAsync({ projectId, tokenHash: token.tokenHash })
+            const historyTokenCreatedAt = tokenTimestamp(historyToken)
+            const newerActiveTokens = tokenHistory.filter(
+              (candidate) =>
+                candidate.revokedAt === null &&
+                candidate.tokenHash !== historyToken.tokenHash &&
+                tokenTimestamp(candidate) > historyTokenCreatedAt
+            )
+
+            await Promise.all(
+              newerActiveTokens.map((candidate) =>
+                revokeToken.mutateAsync({ projectId, tokenHash: candidate.tokenHash })
+              )
+            )
             toast.success(`${historyToken.tokenStart} is now the active token reference.`)
             setHistoryOpen(false)
           } catch {

@@ -213,7 +213,11 @@ export function SecretsList({
   const filtered = useMemo(() => {
     const scopedSecrets = secrets.filter((secret) => {
       if (environmentId) {
-        return secret.environmentId === environmentId
+        return secret.environmentId
+          ? secret.environmentId === environmentId
+          : environmentSlug
+            ? secret.environment === environmentSlug
+            : false
       }
 
       return environmentSlug ? secret.environment === environmentSlug : true

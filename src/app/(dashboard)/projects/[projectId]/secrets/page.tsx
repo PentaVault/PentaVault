@@ -34,6 +34,9 @@ export default function ProjectSecretsPage() {
   const canAccessProject = projectQuery.data?.canAccess ?? false
   const effectiveRole = projectQuery.data?.effectiveRole ?? projectQuery.data?.orgRole ?? null
   const canManageSecrets = effectiveRole === 'owner' || effectiveRole === 'admin'
+  const canCreateSecrets =
+    canAccessProject &&
+    (canManageSecrets || effectiveRole === 'developer' || effectiveRole === 'member')
   const developmentEnvironment =
     environments.find((environment) => environment.slug === 'development') ?? null
   const selectedEnvironment =
@@ -126,7 +129,7 @@ export default function ProjectSecretsPage() {
               </SelectContent>
             </Select>
           ) : null}
-          {canAccessProject ? (
+          {canCreateSecrets ? (
             <Button onClick={() => setIsAddOpen(true)} type="button">
               <Plus className="mr-2 h-4 w-4" />
               Add variable
@@ -144,7 +147,7 @@ export default function ProjectSecretsPage() {
         search={search}
       />
 
-      {canAccessProject ? (
+      {canCreateSecrets ? (
         <AddSecretDialog
           allowProjectScope={canManageSecrets}
           environmentId={selectedEnvironment?.id ?? null}

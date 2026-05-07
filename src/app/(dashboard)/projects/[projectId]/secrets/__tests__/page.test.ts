@@ -14,9 +14,15 @@ describe('ProjectSecretsPage', () => {
     expect(source).not.toContain('scopeTab')
   })
 
-  it('always opens the add variable dialog with role-aware project scope permissions', () => {
+  it('opens the add variable dialog only for writable project roles', () => {
     expect(source).toContain('Add variable')
+    expect(source).toContain('const canCreateSecrets =')
+    expect(source).toContain('canAccessProject &&')
+    expect(source).toContain("effectiveRole === 'developer'")
+    expect(source).toContain("effectiveRole === 'member'")
+    expect(source).toContain('{canCreateSecrets ? (')
     expect(source).toContain('allowProjectScope={canManageSecrets}')
     expect(source).toContain("environment.slug === 'development'")
+    expect(source).not.toContain('{canAccessProject ? (\n            <Button')
   })
 })
