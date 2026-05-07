@@ -2,8 +2,8 @@
 
 import { Copy } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
-import { TurnstileWidget } from '@/components/auth/turnstile-widget'
+import { useRef, useState } from 'react'
+import { TurnstileWidget, type TurnstileWidgetHandle } from '@/components/auth/turnstile-widget'
 import { InlineEditField } from '@/components/settings/inline-edit-field'
 import { MfaSettingsCard } from '@/components/settings/mfa-settings-card'
 import { PasskeySettingsCard } from '@/components/settings/passkey-settings-card'
@@ -51,8 +51,18 @@ export default function AccountSettingsPage() {
   const [isSendingPasswordOtp, setIsSendingPasswordOtp] = useState(false)
   const [isCopyingUserId, setIsCopyingUserId] = useState(false)
   const [captchaToken, setCaptchaToken] = useState('')
+  const captchaWidgetRef = useRef<TurnstileWidgetHandle | null>(null)
 
   const user = auth.session?.user
+
+  function resetCaptchaToken(): void {
+    if (!capabilities.captcha.enabled) {
+      return
+    }
+
+    setCaptchaToken('')
+    captchaWidgetRef.current?.reset()
+  }
 
   async function handleSaveName(name: string): Promise<void> {
     setIsSavingName(true)
@@ -131,6 +141,7 @@ export default function AccountSettingsPage() {
       }
       toast.error(getApiFriendlyMessage(error, 'Unable to send a password code right now.'))
     } finally {
+      resetCaptchaToken()
       setIsSendingPasswordOtp(false)
     }
   }
@@ -229,6 +240,9 @@ export default function AccountSettingsPage() {
 
       toast.error(getApiFriendlyMessage(error, 'Unable to change your password right now.'))
     } finally {
+      if (passwordMode === 'email') {
+        resetCaptchaToken()
+      }
       setIsChangingPassword(false)
     }
   }
@@ -484,7 +498,11 @@ export default function AccountSettingsPage() {
             ) : null}
 
             {passwordMode === 'email' && capabilities.captcha.enabled ? (
-              <TurnstileWidget siteKey={capabilities.captcha.siteKey} onToken={setCaptchaToken} />
+              <TurnstileWidget
+                ref={captchaWidgetRef}
+                siteKey={capabilities.captcha.siteKey}
+                onToken={setCaptchaToken}
+              />
             ) : null}
 
             <div className="flex justify-end">

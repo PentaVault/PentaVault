@@ -3,10 +3,10 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { FormEvent } from 'react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { PasswordRequirements } from '@/components/auth/password-requirements'
-import { TurnstileWidget } from '@/components/auth/turnstile-widget'
+import { TurnstileWidget, type TurnstileWidgetHandle } from '@/components/auth/turnstile-widget'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
@@ -40,7 +40,17 @@ export function ForgotPasswordForm() {
   const [isPasswordFocused, setIsPasswordFocused] = useState(false)
   const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] = useState(false)
   const [captchaToken, setCaptchaToken] = useState('')
+  const captchaWidgetRef = useRef<TurnstileWidgetHandle | null>(null)
   const emailCooldown = useEmailCooldown()
+
+  function resetCaptchaToken(): void {
+    if (!capabilities.captcha.enabled) {
+      return
+    }
+
+    setCaptchaToken('')
+    captchaWidgetRef.current?.reset()
+  }
 
   async function handleRequestSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
@@ -78,6 +88,7 @@ export function ForgotPasswordForm() {
         getApiFriendlyMessageWithRef(error, 'Unable to send a password reset code right now.')
       )
     } finally {
+      resetCaptchaToken()
       setIsPending(false)
     }
   }
@@ -145,6 +156,7 @@ export function ForgotPasswordForm() {
 
       toast.error(getApiFriendlyMessageWithRef(error, 'Unable to reset this password right now.'))
     } finally {
+      resetCaptchaToken()
       setIsPending(false)
     }
   }
@@ -170,6 +182,7 @@ export function ForgotPasswordForm() {
 
       toast.error(getApiFriendlyMessageWithRef(error, 'Unable to resend the reset code.'))
     } finally {
+      resetCaptchaToken()
       setIsPending(false)
     }
   }
@@ -200,7 +213,11 @@ export function ForgotPasswordForm() {
         </div>
 
         {capabilities.captcha.enabled ? (
-          <TurnstileWidget siteKey={capabilities.captcha.siteKey} onToken={setCaptchaToken} />
+          <TurnstileWidget
+            ref={captchaWidgetRef}
+            siteKey={capabilities.captcha.siteKey}
+            onToken={setCaptchaToken}
+          />
         ) : null}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
@@ -349,7 +366,11 @@ export function ForgotPasswordForm() {
       ) : null}
 
       {capabilities.captcha.enabled ? (
-        <TurnstileWidget siteKey={capabilities.captcha.siteKey} onToken={setCaptchaToken} />
+        <TurnstileWidget
+          ref={captchaWidgetRef}
+          siteKey={capabilities.captcha.siteKey}
+          onToken={setCaptchaToken}
+        />
       ) : null}
 
       <div className="space-y-3">

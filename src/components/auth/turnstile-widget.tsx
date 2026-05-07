@@ -1,10 +1,14 @@
 'use client'
 
-import { useEffect, useId, useRef } from 'react'
+import { forwardRef, useEffect, useId, useImperativeHandle, useRef } from 'react'
 
 type TurnstileWidgetProps = {
   siteKey: string | null
   onToken: (token: string) => void
+}
+
+export type TurnstileWidgetHandle = {
+  reset: () => void
 }
 
 declare global {
@@ -21,6 +25,7 @@ declare global {
         }
       ) => string
       remove: (widgetId: string) => void
+      reset: (widgetId: string) => void
     }
   }
 }
@@ -63,45 +68,63 @@ function loadTurnstileScript(): Promise<void> {
   return turnstileScriptPromise
 }
 
-export function TurnstileWidget({ siteKey, onToken }: TurnstileWidgetProps) {
-  const id = useId()
-  const containerRef = useRef<HTMLDivElement | null>(null)
+export const TurnstileWidget = forwardRef<TurnstileWidgetHandle, TurnstileWidgetProps>(
+  function TurnstileWidget({ siteKey, onToken }, ref) {
+    const id = useId()
+    const containerRef = useRef<HTMLDivElement | null>(null)
+    const widgetIdRef = useRef<string | null>(null)
 
-  useEffect(() => {
-    if (!siteKey || !containerRef.current) {
-      return
-    }
+    useImperativeHandle(
+      ref,
+      () => ({
+        reset: () => {
+          onToken('')
+          if (widgetIdRef.current && window.turnstile) {
+            window.turnstile.reset(widgetIdRef.current)
+          }
+        },
+      }),
+      [onToken]
+    )
 
-    let widgetId: string | null = null
-    let cancelled = false
-
-    loadTurnstileScript()
-      .then(() => {
-        if (cancelled || !containerRef.current || !window.turnstile) {
-          return
-        }
-
-        widgetId = window.turnstile.render(containerRef.current, {
-          sitekey: siteKey,
-          callback: onToken,
-          'error-callback': () => onToken(''),
-          'expired-callback': () => onToken(''),
-          theme: 'auto',
-        })
-      })
-      .catch(() => onToken(''))
-
-    return () => {
-      cancelled = true
-      if (widgetId && window.turnstile) {
-        window.turnstile.remove(widgetId)
+    useEffect(() => {
+      if (!siteKey || !containerRef.current) {
+        return
       }
+
+      let widgetId: string | null = null
+      let cancelled = false
+
+      loadTurnstileScript()
+        .then(() => {
+          if (cancelled || !containerRef.current || !window.turnstile) {
+            return
+          }
+
+          widgetId = window.turnstile.render(containerRef.current, {
+            sitekey: siteKey,
+            callback: onToken,
+            'error-callback': () => onToken(''),
+            'expired-callback': () => onToken(''),
+            theme: 'auto',
+          })
+          widgetIdRef.current = widgetId
+        })
+        .catch(() => onToken(''))
+
+      return () => {
+        cancelled = true
+        if (widgetId && window.turnstile) {
+          window.turnstile.remove(widgetId)
+        }
+        widgetIdRef.current = null
+      }
+    }, [onToken, siteKey])
+
+    if (!siteKey) {
+      return null
     }
-  }, [onToken, siteKey])
 
-  if (!siteKey) {
-    return null
+    return <div aria-live="polite" id={id} ref={containerRef} />
   }
-
-  return <div aria-live="polite" id={id} ref={containerRef} />
-}
+)

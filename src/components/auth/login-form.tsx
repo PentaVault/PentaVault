@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import QRCode from 'qrcode'
 import type { FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import { TurnstileWidget } from '@/components/auth/turnstile-widget'
+import { TurnstileWidget, type TurnstileWidgetHandle } from '@/components/auth/turnstile-widget'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
@@ -72,6 +72,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   const [isPasskeyPending, setIsPasskeyPending] = useState(false)
   const verificationCooldown = useEmailCooldown()
   const recoveryCodeInputsRef = useRef<Array<HTMLInputElement | null>>([])
+  const captchaWidgetRef = useRef<TurnstileWidgetHandle | null>(null)
 
   useEffect(() => {
     setLastEmailLoginMethodLabel(
@@ -160,20 +161,33 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     normalizedEmail: string,
     currentPassword: string
   ): Promise<void> {
-    const signInResult = await authApi.signInWithEmail({
-      email: normalizedEmail,
-      password: currentPassword,
-      captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
-    })
+    try {
+      const signInResult = await authApi.signInWithEmail({
+        email: normalizedEmail,
+        password: currentPassword,
+        captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
+      })
 
-    if (signInResult.twoFactorRedirect) {
-      setMfaRequired(true)
-      setEmailVerificationRequired(false)
-      toast.info('Enter your authenticator code to finish signing in.')
+      if (signInResult.twoFactorRedirect) {
+        setMfaRequired(true)
+        setEmailVerificationRequired(false)
+        toast.info('Enter your authenticator code to finish signing in.')
+        return
+      }
+
+      await completeSignIn()
+    } finally {
+      resetCaptchaToken()
+    }
+  }
+
+  function resetCaptchaToken(): void {
+    if (!capabilities.captcha.enabled) {
       return
     }
 
-    await completeSignIn()
+    setCaptchaToken('')
+    captchaWidgetRef.current?.reset()
   }
 
   async function handlePasskeySignIn(): Promise<void> {
@@ -504,6 +518,14 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         </div>
 
         <div className="space-y-3">
+          {capabilities.captcha.enabled ? (
+            <TurnstileWidget
+              ref={captchaWidgetRef}
+              siteKey={capabilities.captcha.siteKey}
+              onToken={setCaptchaToken}
+            />
+          ) : null}
+
           <Button className="w-full" disabled={isPending} type="submit">
             {isPending ? 'Verifying...' : 'Verify'}
           </Button>
@@ -819,7 +841,11 @@ export function LoginForm({ nextPath }: LoginFormProps) {
       ) : null}
 
       {capabilities.captcha.enabled ? (
-        <TurnstileWidget siteKey={capabilities.captcha.siteKey} onToken={setCaptchaToken} />
+        <TurnstileWidget
+          ref={captchaWidgetRef}
+          siteKey={capabilities.captcha.siteKey}
+          onToken={setCaptchaToken}
+        />
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">

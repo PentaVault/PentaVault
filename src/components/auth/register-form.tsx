@@ -3,10 +3,10 @@
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { FormEvent } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { PasswordRequirements } from '@/components/auth/password-requirements'
-import { TurnstileWidget } from '@/components/auth/turnstile-widget'
+import { TurnstileWidget, type TurnstileWidgetHandle } from '@/components/auth/turnstile-widget'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
@@ -47,6 +47,7 @@ export function RegisterForm() {
   const [isPasswordFocused, setIsPasswordFocused] = useState(false)
   const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] = useState(false)
   const [captchaToken, setCaptchaToken] = useState('')
+  const captchaWidgetRef = useRef<TurnstileWidgetHandle | null>(null)
   const emailCooldown = useEmailCooldown()
   useEffect(() => {
     if (auth.status === 'authenticated') {
@@ -121,8 +122,18 @@ export function RegisterForm() {
             )
       toast.error(message)
     } finally {
+      resetCaptchaToken()
       setIsPending(false)
     }
+  }
+
+  function resetCaptchaToken(): void {
+    if (!capabilities.captcha.enabled) {
+      return
+    }
+
+    setCaptchaToken('')
+    captchaWidgetRef.current?.reset()
   }
 
   async function handleVerifySubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -192,6 +203,7 @@ export function RegisterForm() {
         getApiFriendlyMessageWithRef(resendError, 'Unable to send a verification code right now.')
       )
     } finally {
+      resetCaptchaToken()
       setIsResending(false)
     }
   }
@@ -230,7 +242,11 @@ export function RegisterForm() {
         </div>
 
         {capabilities.captcha.enabled ? (
-          <TurnstileWidget siteKey={capabilities.captcha.siteKey} onToken={setCaptchaToken} />
+          <TurnstileWidget
+            ref={captchaWidgetRef}
+            siteKey={capabilities.captcha.siteKey}
+            onToken={setCaptchaToken}
+          />
         ) : null}
 
         <div className="space-y-3">
@@ -388,7 +404,11 @@ export function RegisterForm() {
       </div>
 
       {capabilities.captcha.enabled ? (
-        <TurnstileWidget siteKey={capabilities.captcha.siteKey} onToken={setCaptchaToken} />
+        <TurnstileWidget
+          ref={captchaWidgetRef}
+          siteKey={capabilities.captcha.siteKey}
+          onToken={setCaptchaToken}
+        />
       ) : null}
 
       {env.mockAuthEnabled ? (
