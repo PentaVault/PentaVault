@@ -11,6 +11,9 @@ Last updated: May 1, 2026 2:29 PM +05:30.
 
 ## Security Architecture
 
+- [ ] Execute the Better Auth plugin roadmap in
+  `docs/planning/better-auth-plugin-roadmap.md`, starting with last-login-method,
+  conditional captcha design, and passkey planning.
 - [ ] Define the final secret naming rules and conflict behavior as product policy.
 - [ ] Define per-user/per-role secret access rules and implement UI plus backend enforcement once approved.
 - [ ] Document user-level, variable-level, and key-level isolation boundaries.

@@ -17,6 +17,7 @@ const startRecoveryMfaSetup = vi.fn()
 const completeMfaSetup = vi.fn()
 const sendEmailVerificationOtp = vi.fn()
 const verifyEmailOtp = vi.fn()
+let mockCookie = ''
 
 vi.mock('@/lib/env', () => ({
   env: {
@@ -64,6 +65,8 @@ vi.mock('@/lib/api/auth', () => ({
 
 describe('LoginForm', () => {
   beforeEach(() => {
+    mockCookie = ''
+    vi.spyOn(document, 'cookie', 'get').mockImplementation(() => mockCookie)
     routerReplace.mockReset()
     routerRefresh.mockReset()
     authRefresh.mockReset()
@@ -78,6 +81,10 @@ describe('LoginForm', () => {
     completeMfaSetup.mockReset()
     sendEmailVerificationOtp.mockReset()
     verifyEmailOtp.mockReset()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it('starts fresh MFA setup before finishing sign-in with a recovery code', async () => {
@@ -130,5 +137,13 @@ describe('LoginForm', () => {
     expect(toastSuccess).toHaveBeenCalledWith(
       'Recovery code accepted. Set up your new authenticator to finish.'
     )
+  })
+
+  it('shows a hint when email was the last used login method', () => {
+    mockCookie = 'better-auth.last_used_login_method=email'
+
+    render(<LoginForm nextPath={null} />)
+
+    expect(screen.getByTestId('last-login-method-email')).toHaveTextContent('Email was last used')
   })
 })

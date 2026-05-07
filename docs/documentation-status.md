@@ -17,6 +17,8 @@ This index summarizes the completion markers added to implementation plans, prod
 | --- | --- | --- |
 | `docs/implementation/core-secrets-engine.md` | Not complete | Implementation planning only. |
 | `docs/implementation/internal-kms-blueprint.md` | Not complete | Future KMS blueprint only. |
+| `docs/planning/better-auth-plugin-roadmap.md` | Not complete | Auth plugin migration and consolidation plan. |
+| `docs/planning/cli-development-plan.md` | Not complete | CLI planning draft. |
 | `docs/review/2026-04-29.md` | Complete | Review snapshot recorded. |
 | `docs/error-inventory.md` | Complete | Error inventory and implementation blueprint recorded. |
 | `docs/product-plan.md` | Active | Living roadmap; product is not complete. |

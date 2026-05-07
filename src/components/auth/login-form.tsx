@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { authApi } from '@/lib/api/auth'
+import { getLastUsedLoginMethodLabel, isLastUsedLoginMethod } from '@/lib/auth/last-login-method'
 import { normalizeNextPath } from '@/lib/auth/paths'
 import { DASHBOARD_HOME_PATH, FORGOT_PASSWORD_PATH, REGISTER_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
@@ -62,9 +63,17 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   const [isPending, setIsPending] = useState(false)
   const [isResendingVerification, setIsResendingVerification] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [lastEmailLoginMethodLabel, setLastEmailLoginMethodLabel] = useState<string | null>(null)
   const [retryAfter, setRetryAfter] = useState<number | null>(null)
   const verificationCooldown = useEmailCooldown()
   const recoveryCodeInputsRef = useRef<Array<HTMLInputElement | null>>([])
+
+  useEffect(() => {
+    setLastEmailLoginMethodLabel(
+      isLastUsedLoginMethod('email') ? getLastUsedLoginMethodLabel('email') : null
+    )
+  }, [])
+
   useEffect(() => {
     if (searchParams.get('expired') === '1') {
       toast.warning('Your session has expired. Please sign in again.')
@@ -727,6 +736,11 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         >
           Email
         </label>
+        {lastEmailLoginMethodLabel ? (
+          <p className="text-xs text-[#00c573]" data-testid="last-login-method-email">
+            {lastEmailLoginMethodLabel}
+          </p>
+        ) : null}
         <Input
           autoComplete="email"
           className={cn(fieldErrors.email && 'border-danger focus-visible:ring-danger')}
