@@ -42,7 +42,11 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { refresh } = useAuth()
-  const { capabilities } = useAuthCapabilities()
+  const {
+    capabilities,
+    error: capabilitiesError,
+    isLoading: isCapabilitiesLoading,
+  } = useAuthCapabilities()
   const { toast } = useToast()
   const invitationToken = searchParams.get('invitation')
   const invitationEmail = searchParams.get('email') ?? ''
@@ -73,6 +77,16 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   const verificationCooldown = useEmailCooldown()
   const recoveryCodeInputsRef = useRef<Array<HTMLInputElement | null>>([])
   const captchaWidgetRef = useRef<TurnstileWidgetHandle | null>(null)
+  const isAuthSecurityUnavailable = isCapabilitiesLoading || Boolean(capabilitiesError)
+
+  function ensureAuthSecurityAvailable(): boolean {
+    if (!isAuthSecurityUnavailable) {
+      return true
+    }
+
+    toast.error('Cannot verify auth security settings right now. Please refresh and try again.')
+    return false
+  }
 
   useEffect(() => {
     setLastEmailLoginMethodLabel(
@@ -161,6 +175,10 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     normalizedEmail: string,
     currentPassword: string
   ): Promise<void> {
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
+
     try {
       const signInResult = await authApi.signInWithEmail({
         email: normalizedEmail,
@@ -210,6 +228,10 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
     setFieldErrors({})
+
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
 
     const normalizedEmail = email.trim().toLowerCase()
     const nextFieldErrors: Record<string, string> = {}
@@ -526,7 +548,11 @@ export function LoginForm({ nextPath }: LoginFormProps) {
             />
           ) : null}
 
-          <Button className="w-full" disabled={isPending} type="submit">
+          <Button
+            className="w-full"
+            disabled={isPending || isAuthSecurityUnavailable}
+            type="submit"
+          >
             {isPending ? 'Verifying...' : 'Verify'}
           </Button>
 
@@ -849,7 +875,11 @@ export function LoginForm({ nextPath }: LoginFormProps) {
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
-        <Button className="w-full" disabled={isPending || Boolean(retryAfter)} type="submit">
+        <Button
+          className="w-full"
+          disabled={isPending || Boolean(retryAfter) || isAuthSecurityUnavailable}
+          type="submit"
+        >
           {isPending ? 'Signing in...' : 'Sign in'}
         </Button>
 

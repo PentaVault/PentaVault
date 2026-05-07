@@ -25,6 +25,7 @@ const defaultCapabilities: AuthCapabilitiesResponse = {
 export function useAuthCapabilities() {
   const [capabilities, setCapabilities] = useState<AuthCapabilitiesResponse>(defaultCapabilities)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -34,11 +35,17 @@ export function useAuthCapabilities() {
       .then((response) => {
         if (!cancelled) {
           setCapabilities(response)
+          setError(null)
         }
       })
-      .catch(() => {
+      .catch((capabilitiesError: unknown) => {
         if (!cancelled) {
           setCapabilities(defaultCapabilities)
+          setError(
+            capabilitiesError instanceof Error
+              ? capabilitiesError
+              : new Error('Auth capabilities unavailable')
+          )
         }
       })
       .finally(() => {
@@ -52,5 +59,5 @@ export function useAuthCapabilities() {
     }
   }, [])
 
-  return { capabilities, isLoading }
+  return { capabilities, error, isLoading }
 }

@@ -29,7 +29,11 @@ export function RegisterForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const auth = useAuth()
-  const { capabilities } = useAuthCapabilities()
+  const {
+    capabilities,
+    error: capabilitiesError,
+    isLoading: isCapabilitiesLoading,
+  } = useAuthCapabilities()
   const { toast } = useToast()
   const invitationToken = searchParams.get('invitation')
   const invitationEmail = searchParams.get('email') ?? ''
@@ -49,6 +53,17 @@ export function RegisterForm() {
   const [captchaToken, setCaptchaToken] = useState('')
   const captchaWidgetRef = useRef<TurnstileWidgetHandle | null>(null)
   const emailCooldown = useEmailCooldown()
+  const isAuthSecurityUnavailable = isCapabilitiesLoading || Boolean(capabilitiesError)
+
+  function ensureAuthSecurityAvailable(): boolean {
+    if (!isAuthSecurityUnavailable) {
+      return true
+    }
+
+    toast.error('Cannot verify auth security settings right now. Please refresh and try again.')
+    return false
+  }
+
   useEffect(() => {
     if (auth.status === 'authenticated') {
       router.replace(
@@ -62,6 +77,10 @@ export function RegisterForm() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
     setFieldErrors({})
+
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
 
     const normalizedName = name.trim()
     const normalizedEmail = email.trim().toLowerCase()
@@ -185,6 +204,10 @@ export function RegisterForm() {
       return
     }
 
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
+
     try {
       setIsResending(true)
       await authApi.resendRegistrationCode({
@@ -250,13 +273,17 @@ export function RegisterForm() {
         ) : null}
 
         <div className="space-y-3">
-          <Button className="w-full" disabled={isPending} type="submit">
+          <Button
+            className="w-full"
+            disabled={isPending || isAuthSecurityUnavailable}
+            type="submit"
+          >
             {isPending ? 'Verifying...' : 'Verify'}
           </Button>
 
           <Button
             className="w-full"
-            disabled={isResending || emailCooldown.isOnCooldown}
+            disabled={isResending || emailCooldown.isOnCooldown || isAuthSecurityUnavailable}
             onClick={() => void handleResend()}
             type="button"
             variant="outline"
@@ -391,7 +418,11 @@ export function RegisterForm() {
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-        <Button className="w-full sm:w-auto sm:min-w-[9.25rem]" disabled={isPending} type="submit">
+        <Button
+          className="w-full sm:w-auto sm:min-w-[9.25rem]"
+          disabled={isPending || isAuthSecurityUnavailable}
+          type="submit"
+        >
           {isPending ? 'Creating...' : 'Create'}
         </Button>
 

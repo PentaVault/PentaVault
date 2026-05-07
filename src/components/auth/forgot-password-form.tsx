@@ -26,7 +26,11 @@ import {
 export function ForgotPasswordForm() {
   const router = useRouter()
   const { toast } = useToast()
-  const { capabilities } = useAuthCapabilities()
+  const {
+    capabilities,
+    error: capabilitiesError,
+    isLoading: isCapabilitiesLoading,
+  } = useAuthCapabilities()
 
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
@@ -42,6 +46,16 @@ export function ForgotPasswordForm() {
   const [captchaToken, setCaptchaToken] = useState('')
   const captchaWidgetRef = useRef<TurnstileWidgetHandle | null>(null)
   const emailCooldown = useEmailCooldown()
+  const isAuthSecurityUnavailable = isCapabilitiesLoading || Boolean(capabilitiesError)
+
+  function ensureAuthSecurityAvailable(): boolean {
+    if (!isAuthSecurityUnavailable) {
+      return true
+    }
+
+    toast.error('Cannot verify auth security settings right now. Please refresh and try again.')
+    return false
+  }
 
   function resetCaptchaToken(): void {
     if (!capabilities.captcha.enabled) {
@@ -55,6 +69,10 @@ export function ForgotPasswordForm() {
   async function handleRequestSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
     setFieldErrors({})
+
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
 
     const normalizedEmail = email.trim().toLowerCase()
     if (!normalizedEmail) {
@@ -96,6 +114,10 @@ export function ForgotPasswordForm() {
   async function handleResetSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
     setFieldErrors({})
+
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
 
     const nextFieldErrors: Record<string, string> = {}
     const normalizedOtp = otp.trim()
@@ -166,6 +188,10 @@ export function ForgotPasswordForm() {
       return
     }
 
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
+
     try {
       setIsPending(true)
       await authApi.requestPasswordResetOtp({
@@ -223,7 +249,7 @@ export function ForgotPasswordForm() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <Button
             className="w-full sm:w-auto sm:min-w-[9.25rem]"
-            disabled={isPending || emailCooldown.isOnCooldown}
+            disabled={isPending || emailCooldown.isOnCooldown || isAuthSecurityUnavailable}
             type="submit"
           >
             {emailCooldown.isOnCooldown
@@ -374,12 +400,12 @@ export function ForgotPasswordForm() {
       ) : null}
 
       <div className="space-y-3">
-        <Button className="w-full" disabled={isPending} type="submit">
+        <Button className="w-full" disabled={isPending || isAuthSecurityUnavailable} type="submit">
           {isPending ? 'Resetting...' : 'Reset password'}
         </Button>
         <button
           className="w-full text-center text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={isPending || emailCooldown.isOnCooldown}
+          disabled={isPending || emailCooldown.isOnCooldown || isAuthSecurityUnavailable}
           onClick={() => void handleResendCode()}
           type="button"
         >

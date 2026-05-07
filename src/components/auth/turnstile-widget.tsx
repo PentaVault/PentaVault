@@ -43,15 +43,17 @@ function loadTurnstileScript(): Promise<void> {
 
   if (!turnstileScriptPromise) {
     turnstileScriptPromise = new Promise((resolve, reject) => {
+      const rejectAndReset = () => {
+        turnstileScriptPromise = null
+        reject(new Error('Turnstile failed'))
+      }
       const existingScript = document.querySelector<HTMLScriptElement>(
         'script[src^="https://challenges.cloudflare.com/turnstile/v0/api.js"]'
       )
 
       if (existingScript) {
         existingScript.addEventListener('load', () => resolve(), { once: true })
-        existingScript.addEventListener('error', () => reject(new Error('Turnstile failed')), {
-          once: true,
-        })
+        existingScript.addEventListener('error', rejectAndReset, { once: true })
         return
       }
 
@@ -60,7 +62,10 @@ function loadTurnstileScript(): Promise<void> {
       script.defer = true
       script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
       script.onload = () => resolve()
-      script.onerror = () => reject(new Error('Turnstile failed'))
+      script.onerror = () => {
+        script.remove()
+        rejectAndReset()
+      }
       document.head.append(script)
     })
   }

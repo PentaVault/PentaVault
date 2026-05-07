@@ -30,7 +30,11 @@ import { getApiErrorPayload, getApiFieldErrors, getApiFriendlyMessage } from '@/
 
 export default function AccountSettingsPage() {
   const auth = useAuth()
-  const { capabilities } = useAuthCapabilities()
+  const {
+    capabilities,
+    error: capabilitiesError,
+    isLoading: isCapabilitiesLoading,
+  } = useAuthCapabilities()
   const router = useRouter()
   const { toast } = useToast()
   const passwordEmailCooldown = useEmailCooldown()
@@ -52,6 +56,7 @@ export default function AccountSettingsPage() {
   const [isCopyingUserId, setIsCopyingUserId] = useState(false)
   const [captchaToken, setCaptchaToken] = useState('')
   const captchaWidgetRef = useRef<TurnstileWidgetHandle | null>(null)
+  const isAuthSecurityUnavailable = isCapabilitiesLoading || Boolean(capabilitiesError)
 
   const user = auth.session?.user
 
@@ -62,6 +67,15 @@ export default function AccountSettingsPage() {
 
     setCaptchaToken('')
     captchaWidgetRef.current?.reset()
+  }
+
+  function ensureAuthSecurityAvailable(): boolean {
+    if (!isAuthSecurityUnavailable) {
+      return true
+    }
+
+    toast.error('Cannot verify auth security settings right now. Please refresh and try again.')
+    return false
   }
 
   async function handleSaveName(name: string): Promise<void> {
@@ -124,6 +138,10 @@ export default function AccountSettingsPage() {
       return
     }
 
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
+
     try {
       setIsSendingPasswordOtp(true)
       setPasswordErrors({})
@@ -148,6 +166,10 @@ export default function AccountSettingsPage() {
 
   async function handleChangePassword(): Promise<void> {
     if (!user?.email) {
+      return
+    }
+
+    if (passwordMode === 'email' && !ensureAuthSecurityAvailable()) {
       return
     }
 
@@ -410,7 +432,11 @@ export default function AccountSettingsPage() {
                 </div>
                 <Button
                   className="mt-6 h-11"
-                  disabled={isSendingPasswordOtp || passwordEmailCooldown.isOnCooldown}
+                  disabled={
+                    isSendingPasswordOtp ||
+                    passwordEmailCooldown.isOnCooldown ||
+                    isAuthSecurityUnavailable
+                  }
                   onClick={() => void handleSendPasswordOtp()}
                   type="button"
                   variant="outline"
@@ -507,7 +533,9 @@ export default function AccountSettingsPage() {
 
             <div className="flex justify-end">
               <Button
-                disabled={isChangingPassword}
+                disabled={
+                  isChangingPassword || (passwordMode === 'email' && isAuthSecurityUnavailable)
+                }
                 onClick={() => void handleChangePassword()}
                 type="button"
               >
