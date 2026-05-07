@@ -6,12 +6,14 @@ import type { FormEvent } from 'react'
 import { useState } from 'react'
 
 import { PasswordRequirements } from '@/components/auth/password-requirements'
+import { TurnstileWidget } from '@/components/auth/turnstile-widget'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { authApi } from '@/lib/api/auth'
 import { isPasswordPolicySatisfied } from '@/lib/auth/password-policy'
 import { LOGIN_PATH } from '@/lib/constants'
+import { useAuthCapabilities } from '@/lib/hooks/use-auth-capabilities'
 import { useEmailCooldown } from '@/lib/hooks/use-email-cooldown'
 import { useToast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils/cn'
@@ -24,6 +26,7 @@ import {
 export function ForgotPasswordForm() {
   const router = useRouter()
   const { toast } = useToast()
+  const { capabilities } = useAuthCapabilities()
 
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
@@ -36,6 +39,7 @@ export function ForgotPasswordForm() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [isPasswordFocused, setIsPasswordFocused] = useState(false)
   const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
   const emailCooldown = useEmailCooldown()
 
   async function handleRequestSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -50,7 +54,10 @@ export function ForgotPasswordForm() {
 
     try {
       setIsPending(true)
-      await authApi.requestPasswordResetOtp({ email: normalizedEmail })
+      await authApi.requestPasswordResetOtp({
+        email: normalizedEmail,
+        captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
+      })
       setEmail(normalizedEmail)
       setIsResetStep(true)
       emailCooldown.startCooldown(60)
@@ -113,6 +120,7 @@ export function ForgotPasswordForm() {
         otp: normalizedOtp,
         password,
         ...(requiresMfa ? { totpCode: mfaCode.trim() } : {}),
+        captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
       })
 
       if (resetResult.requiresMfa) {
@@ -148,7 +156,10 @@ export function ForgotPasswordForm() {
 
     try {
       setIsPending(true)
-      await authApi.requestPasswordResetOtp({ email })
+      await authApi.requestPasswordResetOtp({
+        email,
+        captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
+      })
       emailCooldown.startCooldown(60)
       toast.success('Reset code sent.')
     } catch (error) {
@@ -187,6 +198,10 @@ export function ForgotPasswordForm() {
           />
           {fieldErrors.email ? <p className="text-sm text-danger">{fieldErrors.email}</p> : null}
         </div>
+
+        {capabilities.captcha.enabled ? (
+          <TurnstileWidget siteKey={capabilities.captcha.siteKey} onToken={setCaptchaToken} />
+        ) : null}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <Button
@@ -331,6 +346,10 @@ export function ForgotPasswordForm() {
             <p className="text-sm text-danger">{fieldErrors.mfaCode}</p>
           ) : null}
         </div>
+      ) : null}
+
+      {capabilities.captcha.enabled ? (
+        <TurnstileWidget siteKey={capabilities.captcha.siteKey} onToken={setCaptchaToken} />
       ) : null}
 
       <div className="space-y-3">

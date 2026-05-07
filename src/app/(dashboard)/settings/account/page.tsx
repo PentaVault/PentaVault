@@ -3,9 +3,10 @@
 import { Copy } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-
+import { TurnstileWidget } from '@/components/auth/turnstile-widget'
 import { InlineEditField } from '@/components/settings/inline-edit-field'
 import { MfaSettingsCard } from '@/components/settings/mfa-settings-card'
+import { PasskeySettingsCard } from '@/components/settings/passkey-settings-card'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -22,12 +23,14 @@ import { authApi } from '@/lib/api/auth'
 import { clearClientAuthHint } from '@/lib/auth/token'
 import { LOGIN_PATH } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useAuthCapabilities } from '@/lib/hooks/use-auth-capabilities'
 import { useEmailCooldown } from '@/lib/hooks/use-email-cooldown'
 import { useToast } from '@/lib/hooks/use-toast'
 import { getApiErrorPayload, getApiFieldErrors, getApiFriendlyMessage } from '@/lib/utils/errors'
 
 export default function AccountSettingsPage() {
   const auth = useAuth()
+  const { capabilities } = useAuthCapabilities()
   const router = useRouter()
   const { toast } = useToast()
   const passwordEmailCooldown = useEmailCooldown()
@@ -47,6 +50,7 @@ export default function AccountSettingsPage() {
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [isSendingPasswordOtp, setIsSendingPasswordOtp] = useState(false)
   const [isCopyingUserId, setIsCopyingUserId] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
 
   const user = auth.session?.user
 
@@ -113,7 +117,10 @@ export default function AccountSettingsPage() {
     try {
       setIsSendingPasswordOtp(true)
       setPasswordErrors({})
-      await authApi.requestPasswordResetOtp({ email: user.email })
+      await authApi.requestPasswordResetOtp({
+        email: user.email,
+        captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
+      })
       passwordEmailCooldown.startCooldown(60)
       setPasswordOtpSent(true)
       toast.success('Password code sent. Check your email.')
@@ -174,6 +181,7 @@ export default function AccountSettingsPage() {
           email: user.email,
           otp: passwordOtp,
           password: newPassword,
+          captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
         })
       }
 
@@ -303,6 +311,8 @@ export default function AccountSettingsPage() {
         <div className="rounded-xl transition-shadow" id="account-mfa-settings">
           <MfaSettingsCard onChanged={auth.refresh} user={user} />
         </div>
+
+        <PasskeySettingsCard onChanged={auth.refresh} />
 
         <Card>
           <CardHeader>
@@ -471,6 +481,10 @@ export default function AccountSettingsPage() {
                   <p className="text-sm text-danger">{passwordErrors.totpCode}</p>
                 ) : null}
               </div>
+            ) : null}
+
+            {passwordMode === 'email' && capabilities.captcha.enabled ? (
+              <TurnstileWidget siteKey={capabilities.captcha.siteKey} onToken={setCaptchaToken} />
             ) : null}
 
             <div className="flex justify-end">

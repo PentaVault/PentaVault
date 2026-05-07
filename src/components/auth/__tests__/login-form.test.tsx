@@ -17,6 +17,23 @@ const startRecoveryMfaSetup = vi.fn()
 const completeMfaSetup = vi.fn()
 const sendEmailVerificationOtp = vi.fn()
 const verifyEmailOtp = vi.fn()
+const passkeySignIn = vi.fn()
+let mockCapabilities = {
+  captcha: {
+    enabled: false,
+    provider: 'cloudflare-turnstile' as const,
+    siteKey: null,
+  },
+  passkey: {
+    enabled: false,
+  },
+  admin: {
+    enabled: false,
+  },
+  jwt: {
+    enabled: false,
+  },
+}
 let mockCookie = ''
 
 vi.mock('@/lib/env', () => ({
@@ -37,6 +54,13 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/hooks/use-auth', () => ({
   useAuth: () => ({
     refresh: authRefresh,
+  }),
+}))
+
+vi.mock('@/lib/hooks/use-auth-capabilities', () => ({
+  useAuthCapabilities: () => ({
+    capabilities: mockCapabilities,
+    isLoading: false,
   }),
 }))
 
@@ -63,6 +87,14 @@ vi.mock('@/lib/api/auth', () => ({
   },
 }))
 
+vi.mock('@/lib/auth/better-auth-client', () => ({
+  betterAuthClient: {
+    signIn: {
+      passkey: (...args: unknown[]) => passkeySignIn(...args),
+    },
+  },
+}))
+
 describe('LoginForm', () => {
   beforeEach(() => {
     mockCookie = ''
@@ -81,6 +113,23 @@ describe('LoginForm', () => {
     completeMfaSetup.mockReset()
     sendEmailVerificationOtp.mockReset()
     verifyEmailOtp.mockReset()
+    passkeySignIn.mockReset()
+    mockCapabilities = {
+      captcha: {
+        enabled: false,
+        provider: 'cloudflare-turnstile',
+        siteKey: null,
+      },
+      passkey: {
+        enabled: false,
+      },
+      admin: {
+        enabled: false,
+      },
+      jwt: {
+        enabled: false,
+      },
+    }
   })
 
   afterEach(() => {
@@ -145,5 +194,26 @@ describe('LoginForm', () => {
     render(<LoginForm nextPath={null} />)
 
     expect(screen.getByTestId('last-login-method-email')).toHaveTextContent('Email was last used')
+  })
+
+  it('shows passkey sign-in only when the capability is enabled', async () => {
+    const user = userEvent.setup()
+    mockCapabilities = {
+      ...mockCapabilities,
+      passkey: {
+        enabled: true,
+      },
+    }
+    passkeySignIn.mockResolvedValue({ data: { session: {}, user: {} }, error: null })
+    authRefresh.mockResolvedValue(undefined)
+
+    render(<LoginForm nextPath={null} />)
+
+    await user.click(screen.getByRole('button', { name: 'Sign in with passkey' }))
+
+    await waitFor(() => {
+      expect(passkeySignIn).toHaveBeenCalledOnce()
+    })
+    expect(routerReplace).toHaveBeenCalled()
   })
 })

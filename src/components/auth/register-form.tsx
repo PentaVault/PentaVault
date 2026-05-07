@@ -6,6 +6,7 @@ import type { FormEvent } from 'react'
 import { useEffect, useState } from 'react'
 
 import { PasswordRequirements } from '@/components/auth/password-requirements'
+import { TurnstileWidget } from '@/components/auth/turnstile-widget'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
@@ -14,6 +15,7 @@ import { isPasswordPolicySatisfied } from '@/lib/auth/password-policy'
 import { DASHBOARD_HOME_PATH, LOGIN_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useAuthCapabilities } from '@/lib/hooks/use-auth-capabilities'
 import { useEmailCooldown } from '@/lib/hooks/use-email-cooldown'
 import { useToast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils/cn'
@@ -27,6 +29,7 @@ export function RegisterForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const auth = useAuth()
+  const { capabilities } = useAuthCapabilities()
   const { toast } = useToast()
   const invitationToken = searchParams.get('invitation')
   const invitationEmail = searchParams.get('email') ?? ''
@@ -43,6 +46,7 @@ export function RegisterForm() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [isPasswordFocused, setIsPasswordFocused] = useState(false)
   const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
   const emailCooldown = useEmailCooldown()
   useEffect(() => {
     if (auth.status === 'authenticated') {
@@ -94,6 +98,7 @@ export function RegisterForm() {
         name: normalizedName,
         email: normalizedEmail,
         password,
+        captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
       })
 
       setVerificationEmail(normalizedEmail)
@@ -171,7 +176,10 @@ export function RegisterForm() {
 
     try {
       setIsResending(true)
-      await authApi.resendRegistrationCode({ email: verificationEmail })
+      await authApi.resendRegistrationCode({
+        email: verificationEmail,
+        captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
+      })
       emailCooldown.startCooldown(60)
       toast.success('Code sent.')
     } catch (resendError) {
@@ -220,6 +228,10 @@ export function RegisterForm() {
           />
           {fieldErrors.otp ? <p className="text-sm text-danger">{fieldErrors.otp}</p> : null}
         </div>
+
+        {capabilities.captcha.enabled ? (
+          <TurnstileWidget siteKey={capabilities.captcha.siteKey} onToken={setCaptchaToken} />
+        ) : null}
 
         <div className="space-y-3">
           <Button className="w-full" disabled={isPending} type="submit">
@@ -374,6 +386,10 @@ export function RegisterForm() {
           Already registered? Sign in
         </Link>
       </div>
+
+      {capabilities.captcha.enabled ? (
+        <TurnstileWidget siteKey={capabilities.captcha.siteKey} onToken={setCaptchaToken} />
+      ) : null}
 
       {env.mockAuthEnabled ? (
         <p className="text-xs text-muted-foreground">
