@@ -1,21 +1,24 @@
 'use client'
 
-import { Copy, QrCode } from 'lucide-react'
+import { Copy, KeyRound, QrCode } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import QRCode from 'qrcode'
 import type { FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
-
+import { TurnstileWidget, type TurnstileWidgetHandle } from '@/components/auth/turnstile-widget'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { authApi } from '@/lib/api/auth'
+import { betterAuthClient } from '@/lib/auth/better-auth-client'
+import { getLastUsedLoginMethodLabel, isLastUsedLoginMethod } from '@/lib/auth/last-login-method'
 import { normalizeNextPath } from '@/lib/auth/paths'
 import { DASHBOARD_HOME_PATH, FORGOT_PASSWORD_PATH, REGISTER_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useAuthCapabilities } from '@/lib/hooks/use-auth-capabilities'
 import { useEmailCooldown } from '@/lib/hooks/use-email-cooldown'
 import { useToast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils/cn'
@@ -39,6 +42,11 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { refresh } = useAuth()
+  const {
+    capabilities,
+    error: capabilitiesError,
+    isLoading: isCapabilitiesLoading,
+  } = useAuthCapabilities()
   const { toast } = useToast()
   const invitationToken = searchParams.get('invitation')
   const invitationEmail = searchParams.get('email') ?? ''
@@ -62,9 +70,30 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   const [isPending, setIsPending] = useState(false)
   const [isResendingVerification, setIsResendingVerification] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [lastEmailLoginMethodLabel, setLastEmailLoginMethodLabel] = useState<string | null>(null)
   const [retryAfter, setRetryAfter] = useState<number | null>(null)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const [isPasskeyPending, setIsPasskeyPending] = useState(false)
   const verificationCooldown = useEmailCooldown()
   const recoveryCodeInputsRef = useRef<Array<HTMLInputElement | null>>([])
+  const captchaWidgetRef = useRef<TurnstileWidgetHandle | null>(null)
+  const isAuthSecurityUnavailable = isCapabilitiesLoading || Boolean(capabilitiesError)
+
+  function ensureAuthSecurityAvailable(): boolean {
+    if (!isAuthSecurityUnavailable) {
+      return true
+    }
+
+    toast.error('Cannot verify auth security settings right now. Please refresh and try again.')
+    return false
+  }
+
+  useEffect(() => {
+    setLastEmailLoginMethodLabel(
+      isLastUsedLoginMethod('email') ? getLastUsedLoginMethodLabel('email') : null
+    )
+  }, [])
+
   useEffect(() => {
     if (searchParams.get('expired') === '1') {
       toast.warning('Your session has expired. Please sign in again.')
@@ -146,24 +175,63 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     normalizedEmail: string,
     currentPassword: string
   ): Promise<void> {
-    const signInResult = await authApi.signInWithEmail({
-      email: normalizedEmail,
-      password: currentPassword,
-    })
-
-    if (signInResult.twoFactorRedirect) {
-      setMfaRequired(true)
-      setEmailVerificationRequired(false)
-      toast.info('Enter your authenticator code to finish signing in.')
+    if (!ensureAuthSecurityAvailable()) {
       return
     }
 
-    await completeSignIn()
+    try {
+      const signInResult = await authApi.signInWithEmail({
+        email: normalizedEmail,
+        password: currentPassword,
+        captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
+      })
+
+      if (signInResult.twoFactorRedirect) {
+        setMfaRequired(true)
+        setEmailVerificationRequired(false)
+        toast.info('Enter your authenticator code to finish signing in.')
+        return
+      }
+
+      await completeSignIn()
+    } finally {
+      resetCaptchaToken()
+    }
+  }
+
+  function resetCaptchaToken(): void {
+    if (!capabilities.captcha.enabled) {
+      return
+    }
+
+    setCaptchaToken('')
+    captchaWidgetRef.current?.reset()
+  }
+
+  async function handlePasskeySignIn(): Promise<void> {
+    try {
+      setIsPasskeyPending(true)
+      const result = await betterAuthClient.signIn.passkey()
+      if (result.error) {
+        toast.error(result.error.message ?? 'Passkey sign-in failed.')
+        return
+      }
+
+      await completeSignIn()
+    } catch (error) {
+      toast.error(getApiFriendlyMessageWithRef(error, 'Passkey sign-in failed.'))
+    } finally {
+      setIsPasskeyPending(false)
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
     setFieldErrors({})
+
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
 
     const normalizedEmail = email.trim().toLowerCase()
     const nextFieldErrors: Record<string, string> = {}
@@ -472,7 +540,19 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         </div>
 
         <div className="space-y-3">
-          <Button className="w-full" disabled={isPending} type="submit">
+          {capabilities.captcha.enabled ? (
+            <TurnstileWidget
+              ref={captchaWidgetRef}
+              siteKey={capabilities.captcha.siteKey}
+              onToken={setCaptchaToken}
+            />
+          ) : null}
+
+          <Button
+            className="w-full"
+            disabled={isPending || isAuthSecurityUnavailable}
+            type="submit"
+          >
             {isPending ? 'Verifying...' : 'Verify'}
           </Button>
 
@@ -727,6 +807,11 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         >
           Email
         </label>
+        {lastEmailLoginMethodLabel ? (
+          <p className="text-xs text-[#00c573]" data-testid="last-login-method-email">
+            {lastEmailLoginMethodLabel}
+          </p>
+        ) : null}
         <Input
           autoComplete="email"
           className={cn(fieldErrors.email && 'border-danger focus-visible:ring-danger')}
@@ -781,8 +866,20 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         </p>
       ) : null}
 
+      {capabilities.captcha.enabled ? (
+        <TurnstileWidget
+          ref={captchaWidgetRef}
+          siteKey={capabilities.captcha.siteKey}
+          onToken={setCaptchaToken}
+        />
+      ) : null}
+
       <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
-        <Button className="w-full" disabled={isPending || Boolean(retryAfter)} type="submit">
+        <Button
+          className="w-full"
+          disabled={isPending || Boolean(retryAfter) || isAuthSecurityUnavailable}
+          type="submit"
+        >
           {isPending ? 'Signing in...' : 'Sign in'}
         </Button>
 
@@ -793,6 +890,19 @@ export function LoginForm({ nextPath }: LoginFormProps) {
           Need an account? Create one
         </Link>
       </div>
+
+      {capabilities.passkey.enabled ? (
+        <Button
+          className="w-full gap-2"
+          disabled={isPasskeyPending}
+          onClick={() => void handlePasskeySignIn()}
+          type="button"
+          variant="outline"
+        >
+          <KeyRound className="h-4 w-4" />
+          {isPasskeyPending ? 'Checking passkey...' : 'Sign in with passkey'}
+        </Button>
+      ) : null}
 
       {env.mockAuthEnabled ? (
         <p className="text-xs text-muted-foreground">

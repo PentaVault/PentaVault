@@ -2,10 +2,11 @@
 
 import { Copy } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
-
+import { useRef, useState } from 'react'
+import { TurnstileWidget, type TurnstileWidgetHandle } from '@/components/auth/turnstile-widget'
 import { InlineEditField } from '@/components/settings/inline-edit-field'
 import { MfaSettingsCard } from '@/components/settings/mfa-settings-card'
+import { PasskeySettingsCard } from '@/components/settings/passkey-settings-card'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -22,12 +23,18 @@ import { authApi } from '@/lib/api/auth'
 import { clearClientAuthHint } from '@/lib/auth/token'
 import { LOGIN_PATH } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useAuthCapabilities } from '@/lib/hooks/use-auth-capabilities'
 import { useEmailCooldown } from '@/lib/hooks/use-email-cooldown'
 import { useToast } from '@/lib/hooks/use-toast'
 import { getApiErrorPayload, getApiFieldErrors, getApiFriendlyMessage } from '@/lib/utils/errors'
 
 export default function AccountSettingsPage() {
   const auth = useAuth()
+  const {
+    capabilities,
+    error: capabilitiesError,
+    isLoading: isCapabilitiesLoading,
+  } = useAuthCapabilities()
   const router = useRouter()
   const { toast } = useToast()
   const passwordEmailCooldown = useEmailCooldown()
@@ -47,8 +54,29 @@ export default function AccountSettingsPage() {
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [isSendingPasswordOtp, setIsSendingPasswordOtp] = useState(false)
   const [isCopyingUserId, setIsCopyingUserId] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const captchaWidgetRef = useRef<TurnstileWidgetHandle | null>(null)
+  const isAuthSecurityUnavailable = isCapabilitiesLoading || Boolean(capabilitiesError)
 
   const user = auth.session?.user
+
+  function resetCaptchaToken(): void {
+    if (!capabilities.captcha.enabled) {
+      return
+    }
+
+    setCaptchaToken('')
+    captchaWidgetRef.current?.reset()
+  }
+
+  function ensureAuthSecurityAvailable(): boolean {
+    if (!isAuthSecurityUnavailable) {
+      return true
+    }
+
+    toast.error('Cannot verify auth security settings right now. Please refresh and try again.')
+    return false
+  }
 
   async function handleSaveName(name: string): Promise<void> {
     setIsSavingName(true)
@@ -110,10 +138,17 @@ export default function AccountSettingsPage() {
       return
     }
 
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
+
     try {
       setIsSendingPasswordOtp(true)
       setPasswordErrors({})
-      await authApi.requestPasswordResetOtp({ email: user.email })
+      await authApi.requestPasswordResetOtp({
+        email: user.email,
+        captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
+      })
       passwordEmailCooldown.startCooldown(60)
       setPasswordOtpSent(true)
       toast.success('Password code sent. Check your email.')
@@ -124,12 +159,17 @@ export default function AccountSettingsPage() {
       }
       toast.error(getApiFriendlyMessage(error, 'Unable to send a password code right now.'))
     } finally {
+      resetCaptchaToken()
       setIsSendingPasswordOtp(false)
     }
   }
 
   async function handleChangePassword(): Promise<void> {
     if (!user?.email) {
+      return
+    }
+
+    if (passwordMode === 'email' && !ensureAuthSecurityAvailable()) {
       return
     }
 
@@ -174,6 +214,7 @@ export default function AccountSettingsPage() {
           email: user.email,
           otp: passwordOtp,
           password: newPassword,
+          captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
         })
       }
 
@@ -221,6 +262,9 @@ export default function AccountSettingsPage() {
 
       toast.error(getApiFriendlyMessage(error, 'Unable to change your password right now.'))
     } finally {
+      if (passwordMode === 'email') {
+        resetCaptchaToken()
+      }
       setIsChangingPassword(false)
     }
   }
@@ -304,6 +348,8 @@ export default function AccountSettingsPage() {
           <MfaSettingsCard onChanged={auth.refresh} user={user} />
         </div>
 
+        <PasskeySettingsCard onChanged={auth.refresh} />
+
         <Card>
           <CardHeader>
             <CardTitle>Password</CardTitle>
@@ -386,7 +432,11 @@ export default function AccountSettingsPage() {
                 </div>
                 <Button
                   className="mt-6 h-11"
-                  disabled={isSendingPasswordOtp || passwordEmailCooldown.isOnCooldown}
+                  disabled={
+                    isSendingPasswordOtp ||
+                    passwordEmailCooldown.isOnCooldown ||
+                    isAuthSecurityUnavailable
+                  }
                   onClick={() => void handleSendPasswordOtp()}
                   type="button"
                   variant="outline"
@@ -473,9 +523,19 @@ export default function AccountSettingsPage() {
               </div>
             ) : null}
 
+            {passwordMode === 'email' && capabilities.captcha.enabled ? (
+              <TurnstileWidget
+                ref={captchaWidgetRef}
+                siteKey={capabilities.captcha.siteKey}
+                onToken={setCaptchaToken}
+              />
+            ) : null}
+
             <div className="flex justify-end">
               <Button
-                disabled={isChangingPassword}
+                disabled={
+                  isChangingPassword || (passwordMode === 'email' && isAuthSecurityUnavailable)
+                }
                 onClick={() => void handleChangePassword()}
                 type="button"
               >

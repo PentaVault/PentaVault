@@ -13,6 +13,7 @@ import { clearClientAuthHint, hasAuthCookieHint, setClientAuthHint } from '@/lib
 import { AUTH_REVOKE_SESSION_PATH, AUTH_SESSION_PATH, AUTH_SESSIONS_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
 import type {
+  AuthCapabilitiesResponse,
   AuthChangePasswordInput,
   AuthCompleteMfaSetupInput,
   AuthCompleteRegistrationInput,
@@ -21,6 +22,7 @@ import type {
   AuthDisableMfaInput,
   AuthEnableMfaInput,
   AuthEnableMfaResponse,
+  AuthPasskey,
   AuthRequestPasswordResetOtpInput,
   AuthResetPasswordWithOtpInput,
   AuthResetPasswordWithOtpResponse,
@@ -108,6 +110,23 @@ const createApiKeyResponseSchema = z.object({
   }),
 })
 
+const authCapabilitiesResponseSchema = z.object({
+  captcha: z.object({
+    enabled: z.boolean(),
+    provider: z.literal('cloudflare-turnstile'),
+    siteKey: z.string().nullable(),
+  }),
+  passkey: z.object({
+    enabled: z.boolean(),
+  }),
+  admin: z.object({
+    enabled: z.boolean(),
+  }),
+  jwt: z.object({
+    enabled: z.boolean(),
+  }),
+})
+
 const emailSignInResponseSchema = z
   .object({
     twoFactorRedirect: z.boolean().optional(),
@@ -125,6 +144,17 @@ const mfaEnableResponseSchema = z.object({
   backupCodes: z.array(z.string()),
 })
 
+const passkeyListResponseSchema = z.array(
+  z.object({
+    id: z.string(),
+    name: z.string().nullable().optional(),
+    credentialID: z.string().optional(),
+    deviceType: z.string().optional(),
+    backedUp: z.boolean().optional(),
+    createdAt: z.union([z.string(), z.date()]).nullable().optional(),
+  })
+)
+
 function isNetworkError(error: unknown): boolean {
   return axios.isAxiosError(error) && !error.response
 }
@@ -133,7 +163,35 @@ function isUpstreamUnavailableError(error: unknown): boolean {
   return getApiErrorStatus(error) === 503 && getApiErrorCode(error) === 'API_UPSTREAM_UNAVAILABLE'
 }
 
+function captchaHeaders(captchaToken?: string): { headers?: Record<string, string> } {
+  return captchaToken ? { headers: { 'x-captcha-response': captchaToken } } : {}
+}
+
 export const authApi = {
+  async getCapabilities(): Promise<AuthCapabilitiesResponse> {
+    if (isMockAuthEnabled()) {
+      return {
+        captcha: {
+          enabled: false,
+          provider: 'cloudflare-turnstile',
+          siteKey: null,
+        },
+        passkey: {
+          enabled: false,
+        },
+        admin: {
+          enabled: false,
+        },
+        jwt: {
+          enabled: false,
+        },
+      }
+    }
+
+    const response = await apiClient.get<AuthCapabilitiesResponse>('/v1/auth/capabilities')
+    return parseApiResponse(authCapabilitiesResponseSchema, response.data)
+  },
+
   async getSession(): Promise<AuthSessionResponse | null> {
     if (isMockAuthEnabled()) {
       return hasAuthCookieHint() ? createMockSession() : null
@@ -436,11 +494,15 @@ export const authApi = {
       return {}
     }
 
-    const response = await apiClient.post<AuthSignInWithEmailResponse>('/auth/sign-in/email', {
-      email: input.email,
-      password: input.password,
-      rememberMe: true,
-    })
+    const response = await apiClient.post<AuthSignInWithEmailResponse>(
+      '/auth/sign-in/email',
+      {
+        email: input.email,
+        password: input.password,
+        rememberMe: true,
+      },
+      captchaHeaders(input.captchaToken)
+    )
 
     return parseApiResponse(emailSignInResponseSchema, response.data ?? {})
   },
@@ -465,21 +527,32 @@ export const authApi = {
       return
     }
 
-    await apiClient.post('/v1/auth/register/start', {
-      name: input.name,
-      email: input.email,
-      password: input.password,
-    })
+    await apiClient.post(
+      '/v1/auth/register/start',
+      {
+        name: input.name,
+        email: input.email,
+        password: input.password,
+      },
+      captchaHeaders(input.captchaToken)
+    )
   },
 
-  async resendRegistrationCode(input: { email: string }): Promise<void> {
+  async resendRegistrationCode(input: {
+    email: string
+    captchaToken?: string | undefined
+  }): Promise<void> {
     if (isMockAuthEnabled()) {
       return
     }
 
-    await apiClient.post('/v1/auth/register/resend', {
-      email: input.email,
-    })
+    await apiClient.post(
+      '/v1/auth/register/resend',
+      {
+        email: input.email,
+      },
+      captchaHeaders(input.captchaToken)
+    )
   },
 
   async completeRegistration(input: AuthCompleteRegistrationInput): Promise<void> {
@@ -514,7 +587,11 @@ export const authApi = {
       return
     }
 
-    await apiClient.post('/auth/email-otp/request-password-reset', input)
+    await apiClient.post(
+      '/auth/email-otp/request-password-reset',
+      input,
+      captchaHeaders(input.captchaToken)
+    )
   },
 
   async resetPasswordWithOtp(
@@ -526,7 +603,8 @@ export const authApi = {
 
     const response = await apiClient.post<AuthResetPasswordWithOtpResponse>(
       '/auth/email-otp/reset-password',
-      input
+      input,
+      captchaHeaders(input.captchaToken)
     )
     return parseApiResponse(resetPasswordResponseSchema, response.data ?? { success: true })
   },
@@ -628,5 +706,30 @@ export const authApi = {
     await apiClient.post('/auth/device/approve', {
       userCode,
     })
+  },
+
+  async listPasskeys(): Promise<AuthPasskey[]> {
+    if (isMockAuthEnabled()) {
+      return []
+    }
+
+    const response = await apiClient.get<AuthPasskey[]>('/auth/passkey/list-user-passkeys')
+    return parseApiResponse(passkeyListResponseSchema, response.data)
+  },
+
+  async deletePasskey(id: string): Promise<void> {
+    if (isMockAuthEnabled()) {
+      return
+    }
+
+    await apiClient.post('/auth/passkey/delete-passkey', { id })
+  },
+
+  async updatePasskey(input: { id: string; name: string }): Promise<void> {
+    if (isMockAuthEnabled()) {
+      return
+    }
+
+    await apiClient.post('/auth/passkey/update-passkey', input)
   },
 }

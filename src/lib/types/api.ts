@@ -471,9 +471,31 @@ export interface AuthCreateApiKeyResponse {
   }
 }
 
+export interface AuthCapabilitiesResponse {
+  captcha: {
+    enabled: boolean
+    provider: 'cloudflare-turnstile'
+    siteKey: string | null
+  }
+  passkey: {
+    enabled: boolean
+  }
+  admin: {
+    enabled: boolean
+  }
+  jwt: {
+    enabled: boolean
+  }
+}
+
+export interface AuthCaptchaInput {
+  captchaToken?: string | undefined
+}
+
 export interface AuthSignInWithEmailInput {
   email: string
   password: string
+  captchaToken?: string | undefined
 }
 
 export interface AuthSignUpWithEmailInput {
@@ -486,6 +508,7 @@ export interface AuthStartRegistrationInput {
   name: string
   email: string
   password: string
+  captchaToken?: string | undefined
 }
 
 export interface AuthCompleteRegistrationInput {
@@ -505,6 +528,7 @@ export interface AuthVerifyEmailOtpInput {
 
 export interface AuthRequestPasswordResetOtpInput {
   email: string
+  captchaToken?: string | undefined
 }
 
 export interface AuthResetPasswordWithOtpInput {
@@ -512,6 +536,16 @@ export interface AuthResetPasswordWithOtpInput {
   otp: string
   password: string
   totpCode?: string
+  captchaToken?: string | undefined
+}
+
+export interface AuthPasskey {
+  id: string
+  name?: string | null
+  credentialID?: string
+  deviceType?: string
+  backedUp?: boolean
+  createdAt?: string | Date | null
 }
 
 export interface AuthResetPasswordWithOtpResponse {

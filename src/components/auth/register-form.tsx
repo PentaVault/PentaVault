@@ -3,9 +3,10 @@
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { FormEvent } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { PasswordRequirements } from '@/components/auth/password-requirements'
+import { TurnstileWidget, type TurnstileWidgetHandle } from '@/components/auth/turnstile-widget'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
@@ -14,6 +15,7 @@ import { isPasswordPolicySatisfied } from '@/lib/auth/password-policy'
 import { DASHBOARD_HOME_PATH, LOGIN_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useAuthCapabilities } from '@/lib/hooks/use-auth-capabilities'
 import { useEmailCooldown } from '@/lib/hooks/use-email-cooldown'
 import { useToast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils/cn'
@@ -27,6 +29,11 @@ export function RegisterForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const auth = useAuth()
+  const {
+    capabilities,
+    error: capabilitiesError,
+    isLoading: isCapabilitiesLoading,
+  } = useAuthCapabilities()
   const { toast } = useToast()
   const invitationToken = searchParams.get('invitation')
   const invitationEmail = searchParams.get('email') ?? ''
@@ -43,7 +50,20 @@ export function RegisterForm() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [isPasswordFocused, setIsPasswordFocused] = useState(false)
   const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const captchaWidgetRef = useRef<TurnstileWidgetHandle | null>(null)
   const emailCooldown = useEmailCooldown()
+  const isAuthSecurityUnavailable = isCapabilitiesLoading || Boolean(capabilitiesError)
+
+  function ensureAuthSecurityAvailable(): boolean {
+    if (!isAuthSecurityUnavailable) {
+      return true
+    }
+
+    toast.error('Cannot verify auth security settings right now. Please refresh and try again.')
+    return false
+  }
+
   useEffect(() => {
     if (auth.status === 'authenticated') {
       router.replace(
@@ -57,6 +77,10 @@ export function RegisterForm() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
     setFieldErrors({})
+
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
 
     const normalizedName = name.trim()
     const normalizedEmail = email.trim().toLowerCase()
@@ -94,6 +118,7 @@ export function RegisterForm() {
         name: normalizedName,
         email: normalizedEmail,
         password,
+        captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
       })
 
       setVerificationEmail(normalizedEmail)
@@ -116,8 +141,18 @@ export function RegisterForm() {
             )
       toast.error(message)
     } finally {
+      resetCaptchaToken()
       setIsPending(false)
     }
+  }
+
+  function resetCaptchaToken(): void {
+    if (!capabilities.captcha.enabled) {
+      return
+    }
+
+    setCaptchaToken('')
+    captchaWidgetRef.current?.reset()
   }
 
   async function handleVerifySubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -169,9 +204,16 @@ export function RegisterForm() {
       return
     }
 
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
+
     try {
       setIsResending(true)
-      await authApi.resendRegistrationCode({ email: verificationEmail })
+      await authApi.resendRegistrationCode({
+        email: verificationEmail,
+        captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
+      })
       emailCooldown.startCooldown(60)
       toast.success('Code sent.')
     } catch (resendError) {
@@ -184,6 +226,7 @@ export function RegisterForm() {
         getApiFriendlyMessageWithRef(resendError, 'Unable to send a verification code right now.')
       )
     } finally {
+      resetCaptchaToken()
       setIsResending(false)
     }
   }
@@ -221,14 +264,26 @@ export function RegisterForm() {
           {fieldErrors.otp ? <p className="text-sm text-danger">{fieldErrors.otp}</p> : null}
         </div>
 
+        {capabilities.captcha.enabled ? (
+          <TurnstileWidget
+            ref={captchaWidgetRef}
+            siteKey={capabilities.captcha.siteKey}
+            onToken={setCaptchaToken}
+          />
+        ) : null}
+
         <div className="space-y-3">
-          <Button className="w-full" disabled={isPending} type="submit">
+          <Button
+            className="w-full"
+            disabled={isPending || isAuthSecurityUnavailable}
+            type="submit"
+          >
             {isPending ? 'Verifying...' : 'Verify'}
           </Button>
 
           <Button
             className="w-full"
-            disabled={isResending || emailCooldown.isOnCooldown}
+            disabled={isResending || emailCooldown.isOnCooldown || isAuthSecurityUnavailable}
             onClick={() => void handleResend()}
             type="button"
             variant="outline"
@@ -363,7 +418,11 @@ export function RegisterForm() {
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-        <Button className="w-full sm:w-auto sm:min-w-[9.25rem]" disabled={isPending} type="submit">
+        <Button
+          className="w-full sm:w-auto sm:min-w-[9.25rem]"
+          disabled={isPending || isAuthSecurityUnavailable}
+          type="submit"
+        >
           {isPending ? 'Creating...' : 'Create'}
         </Button>
 
@@ -374,6 +433,14 @@ export function RegisterForm() {
           Already registered? Sign in
         </Link>
       </div>
+
+      {capabilities.captcha.enabled ? (
+        <TurnstileWidget
+          ref={captchaWidgetRef}
+          siteKey={capabilities.captcha.siteKey}
+          onToken={setCaptchaToken}
+        />
+      ) : null}
 
       {env.mockAuthEnabled ? (
         <p className="text-xs text-muted-foreground">
