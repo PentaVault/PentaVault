@@ -1,12 +1,15 @@
 use std::io;
+use std::process::Command as ProcessCommand;
 use std::process::ExitCode;
 
 use clap::CommandFactory;
 use clap_complete::generate;
 
-use crate::api::ApiClient;
+use crate::api::{ApiClient, CliSecretValuesResponse};
 use crate::auth::{self, Credential};
-use crate::cli::{Cli, Command};
+use crate::cli::{
+    Cli, Command, EnvsCommand, OutputFormat, ProjectsCommand, SecretPullFormat, SecretsCommand,
+};
 use crate::config::ConfigStore;
 
 const EXIT_SUCCESS: u8 = 0;
@@ -15,17 +18,18 @@ const EXIT_USAGE_OR_CONFIG: u8 = 2;
 const EXIT_AUTH_REQUIRED: u8 = 3;
 
 pub fn dispatch(cli: Cli) -> ExitCode {
-    match cli.command {
+    match &cli.command {
         Command::Version => version(&cli),
         Command::Doctor => doctor(&cli),
-        Command::Completion { shell } => completion(shell),
-        Command::Login { token_stdin } => login(&cli, token_stdin),
-        Command::Logout { purge_cache } => logout(purge_cache),
+        Command::Completion { shell } => completion(shell.clone()),
+        Command::Login { token_stdin } => login(&cli, *token_stdin),
+        Command::Logout { purge_cache } => logout(*purge_cache),
         Command::Whoami => whoami(&cli),
         Command::Config(command) => config(command),
-        Command::Projects(_) | Command::Envs(_) | Command::Secrets(_) | Command::Run { .. } => {
-            not_implemented()
-        }
+        Command::Projects(command) => projects(&cli, command),
+        Command::Envs(command) => envs(&cli, command),
+        Command::Secrets(command) => secrets(&cli, command),
+        Command::Run { command } => run(&cli, command),
     }
 }
 
@@ -214,7 +218,7 @@ fn whoami(cli: &Cli) -> ExitCode {
     }
 }
 
-fn config(command: crate::cli::ConfigCommand) -> ExitCode {
+fn config(command: &crate::cli::ConfigCommand) -> ExitCode {
     let store = match ConfigStore::platform() {
         Ok(store) => store,
         Err(error) => {
@@ -225,7 +229,7 @@ fn config(command: crate::cli::ConfigCommand) -> ExitCode {
 
     match command {
         crate::cli::ConfigCommand::Get { key } => {
-            match store.load().and_then(|config| config.value(&key)) {
+            match store.load().and_then(|config| config.value(key)) {
                 Ok(Some(value)) => {
                     println!("{value}");
                     ExitCode::from(EXIT_SUCCESS)
@@ -241,7 +245,7 @@ fn config(command: crate::cli::ConfigCommand) -> ExitCode {
             }
         }
         crate::cli::ConfigCommand::Set { key, value } => {
-            match store.update(|config| config.set(&key, value)) {
+            match store.update(|config| config.set(key, value.to_owned())) {
                 Ok(()) => {
                     println!("Updated config key `{key}`.");
                     ExitCode::from(EXIT_SUCCESS)
@@ -252,17 +256,261 @@ fn config(command: crate::cli::ConfigCommand) -> ExitCode {
                 }
             }
         }
-        crate::cli::ConfigCommand::Unset { key } => match store.update(|config| config.unset(&key))
-        {
-            Ok(()) => {
-                println!("Unset config key `{key}`.");
-                ExitCode::from(EXIT_SUCCESS)
+        crate::cli::ConfigCommand::Unset { key } => {
+            match store.update(|config| config.unset(key)) {
+                Ok(()) => {
+                    println!("Unset config key `{key}`.");
+                    ExitCode::from(EXIT_SUCCESS)
+                }
+                Err(error) => {
+                    eprintln!("Error: {error}");
+                    ExitCode::from(EXIT_USAGE_OR_CONFIG)
+                }
             }
-            Err(error) => {
-                eprintln!("Error: {error}");
-                ExitCode::from(EXIT_USAGE_OR_CONFIG)
+        }
+    }
+}
+
+fn projects(cli: &Cli, command: &ProjectsCommand) -> ExitCode {
+    match command {
+        ProjectsCommand::List => {
+            let (client, token) = match authenticated_client(cli) {
+                Ok(value) => value,
+                Err((message, code)) => {
+                    eprintln!("Error: {message}");
+                    return ExitCode::from(code);
+                }
+            };
+
+            match client.list_projects(&token) {
+                Ok(response) => {
+                    if wants_json(cli) {
+                        println!("{}", serde_json::to_string(&response).expect("json"));
+                    } else if response.projects.is_empty() {
+                        println!("No CLI-visible projects for the active organization.");
+                    } else {
+                        println!("Projects");
+                        for project in response.projects {
+                            println!(
+                                "{}\t{}\t{}\t{}",
+                                project.id,
+                                project.slug,
+                                project.role.unwrap_or_else(|| "-".to_owned()),
+                                project.name
+                            );
+                        }
+                    }
+                    ExitCode::from(EXIT_SUCCESS)
+                }
+                Err(error) => fail_api(error),
             }
-        },
+        }
+        ProjectsCommand::Select { project } => {
+            match update_config(|config| config.set("project", project.to_owned())) {
+                Ok(()) => {
+                    println!("Selected project `{project}`.");
+                    ExitCode::from(EXIT_SUCCESS)
+                }
+                Err(error) => {
+                    eprintln!("Error: {error}");
+                    ExitCode::from(EXIT_USAGE_OR_CONFIG)
+                }
+            }
+        }
+    }
+}
+
+fn envs(cli: &Cli, command: &EnvsCommand) -> ExitCode {
+    match command {
+        EnvsCommand::List => {
+            let project_id = match resolve_project(cli) {
+                Ok(value) => value,
+                Err(error) => {
+                    eprintln!("Error: {error}");
+                    return ExitCode::from(EXIT_USAGE_OR_CONFIG);
+                }
+            };
+            let (client, token) = match authenticated_client(cli) {
+                Ok(value) => value,
+                Err((message, code)) => {
+                    eprintln!("Error: {message}");
+                    return ExitCode::from(code);
+                }
+            };
+
+            match client.list_environments(&token, &project_id) {
+                Ok(response) => {
+                    if wants_json(cli) {
+                        println!("{}", serde_json::to_string(&response).expect("json"));
+                    } else if response.environments.is_empty() {
+                        println!("No environments are visible for project `{project_id}`.");
+                    } else {
+                        println!("Environments for {project_id}");
+                        for environment in response.environments {
+                            let marker = if environment.is_default { "*" } else { " " };
+                            println!(
+                                "{marker} {}\t{}\t{}",
+                                environment.slug, environment.id, environment.name
+                            );
+                        }
+                    }
+                    ExitCode::from(EXIT_SUCCESS)
+                }
+                Err(error) => fail_api(error),
+            }
+        }
+        EnvsCommand::Select { environment } => {
+            match update_config(|config| config.set("env", environment.to_owned())) {
+                Ok(()) => {
+                    println!("Selected environment `{environment}`.");
+                    ExitCode::from(EXIT_SUCCESS)
+                }
+                Err(error) => {
+                    eprintln!("Error: {error}");
+                    ExitCode::from(EXIT_USAGE_OR_CONFIG)
+                }
+            }
+        }
+    }
+}
+
+fn secrets(cli: &Cli, command: &SecretsCommand) -> ExitCode {
+    match command {
+        SecretsCommand::List => {
+            let context = match authenticated_project_context(cli) {
+                Ok(value) => value,
+                Err((message, code)) => {
+                    eprintln!("Error: {message}");
+                    return ExitCode::from(code);
+                }
+            };
+
+            match context.client.list_secrets(
+                &context.token,
+                &context.project_id,
+                &context.environment,
+            ) {
+                Ok(response) => {
+                    if wants_json(cli) {
+                        println!("{}", serde_json::to_string(&response).expect("json"));
+                    } else if response.secrets.is_empty() {
+                        println!(
+                            "No CLI-readable secrets in `{}` for `{}`.",
+                            context.environment, context.project_id
+                        );
+                    } else {
+                        println!(
+                            "Secrets for {} ({})",
+                            context.project_id, context.environment
+                        );
+                        for secret in response.secrets {
+                            println!(
+                                "{}\t{}\t{}\tv{}",
+                                secret.name,
+                                secret.mode,
+                                secret.status,
+                                secret.version.unwrap_or_default()
+                            );
+                        }
+                    }
+                    ExitCode::from(EXIT_SUCCESS)
+                }
+                Err(error) => fail_api(error),
+            }
+        }
+        SecretsCommand::Get {
+            name,
+            plain,
+            silent,
+        } => {
+            let context = match authenticated_project_context(cli) {
+                Ok(value) => value,
+                Err((message, code)) => {
+                    eprintln!("Error: {message}");
+                    return ExitCode::from(code);
+                }
+            };
+
+            match context.client.get_secret(
+                &context.token,
+                &context.project_id,
+                &context.environment,
+                name,
+            ) {
+                Ok(response) => {
+                    if wants_json(cli) {
+                        println!("{}", serde_json::to_string(&response).expect("json"));
+                    } else if *plain || *silent {
+                        if *silent {
+                            print!("{}", response.value);
+                        } else {
+                            println!("{}", response.value);
+                        }
+                    } else {
+                        println!("{}={}", response.secret.name, response.value);
+                    }
+                    ExitCode::from(EXIT_SUCCESS)
+                }
+                Err(error) => fail_api(error),
+            }
+        }
+        SecretsCommand::Pull => {
+            let context = match authenticated_project_context(cli) {
+                Ok(value) => value,
+                Err((message, code)) => {
+                    eprintln!("Error: {message}");
+                    return ExitCode::from(code);
+                }
+            };
+
+            match context.client.get_secret_values(
+                &context.token,
+                &context.project_id,
+                &context.environment,
+                "pull",
+            ) {
+                Ok(response) => {
+                    print_secret_values(&response, secret_pull_format(cli));
+                    ExitCode::from(EXIT_SUCCESS)
+                }
+                Err(error) => fail_api(error),
+            }
+        }
+    }
+}
+
+fn run(cli: &Cli, command: &[String]) -> ExitCode {
+    let context = match authenticated_project_context(cli) {
+        Ok(value) => value,
+        Err((message, code)) => {
+            eprintln!("Error: {message}");
+            return ExitCode::from(code);
+        }
+    };
+    let response = match context.client.get_secret_values(
+        &context.token,
+        &context.project_id,
+        &context.environment,
+        "run",
+    ) {
+        Ok(response) => response,
+        Err(error) => return fail_api(error),
+    };
+    let Some((program, args)) = command.split_first() else {
+        eprintln!("Error: run requires a command.");
+        return ExitCode::from(EXIT_USAGE_OR_CONFIG);
+    };
+
+    match ProcessCommand::new(program)
+        .args(args)
+        .envs(response.values)
+        .status()
+    {
+        Ok(status) => ExitCode::from(status.code().unwrap_or(EXIT_GENERIC_FAILURE.into()) as u8),
+        Err(error) => {
+            eprintln!("Error: unable to start command `{program}`: {error}");
+            ExitCode::from(EXIT_GENERIC_FAILURE)
+        }
     }
 }
 
@@ -276,19 +524,144 @@ fn resolve_api_url(cli: &Cli) -> Result<Option<String>, String> {
         .map(|config| config.api_url)
 }
 
+struct ProjectContext {
+    client: ApiClient,
+    token: String,
+    project_id: String,
+    environment: String,
+}
+
+fn authenticated_project_context(cli: &Cli) -> Result<ProjectContext, (String, u8)> {
+    let (client, token) = authenticated_client(cli)?;
+    let project_id = resolve_project(cli).map_err(|error| (error, EXIT_USAGE_OR_CONFIG))?;
+    let environment = resolve_environment(cli).map_err(|error| (error, EXIT_USAGE_OR_CONFIG))?;
+
+    Ok(ProjectContext {
+        client,
+        token,
+        project_id,
+        environment,
+    })
+}
+
+fn authenticated_client(cli: &Cli) -> Result<(ApiClient, String), (String, u8)> {
+    let api_url = resolve_api_url(cli).map_err(|error| (error, EXIT_USAGE_OR_CONFIG))?;
+    let client =
+        ApiClient::new(api_url.as_deref()).map_err(|error| (error, EXIT_USAGE_OR_CONFIG))?;
+    let token = auth::token()
+        .map_err(|error| (error, EXIT_GENERIC_FAILURE))?
+        .ok_or_else(|| {
+            (
+                "not authenticated. Run `pv login` or set PENTAVAULT_TOKEN.".to_owned(),
+                EXIT_AUTH_REQUIRED,
+            )
+        })?;
+
+    Ok((client, token))
+}
+
+fn resolve_project(cli: &Cli) -> Result<String, String> {
+    if let Some(project) = cli
+        .project
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        return Ok(project.trim().to_owned());
+    }
+
+    ConfigStore::platform()
+        .and_then(|store| store.load())
+        .and_then(|config| {
+            config
+                .project
+                .filter(|value| !value.trim().is_empty())
+                .ok_or_else(|| "project is not selected. Use `pv projects select <project-id>` or pass `--project`.".to_owned())
+        })
+}
+
+fn resolve_environment(cli: &Cli) -> Result<String, String> {
+    if let Some(environment) = cli
+        .environment
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        return Ok(environment.trim().to_owned());
+    }
+
+    let configured_environment = ConfigStore::platform()
+        .and_then(|store| store.load())
+        .map(|config| config.environment)
+        .unwrap_or(None);
+
+    Ok(configured_environment.unwrap_or_else(|| "development".to_owned()))
+}
+
+fn update_config(
+    edit: impl FnOnce(&mut crate::config::AppConfig) -> Result<(), String>,
+) -> Result<(), String> {
+    ConfigStore::platform()?.update(edit)
+}
+
+fn wants_json(cli: &Cli) -> bool {
+    cli.json || matches!(cli.format, OutputFormat::Json)
+}
+
+fn print_secret_values(response: &CliSecretValuesResponse, format: SecretPullFormat) {
+    match format {
+        SecretPullFormat::Json => {
+            println!("{}", serde_json::to_string(response).expect("json"));
+        }
+        SecretPullFormat::Dotenv => {
+            for (name, value) in &response.values {
+                println!("{name}={}", dotenv_value(value));
+            }
+        }
+        SecretPullFormat::Env => {
+            for (name, value) in &response.values {
+                println!("export {name}={}", shell_single_quoted(value));
+            }
+        }
+    }
+}
+
+fn secret_pull_format(cli: &Cli) -> SecretPullFormat {
+    if cli.json {
+        return SecretPullFormat::Json;
+    }
+
+    match cli.format {
+        OutputFormat::Json => SecretPullFormat::Json,
+        OutputFormat::Env => SecretPullFormat::Env,
+        OutputFormat::Dotenv | OutputFormat::Human => SecretPullFormat::Dotenv,
+    }
+}
+
+fn dotenv_value(value: &str) -> String {
+    if value
+        .chars()
+        .all(|character| character.is_ascii_alphanumeric() || "_-./:".contains(character))
+    {
+        return value.to_owned();
+    }
+
+    format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
+}
+
+fn shell_single_quoted(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\"'\"'"))
+}
+
+fn fail_api(error: String) -> ExitCode {
+    eprintln!("Error: {error}");
+    ExitCode::from(EXIT_GENERIC_FAILURE)
+}
+
 fn completion(shell: crate::cli::Shell) -> ExitCode {
     let mut command = Cli::command();
     let bin_name = command.get_name().to_owned();
     let generator: clap_complete::Shell = shell.into();
     generate(generator, &mut command, bin_name, &mut io::stdout());
     ExitCode::from(EXIT_SUCCESS)
-}
-
-fn not_implemented() -> ExitCode {
-    eprintln!("Error: this command is not implemented in the current CLI milestone yet.");
-    eprintln!();
-    eprintln!("Next: see docs/planning/cli-development-plan.md and tasks.md for rollout status.");
-    ExitCode::from(EXIT_USAGE_OR_CONFIG)
 }
 
 fn format_device_code(code: &str) -> String {
@@ -307,11 +680,18 @@ fn format_device_code(code: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::format_device_code;
+    use super::{dotenv_value, format_device_code, shell_single_quoted};
 
     #[test]
     fn formats_device_code_with_three_character_grouping() {
         assert_eq!(format_device_code("xevmf3"), "XEV-MF3");
         assert_eq!(format_device_code("XEV-MF3"), "XEV-MF3");
+    }
+
+    #[test]
+    fn formats_secret_values_for_dotenv_and_shell_output() {
+        assert_eq!(dotenv_value("plain_value-1"), "plain_value-1");
+        assert_eq!(dotenv_value("needs spaces"), "\"needs spaces\"");
+        assert_eq!(shell_single_quoted("can't"), "'can'\"'\"'t'");
     }
 }

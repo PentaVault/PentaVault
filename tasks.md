@@ -31,14 +31,14 @@ Status values:
 - [x] `completed` Store persistent development credentials through the OS credential store abstraction.
 - [x] `completed` Store non-secret config in the platform app config directory.
 - [x] `completed` Support `PENTAVAULT_TOKEN` without persisting CI/service credentials by default.
-- [ ] `pending` Add mocked API integration tests for auth flows.
-- [ ] `needs review` Verify the frontend `/device` approval page accepts the generated 6-character Better Auth user code.
+- [x] `completed` Add mocked API integration tests for auth flows.
+- [x] `completed` Verify the frontend `/device` approval page accepts the generated 6-character Better Auth user code.
 
 ## M3: Online Secrets
 
-- [ ] `pending` Implement project and environment list/select commands in the Rust CLI.
-- [ ] `pending` Implement online-only `secrets list`, `secrets get`, `secrets pull`, and `run -- <command>` in the Rust CLI.
-- [ ] `pending` Ensure secret values default to masked output unless explicit `--plain`/script modes are used.
+- [x] `completed` Implement project and environment list/select commands in the Rust CLI.
+- [x] `completed` Implement online-only `secrets list`, `secrets get`, `secrets pull`, and `run -- <command>` in the Rust CLI.
+- [x] `completed` Ensure secret values default to metadata-only list output unless explicit `get`, `pull`, or `run` value modes are used.
 - [x] `completed` Add backend `/api/v1/cli/projects` for active-organization project discovery.
 - [x] `completed` Add backend `/api/v1/cli/projects/:projectId/environments` for environment discovery.
 - [x] `completed` Add backend `/api/v1/cli/projects/:projectId/secrets` for readable metadata without values.
@@ -74,6 +74,14 @@ Status values:
 - [ ] `pending` Add redaction tests and fuzz tests for cache metadata parsing.
 - [ ] `pending` Complete threat-model review before beta.
 
+## Cross-Cutting Test And Documentation Hardening
+
+- [x] `completed` Add Playwright Test configuration for local browser debugging, screenshots, videos, and traces.
+- [x] `completed` Add `/device` browser automation coverage with authenticated and unauthenticated states.
+- [x] `completed` Add frontend unit coverage for `/device` account confirmation, no-decline UI, and approval code normalization.
+- [x] `completed` Add backend CLI permission regression coverage for hidden projects and missing explicit secret access.
+- [x] `completed` Update root README, CLI README, documentation status, testing docs, package license metadata, and repository license.
+
 ## Validation Log
 
 - [x] `completed` 2026-05-08: `pnpm run lint` passed.
@@ -94,3 +102,8 @@ Status values:
 - [x] `completed` 2026-05-09: `pnpm run lint` passed after final CLI/backend docs changes.
 - [x] `completed` 2026-05-09: `pnpm run type-check` passed after final CLI/backend docs changes.
 - [x] `completed` 2026-05-09: `pnpm test` passed after final CLI/backend docs changes.
+- [x] `completed` 2026-05-09: `pnpm run cli:build` passed after online read-only CLI command implementation.
+- [x] `completed` 2026-05-09: `pnpm run cli:lint` passed after online read-only CLI command implementation.
+- [x] `completed` 2026-05-09: `pnpm run cli:test` passed after online read-only CLI command implementation.
+- [x] `completed` 2026-05-09: `pnpm run test:e2e` passed with Playwright Chromium and mobile Chrome coverage for `/device`.
+- [x] `completed` 2026-05-09: backend `pnpm run lint`, `pnpm run typecheck`, and `pnpm test` passed after CLI permission hardening tests.

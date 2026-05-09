@@ -106,10 +106,7 @@ pub enum SecretsCommand {
         #[arg(long)]
         silent: bool,
     },
-    Pull {
-        #[arg(long, value_enum, default_value_t = SecretPullFormat::Dotenv)]
-        format: SecretPullFormat,
-    },
+    Pull,
 }
 
 #[derive(Clone, Debug, ValueEnum)]

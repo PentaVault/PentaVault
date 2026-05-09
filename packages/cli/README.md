@@ -1,31 +1,96 @@
 # PentaVault CLI
 
-`pv` is the planned Windows-first command line interface for PentaVault.
-
-This package currently implements the M1 CLI skeleton from
-`docs/planning/cli-development-plan.md`:
-
-- standard `clap` command parsing
-- global CLI flags
-- `pv version`
-- `pv doctor`
-- shell completion generation for PowerShell, bash, zsh, and fish
-- command tests for the stable skeleton behavior
-
-Secret, auth, cache, and access commands are registered so help output reflects
-the intended product shape, but they intentionally return a not-implemented
-usage error until the backend API contracts are finalized.
+`pv` is the Rust command line interface for PentaVault. The first usable
+milestone is online and read-only: it authenticates with the web app, lists
+authorized projects/environments/secrets, pulls secret values, and injects them
+into a child process through `pv run`.
 
 ## Commands
 
 ```text
-pv version
+pv login
+pv logout
+pv whoami
+pv projects list
+pv projects select <project-id>
+pv envs list
+pv envs select <environment>
+pv secrets list
+pv secrets get <name> [--plain] [--silent]
+pv secrets pull
+pv run -- <command> [args...]
 pv doctor
-pv completion powershell
-pv completion bash
-pv completion zsh
-pv completion fish
+pv version
+pv completion power-shell|bash|zsh|fish
 ```
+
+Global flags:
+
+```text
+--api-url <url>
+--project <project-id>
+--env <environment>
+--json
+--format human|json|dotenv|env
+--no-color
+--verbose
+```
+
+## Local Login Flow
+
+With the backend on `http://localhost:3001` and frontend on
+`http://localhost:3000`:
+
+```powershell
+packages\cli\target\debug\pv.exe --api-url http://localhost:3001 login
+```
+
+The CLI prints:
+
+- `Open: http://localhost:3000/device`
+- `Code: ABC-123`
+
+Open the URL, sign in or register if needed, confirm the current account, enter
+the six-character code, and approve. The CLI stores the returned credential in
+the OS credential store.
+
+For CI or disposable local sessions, use a process-scoped token instead:
+
+```powershell
+$env:PENTAVAULT_TOKEN = "dev-token"
+packages\cli\target\debug\pv.exe whoami
+Remove-Item Env:PENTAVAULT_TOKEN
+```
+
+## Read-Only Secret Workflows
+
+```powershell
+packages\cli\target\debug\pv.exe projects list
+packages\cli\target\debug\pv.exe projects select project_123
+packages\cli\target\debug\pv.exe envs list
+packages\cli\target\debug\pv.exe envs select development
+packages\cli\target\debug\pv.exe secrets list
+packages\cli\target\debug\pv.exe secrets get STRIPE_SECRET --plain
+packages\cli\target\debug\pv.exe --format dotenv secrets pull
+packages\cli\target\debug\pv.exe run -- pnpm test
+```
+
+`projects select` and `envs select` store only non-secret routing metadata in the
+platform config file. Secret values and tokens are never written to the config
+file.
+
+## Security Model
+
+- All online commands call backend `/api/v1/cli/*` endpoints with the current
+  credential.
+- Backend session, organization, project, and secret-access policy remains the
+  source of truth.
+- `secrets list` returns metadata only.
+- `secrets get`, `secrets pull`, and `run` request values only after backend
+  policy checks and audit logging.
+- The CLI does not implement write, access-review, or cache mutation commands in
+  this milestone.
+- Command tests assert that credentials are not printed in normal output.
 
 ## Development
 
@@ -37,51 +102,6 @@ pnpm run cli:lint
 pnpm run cli:test
 ```
 
-The root scripts call Cargo with `--manifest-path packages/cli/Cargo.toml` so the
-frontend package manager remains the repo entry point while Rust stays isolated
-inside the CLI package.
-
-## Local Testing
-
-Build the CLI:
-
-```text
-pnpm run cli:build
-```
-
-Run the debug binary on Windows:
-
-```text
-packages\cli\target\debug\pv.exe --help
-packages\cli\target\debug\pv.exe version
-packages\cli\target\debug\pv.exe doctor
-packages\cli\target\debug\pv.exe completion powershell
-```
-
-Test process-scoped CI/service-token mode without storing credentials:
-
-```powershell
-$env:PENTAVAULT_TOKEN = "dev-token"
-packages\cli\target\debug\pv.exe whoami
-Remove-Item Env:PENTAVAULT_TOKEN
-```
-
-Test local credential-store mode with a disposable development token:
-
-```powershell
-"dev-token" | packages\cli\target\debug\pv.exe login --token-stdin
-packages\cli\target\debug\pv.exe whoami
-packages\cli\target\debug\pv.exe logout
-```
-
-Do not use a production token while the CLI is still in pre-auth-contract
-development.
-
-## Security Notes
-
-- Config flags may include routing metadata such as API URL, project, and
-  environment.
-- Tokens, plaintext secret values, and cache encryption keys must not be stored
-  in config files.
-- CI tokens from `PENTAVAULT_TOKEN` must remain process-scoped until M2 adds the
-  credential-store abstraction.
+The root scripts call Cargo with `--manifest-path packages/cli/Cargo.toml` so
+the frontend package manager remains the main entry point while Rust stays
+isolated inside the CLI package.

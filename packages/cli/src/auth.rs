@@ -13,6 +13,21 @@ pub enum Credential {
     StoredToken,
 }
 
+pub fn token() -> Result<Option<String>, String> {
+    if let Ok(token) = env::var(TOKEN_ENV) {
+        let token = token.trim();
+        if !token.is_empty() {
+            return Ok(Some(token.to_owned()));
+        }
+    }
+
+    match entry()?.get_password() {
+        Ok(token) => Ok(Some(token)),
+        Err(KeyringError::NoEntry) => Ok(None),
+        Err(error) => Err(format!("unable to read OS credential store: {error}")),
+    }
+}
+
 pub fn effective_credential() -> Result<Option<Credential>, String> {
     if env::var(TOKEN_ENV)
         .ok()

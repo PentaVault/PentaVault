@@ -2,7 +2,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use reqwest::blocking::Client;
-use serde::Deserialize;
+use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 const CLIENT_ID: &str = "pentavault-cli";
@@ -39,6 +40,91 @@ struct DeviceTokenResponse {
 pub struct ApiClient {
     base_url: String,
     http: Client,
+}
+
+#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliProject {
+    pub id: String,
+    pub slug: String,
+    pub name: String,
+    pub visibility: String,
+    pub status: String,
+    pub role: Option<String>,
+    pub can_access: bool,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliProjectsResponse {
+    pub active_organization_id: Option<String>,
+    pub active_organization_slug: Option<String>,
+    pub projects: Vec<CliProject>,
+}
+
+#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliEnvironment {
+    pub id: String,
+    pub name: String,
+    pub slug: String,
+    pub color: String,
+    pub is_default: bool,
+    pub created_at: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliEnvironmentsResponse {
+    pub project_id: String,
+    pub environments: Vec<CliEnvironment>,
+}
+
+#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliSecret {
+    pub id: String,
+    pub name: String,
+    pub project_id: String,
+    pub environment: String,
+    pub environment_id: Option<String>,
+    pub mode: String,
+    pub scope: String,
+    pub status: String,
+    pub version: Option<i64>,
+    pub current_version_id: String,
+    pub is_sensitive: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliSecretsResponse {
+    pub project_id: String,
+    pub environment: String,
+    pub environment_id: Option<String>,
+    pub secrets: Vec<CliSecret>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliSecretValueResponse {
+    pub project_id: String,
+    pub environment: String,
+    pub environment_id: Option<String>,
+    pub secret: CliSecret,
+    pub value: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliSecretValuesResponse {
+    pub project_id: String,
+    pub environment: String,
+    pub environment_id: Option<String>,
+    pub values: std::collections::BTreeMap<String, String>,
 }
 
 impl ApiClient {
@@ -154,6 +240,63 @@ impl ApiClient {
         }
     }
 
+    pub fn list_projects(&self, token: &str) -> Result<CliProjectsResponse, String> {
+        self.get_json(token, "/api/v1/cli/projects", &[])
+    }
+
+    pub fn list_environments(
+        &self,
+        token: &str,
+        project_id: &str,
+    ) -> Result<CliEnvironmentsResponse, String> {
+        self.get_json(
+            token,
+            &format!("/api/v1/cli/projects/{project_id}/environments"),
+            &[],
+        )
+    }
+
+    pub fn list_secrets(
+        &self,
+        token: &str,
+        project_id: &str,
+        environment: &str,
+    ) -> Result<CliSecretsResponse, String> {
+        self.get_json(
+            token,
+            &format!("/api/v1/cli/projects/{project_id}/secrets"),
+            &[("environment", environment)],
+        )
+    }
+
+    pub fn get_secret(
+        &self,
+        token: &str,
+        project_id: &str,
+        environment: &str,
+        name: &str,
+    ) -> Result<CliSecretValueResponse, String> {
+        self.get_json(
+            token,
+            &format!("/api/v1/cli/projects/{project_id}/secrets/{name}"),
+            &[("environment", environment)],
+        )
+    }
+
+    pub fn get_secret_values(
+        &self,
+        token: &str,
+        project_id: &str,
+        environment: &str,
+        purpose: &str,
+    ) -> Result<CliSecretValuesResponse, String> {
+        self.get_json(
+            token,
+            &format!("/api/v1/cli/projects/{project_id}/secrets/values"),
+            &[("environment", environment), ("purpose", purpose)],
+        )
+    }
+
     pub fn display_url(&self, value: &str) -> String {
         if value.starts_with("http://") || value.starts_with("https://") {
             value.to_owned()
@@ -165,6 +308,55 @@ impl ApiClient {
     fn url(&self, path: &str) -> String {
         format!("{}{}", self.base_url, path)
     }
+
+    fn get_json<T: for<'de> Deserialize<'de>>(
+        &self,
+        token: &str,
+        path: &str,
+        query: &[(&str, &str)],
+    ) -> Result<T, String> {
+        let response = self
+            .http
+            .get(self.url(path))
+            .headers(auth_headers(token)?)
+            .query(query)
+            .send()
+            .map_err(|error| format!("request failed: {error}"))?;
+        let status = response.status();
+
+        if !status.is_success() {
+            let body = response.text().unwrap_or_default();
+            return Err(if body.trim().is_empty() {
+                format!("request failed with HTTP status {status}")
+            } else {
+                format!("request failed with HTTP status {status}: {body}")
+            });
+        }
+
+        response
+            .json::<T>()
+            .map_err(|error| format!("unable to parse API response: {error}"))
+    }
+}
+
+fn auth_headers(token: &str) -> Result<HeaderMap, String> {
+    let token = token.trim();
+    if token.is_empty() {
+        return Err("authentication token is empty".to_owned());
+    }
+
+    let mut headers = HeaderMap::new();
+    let bearer = HeaderValue::from_str(&format!("Bearer {token}"))
+        .map_err(|error| format!("invalid authentication token: {error}"))?;
+    headers.insert(AUTHORIZATION, bearer);
+
+    if token.starts_with("pvk_") {
+        let api_key = HeaderValue::from_str(token)
+            .map_err(|error| format!("invalid API key credential: {error}"))?;
+        headers.insert("x-pv-api-key", api_key);
+    }
+
+    Ok(headers)
 }
 
 fn normalize_api_origin(input: &str) -> Result<String, String> {
@@ -190,6 +382,30 @@ mod tests {
         assert_eq!(
             normalize_api_origin("http://localhost:3001/api").expect("url"),
             "http://localhost:3001"
+        );
+    }
+
+    #[test]
+    fn auth_headers_support_bearer_and_fallback_api_keys() {
+        let bearer_headers = auth_headers("session_token").expect("headers");
+        assert_eq!(
+            bearer_headers
+                .get(AUTHORIZATION)
+                .expect("authorization")
+                .to_str()
+                .expect("header"),
+            "Bearer session_token"
+        );
+        assert!(bearer_headers.get("x-pv-api-key").is_none());
+
+        let api_key_headers = auth_headers("pvk_secret").expect("headers");
+        assert_eq!(
+            api_key_headers
+                .get("x-pv-api-key")
+                .expect("api key")
+                .to_str()
+                .expect("header"),
+            "pvk_secret"
         );
     }
 }
