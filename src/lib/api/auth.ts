@@ -708,6 +708,20 @@ export const authApi = {
     })
   },
 
+  async denyDevice(userCode: string): Promise<void> {
+    if (isMockAuthEnabled()) {
+      if (!userCode.trim()) {
+        throw new Error('Device code is required.')
+      }
+
+      return
+    }
+
+    await apiClient.post('/auth/device/deny', {
+      userCode,
+    })
+  },
+
   async listPasskeys(): Promise<AuthPasskey[]> {
     if (isMockAuthEnabled()) {
       return []

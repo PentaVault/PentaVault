@@ -19,6 +19,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ci": "vitest run --coverage",
+    "cli:build": "cargo build --manifest-path packages/cli/Cargo.toml",
+    "cli:lint": "cargo clippy --manifest-path packages/cli/Cargo.toml -- -D warnings",
+    "cli:test": "cargo test --manifest-path packages/cli/Cargo.toml",
     "prepare": "husky"
   },
   "dependencies": {
