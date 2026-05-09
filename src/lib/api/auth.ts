@@ -13,6 +13,8 @@ import { clearClientAuthHint, hasAuthCookieHint, setClientAuthHint } from '@/lib
 import { AUTH_REVOKE_SESSION_PATH, AUTH_SESSION_PATH, AUTH_SESSIONS_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
 import type {
+  AuthApiKeyListResponse,
+  AuthApiKeyRevokeResponse,
   AuthCapabilitiesResponse,
   AuthChangePasswordInput,
   AuthCompleteMfaSetupInput,
@@ -62,6 +64,8 @@ const sessionListResponseSchema = z.object({
       os: z.string().nullable().optional(),
       device: z.string().nullable().optional(),
       location: z.string().nullable().optional(),
+      clientType: z.enum(['browser', 'cli', 'api-key']).optional(),
+      clientLabel: z.string().nullable().optional(),
     })
   ),
 })
@@ -94,6 +98,47 @@ const revokeSessionResponseSchema = z.object({
   sessionId: z.string(),
 })
 
+const apiKeyPermissionActionSchema = z.enum(['read', 'write'])
+
+const apiKeyPermissionsSchema = z
+  .object({
+    organizations: z.array(apiKeyPermissionActionSchema).optional(),
+    projects: z.array(apiKeyPermissionActionSchema).optional(),
+    secrets: z.array(apiKeyPermissionActionSchema).optional(),
+    tokens: z.array(apiKeyPermissionActionSchema).optional(),
+    audit: z.array(apiKeyPermissionActionSchema).optional(),
+    account: z.array(apiKeyPermissionActionSchema).optional(),
+  })
+  .default({})
+
+const apiKeyListItemSchema = z.object({
+  id: z.string(),
+  name: z.string().nullable(),
+  start: z.string().nullable(),
+  prefix: z.string().nullable(),
+  enabled: z.boolean(),
+  expiresAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  lastRequest: z.string().nullable(),
+  requestCount: z.number(),
+  rateLimitEnabled: z.boolean(),
+  rateLimitMax: z.number().nullable(),
+  rateLimitTimeWindow: z.number().nullable(),
+  permissions: apiKeyPermissionsSchema,
+  kind: z.enum(['cli', 'account']),
+  isCli: z.boolean().optional(),
+})
+
+const apiKeyListResponseSchema = z.object({
+  apiKeys: z.array(apiKeyListItemSchema),
+})
+
+const apiKeyRevokeResponseSchema = z.object({
+  revoked: z.boolean(),
+  apiKeyId: z.string(),
+})
+
 const createApiKeyResponseSchema = z.object({
   headerName: z.string(),
   key: z.string(),
@@ -104,6 +149,7 @@ const createApiKeyResponseSchema = z.object({
     prefix: z.string().nullable(),
     expiresAt: z.string().nullable(),
     metadata: z.unknown(),
+    permissions: apiKeyPermissionsSchema.nullable(),
     rateLimitEnabled: z.boolean().nullable(),
     rateLimitMax: z.number().nullable(),
     rateLimitTimeWindow: z.number().nullable(),
@@ -473,6 +519,14 @@ export const authApi = {
           metadata: {
             mode: 'mock',
           },
+          permissions: input.permissions ?? {
+            organizations: ['read', 'write'],
+            projects: ['read', 'write'],
+            secrets: ['read', 'write'],
+            tokens: ['read', 'write'],
+            audit: ['read'],
+            account: ['read'],
+          },
           rateLimitEnabled: false,
           rateLimitMax: null,
           rateLimitTimeWindow: null,
@@ -482,6 +536,57 @@ export const authApi = {
 
     const response = await apiClient.post<AuthCreateApiKeyResponse>('/v1/auth/api-keys', input)
     return parseApiResponse(createApiKeyResponseSchema, response.data)
+  },
+
+  async listApiKeys(): Promise<AuthApiKeyListResponse> {
+    if (isMockAuthEnabled()) {
+      return {
+        apiKeys: [
+          {
+            id: 'mock-api-key-1',
+            name: 'demo-mock-key',
+            start: 'pv_mock',
+            prefix: 'pv_mock',
+            enabled: true,
+            expiresAt: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            lastRequest: null,
+            requestCount: 0,
+            rateLimitEnabled: false,
+            rateLimitMax: null,
+            rateLimitTimeWindow: null,
+            permissions: {
+              organizations: ['read', 'write'],
+              projects: ['read', 'write'],
+              secrets: ['read', 'write'],
+              tokens: ['read', 'write'],
+              audit: ['read'],
+              account: ['read'],
+            },
+            kind: 'account',
+            isCli: false,
+          },
+        ],
+      }
+    }
+
+    const response = await apiClient.get<AuthApiKeyListResponse>('/v1/auth/api-keys')
+    return parseApiResponse(apiKeyListResponseSchema, response.data)
+  },
+
+  async revokeApiKey(apiKeyId: string): Promise<AuthApiKeyRevokeResponse> {
+    if (isMockAuthEnabled()) {
+      return {
+        revoked: true,
+        apiKeyId,
+      }
+    }
+
+    const response = await apiClient.post<AuthApiKeyRevokeResponse>(
+      `/v1/auth/api-keys/${encodeURIComponent(apiKeyId)}/revoke`
+    )
+    return parseApiResponse(apiKeyRevokeResponseSchema, response.data)
   },
 
   async signInWithEmail(input: AuthSignInWithEmailInput): Promise<AuthSignInWithEmailResponse> {

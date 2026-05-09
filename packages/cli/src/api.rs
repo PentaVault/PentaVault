@@ -11,6 +11,7 @@ const DEVICE_GRANT_TYPE: &str = "urn:ietf:params:oauth:grant-type:device_code";
 const DEFAULT_API_ORIGIN: &str = "http://localhost:3001";
 const DEFAULT_DEVICE_CODE_EXPIRES_IN_SECONDS: u64 = 600;
 const DEFAULT_DEVICE_POLL_INTERVAL_SECONDS: u64 = 5;
+const USER_AGENT: &str = concat!("PentaVault CLI/", env!("CARGO_PKG_VERSION"));
 
 #[derive(Debug, Deserialize)]
 pub struct DeviceCode {
@@ -132,6 +133,7 @@ impl ApiClient {
         let base_url = normalize_api_origin(api_url.unwrap_or(DEFAULT_API_ORIGIN))?;
         let http = Client::builder()
             .timeout(Duration::from_secs(15))
+            .user_agent(USER_AGENT)
             .build()
             .map_err(|error| format!("unable to create HTTP client: {error}"))?;
 

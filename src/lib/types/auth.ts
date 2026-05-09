@@ -126,6 +126,8 @@ export interface AuthSessionListItem {
   os?: string | null
   device?: string | null
   location?: string | null
+  clientType?: 'browser' | 'cli' | 'api-key'
+  clientLabel?: string | null
 }
 
 export interface AuthSessionListResponse {

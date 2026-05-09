@@ -10,25 +10,14 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { authApi } from '@/lib/api/auth'
 import { useToast } from '@/lib/hooks/use-toast'
+import type { AuthSessionListItem } from '@/lib/types/auth'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
 import { formatDateTime } from '@/lib/utils/format'
-
-type SessionItem = {
-  id: string
-  current: boolean
-  expiresAt: string | null
-  ipAddress: string | null
-  userAgent: string | null
-  browser?: string | null
-  os?: string | null
-  device?: string | null
-  location?: string | null
-}
 
 export default function SessionsPage() {
   const { toast } = useToast()
   const [isPending, setIsPending] = useState(false)
-  const [sessions, setSessions] = useState<SessionItem[] | null>(null)
+  const [sessions, setSessions] = useState<AuthSessionListItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const refreshSessions = useCallback(async (signal?: { cancelled: boolean }): Promise<void> => {
@@ -120,11 +109,23 @@ export default function SessionsPage() {
                 >
                   <div className="space-y-1">
                     <p className="text-sm font-medium">
-                      {session.current ? 'Current session' : 'Session'} {'\u2022'} {session.id}
+                      {session.clientType === 'cli'
+                        ? 'PentaVault CLI'
+                        : session.current
+                          ? 'Current session'
+                          : 'Session'}{' '}
+                      {'\u2022'} {session.id}
                     </p>
-                    <StatusBadge tone={session.current ? 'success' : 'neutral'}>
-                      {session.current ? 'active current' : 'active'}
-                    </StatusBadge>
+                    <div className="flex flex-wrap gap-2">
+                      <StatusBadge tone={session.current ? 'success' : 'neutral'}>
+                        {session.current ? 'active current' : 'active'}
+                      </StatusBadge>
+                      {session.clientType === 'cli' ? (
+                        <StatusBadge tone="success">
+                          {session.clientLabel ?? 'PentaVault CLI'}
+                        </StatusBadge>
+                      ) : null}
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       expires: {formatDateTime(session.expiresAt)} {'\u2022'} IP:{' '}
                       {session.ipAddress ?? 'Unavailable'}

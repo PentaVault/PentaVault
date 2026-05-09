@@ -453,6 +453,49 @@ export type AuthSessionRevokeRequest = RevokeSessionRequest
 
 export interface AuthCreateApiKeyRequest {
   name?: string
+  permissions?: AuthApiKeyPermissions
+}
+
+export type AuthApiKeyPermissionResource =
+  | 'organizations'
+  | 'projects'
+  | 'secrets'
+  | 'tokens'
+  | 'audit'
+  | 'account'
+
+export type AuthApiKeyPermissionAction = 'read' | 'write'
+
+export type AuthApiKeyPermissions = Partial<
+  Record<AuthApiKeyPermissionResource, AuthApiKeyPermissionAction[]>
+>
+
+export interface AuthApiKeyListItem {
+  id: string
+  name: string | null
+  start: string | null
+  prefix: string | null
+  enabled: boolean
+  expiresAt: string | Date | null
+  createdAt: string | Date
+  updatedAt: string | Date
+  lastRequest: string | Date | null
+  requestCount: number
+  rateLimitEnabled: boolean
+  rateLimitMax: number | null
+  rateLimitTimeWindow: number | null
+  permissions: AuthApiKeyPermissions
+  kind: 'cli' | 'account'
+  isCli?: boolean
+}
+
+export interface AuthApiKeyListResponse {
+  apiKeys: AuthApiKeyListItem[]
+}
+
+export interface AuthApiKeyRevokeResponse {
+  revoked: boolean
+  apiKeyId: string
 }
 
 export interface AuthCreateApiKeyResponse {
@@ -465,6 +508,7 @@ export interface AuthCreateApiKeyResponse {
     prefix: string | null
     expiresAt: string | null
     metadata: unknown
+    permissions: AuthApiKeyPermissions | null
     rateLimitEnabled: boolean | null
     rateLimitMax: number | null
     rateLimitTimeWindow: number | null
