@@ -98,7 +98,7 @@ const revokeSessionResponseSchema = z.object({
   sessionId: z.string(),
 })
 
-const apiKeyPermissionActionSchema = z.enum(['read', 'write'])
+const apiKeyPermissionActionSchema = z.enum(['read', 'write', 'create'])
 
 const apiKeyPermissionsSchema = z
   .object({
@@ -126,7 +126,7 @@ const apiKeyListItemSchema = z.object({
   rateLimitMax: z.number().nullable(),
   rateLimitTimeWindow: z.number().nullable(),
   permissions: apiKeyPermissionsSchema,
-  kind: z.enum(['cli', 'account']),
+  source: z.enum(['user', 'cli', 'application']),
   isCli: z.boolean().optional(),
 })
 
@@ -520,7 +520,7 @@ export const authApi = {
             mode: 'mock',
           },
           permissions: input.permissions ?? {
-            organizations: ['read', 'write'],
+            organizations: ['read', 'create'],
             projects: ['read', 'write'],
             secrets: ['read', 'write'],
             tokens: ['read', 'write'],
@@ -557,14 +557,14 @@ export const authApi = {
             rateLimitMax: null,
             rateLimitTimeWindow: null,
             permissions: {
-              organizations: ['read', 'write'],
+              organizations: ['read', 'create'],
               projects: ['read', 'write'],
               secrets: ['read', 'write'],
               tokens: ['read', 'write'],
               audit: ['read'],
               account: ['read'],
             },
-            kind: 'account',
+            source: 'user',
             isCli: false,
           },
         ],

@@ -33,6 +33,18 @@ function summarizePermissions(apiKey: AuthApiKeyListItem): string {
   return parts.length > 0 ? parts.join(', ') : 'No permissions'
 }
 
+function apiKeySourceLabel(source: AuthApiKeyListItem['source']): string {
+  if (source === 'cli') {
+    return 'CLI'
+  }
+
+  if (source === 'application') {
+    return 'Application'
+  }
+
+  return 'User'
+}
+
 export default function ApiKeysPage() {
   const { toast } = useToast()
   const [apiKeys, setApiKeys] = useState<AuthApiKeyListItem[] | null>(null)
@@ -107,7 +119,8 @@ export default function ApiKeysPage() {
           <div>
             <CardTitle>Generated keys</CardTitle>
             <CardDescription>
-              CLI-created keys are marked separately from manually created account keys.
+              All keys appear here with a source tag for CLI, user-created, or application-created
+              credentials.
             </CardDescription>
           </div>
           <Button
@@ -146,16 +159,16 @@ export default function ApiKeysPage() {
                 >
                   <div className="min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      {apiKey.kind === 'cli' ? (
+                      {apiKey.source === 'cli' ? (
                         <Terminal className="h-4 w-4 text-accent" />
                       ) : (
                         <KeyRound className="h-4 w-4 text-muted-foreground" />
                       )}
                       <p className="truncate text-sm font-medium">
-                        {apiKey.name ?? (apiKey.kind === 'cli' ? 'PentaVault CLI' : 'API key')}
+                        {apiKey.name ?? (apiKey.source === 'cli' ? 'PentaVault CLI' : 'API key')}
                       </p>
-                      <StatusBadge tone={apiKey.kind === 'cli' ? 'success' : 'neutral'}>
-                        {apiKey.kind === 'cli' ? 'CLI key' : 'Account key'}
+                      <StatusBadge tone={apiKey.source === 'cli' ? 'success' : 'neutral'}>
+                        {apiKeySourceLabel(apiKey.source)}
                       </StatusBadge>
                       <StatusBadge tone={apiKey.enabled ? 'success' : 'danger'}>
                         {apiKey.enabled ? 'enabled' : 'revoked'}

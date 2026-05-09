@@ -26,13 +26,34 @@ const permissionRows: Array<{
   resource: AuthApiKeyPermissionResource
   label: string
   defaultActions: AuthApiKeyPermissionAction[]
+  actions: AuthApiKeyPermissionAction[]
 }> = [
-  { resource: 'organizations', label: 'Organizations', defaultActions: ['read', 'write'] },
-  { resource: 'projects', label: 'Projects', defaultActions: ['read', 'write'] },
-  { resource: 'secrets', label: 'Secrets', defaultActions: ['read', 'write'] },
-  { resource: 'tokens', label: 'Proxy tokens', defaultActions: ['read', 'write'] },
-  { resource: 'audit', label: 'Audit logs', defaultActions: ['read'] },
-  { resource: 'account', label: 'Account settings', defaultActions: ['read'] },
+  {
+    resource: 'organizations',
+    label: 'Organizations',
+    defaultActions: ['read', 'create'],
+    actions: ['read', 'create'],
+  },
+  {
+    resource: 'projects',
+    label: 'Projects',
+    defaultActions: ['read', 'write'],
+    actions: ['read', 'write'],
+  },
+  {
+    resource: 'secrets',
+    label: 'Secrets',
+    defaultActions: ['read', 'write'],
+    actions: ['read', 'write'],
+  },
+  {
+    resource: 'tokens',
+    label: 'Proxy tokens',
+    defaultActions: ['read', 'write'],
+    actions: ['read', 'write'],
+  },
+  { resource: 'audit', label: 'Audit logs', defaultActions: ['read'], actions: ['read'] },
+  { resource: 'account', label: 'Account settings', defaultActions: ['read'], actions: ['read'] },
 ]
 
 const defaultPermissions = permissionRows.reduce<AuthApiKeyPermissions>((permissions, row) => {
@@ -113,7 +134,8 @@ export function ApiKeyCreateForm({ onCreated }: ApiKeyCreateFormProps) {
             <div>
               <p className="text-sm font-medium">Recommended permissions</p>
               <p className="text-xs text-muted-foreground">
-                Read/write project operations, read-only audit logs and account metadata.
+                Read/create organization access, read/write project operations, and read-only audit
+                logs.
               </p>
             </div>
             <Button
@@ -132,7 +154,7 @@ export function ApiKeyCreateForm({ onCreated }: ApiKeyCreateFormProps) {
                 <div className="flex items-center justify-between gap-3 py-3" key={row.resource}>
                   <p className="text-sm">{row.label}</p>
                   <div className="flex items-center gap-4">
-                    {(['read', 'write'] as const).map((action) => (
+                    {row.actions.map((action) => (
                       <div className="flex items-center gap-2 text-xs capitalize" key={action}>
                         <Checkbox
                           checked={permissions[row.resource]?.includes(action) ?? false}

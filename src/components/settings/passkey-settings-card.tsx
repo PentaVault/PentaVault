@@ -79,8 +79,22 @@ export function PasskeySettingsCard({ onChanged }: PasskeySettingsCardProps) {
     }
   }
 
-  if (isCapabilitiesLoading || !capabilities.passkey.enabled) {
+  if (isCapabilitiesLoading) {
     return null
+  }
+
+  if (!capabilities.passkey.enabled) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Passkeys</CardTitle>
+          <CardDescription>
+            Passkey sign-in is disabled on the backend. Set `AUTH_PASSKEY_ENABLED=true`, restart the
+            API server, then refresh this page to add a passkey.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    )
   }
 
   return (

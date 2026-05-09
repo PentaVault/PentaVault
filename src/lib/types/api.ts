@@ -464,7 +464,7 @@ export type AuthApiKeyPermissionResource =
   | 'audit'
   | 'account'
 
-export type AuthApiKeyPermissionAction = 'read' | 'write'
+export type AuthApiKeyPermissionAction = 'read' | 'write' | 'create'
 
 export type AuthApiKeyPermissions = Partial<
   Record<AuthApiKeyPermissionResource, AuthApiKeyPermissionAction[]>
@@ -485,7 +485,7 @@ export interface AuthApiKeyListItem {
   rateLimitMax: number | null
   rateLimitTimeWindow: number | null
   permissions: AuthApiKeyPermissions
-  kind: 'cli' | 'account'
+  source: 'user' | 'cli' | 'application'
   isCli?: boolean
 }
 
