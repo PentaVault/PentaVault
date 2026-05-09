@@ -22,6 +22,7 @@ This index summarizes the completion markers added to implementation plans, prod
 | `docs/review/2026-04-29.md` | Complete | Review snapshot recorded. |
 | `docs/error-inventory.md` | Complete | Error inventory and implementation blueprint recorded. |
 | `docs/product-plan.md` | Active | Living roadmap; product is not complete. |
+| `docs/cli-packaging.md` | Active | Windows CLI artifact, completion, and winget handoff baseline. |
 | `docs/testing.md` | Active | Frontend, Playwright, CLI, and backend validation guide. |
 | `packages/cli/README.md` | Active | Current CLI command, auth, and security reference. |
 | `README.md` | Active | Current repository entry point for frontend, CLI, backend checkout, and testing. |

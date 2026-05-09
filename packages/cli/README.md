@@ -105,3 +105,11 @@ pnpm run cli:test
 The root scripts call Cargo with `--manifest-path packages/cli/Cargo.toml` so
 the frontend package manager remains the main entry point while Rust stays
 isolated inside the CLI package.
+
+## Packaging
+
+Windows artifact packaging is defined in
+`.github/workflows/cli-windows-artifact.yml`. It builds `pv.exe`, generates shell
+completions, packages a zip, and writes a SHA-256 checksum. See
+`docs/cli-packaging.md` for the release checklist and PowerShell completion
+installation steps.

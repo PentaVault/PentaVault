@@ -62,8 +62,8 @@ Status values:
 
 ## M6: Packaging
 
-- [ ] `pending` Add Windows release artifact and installer/winget-ready packaging.
-- [ ] `pending` Add PowerShell completion installation docs.
+- [x] `completed` Add Windows release artifact packaging workflow and winget-ready handoff documentation.
+- [x] `completed` Add PowerShell completion installation docs.
 - [ ] `pending` Add signed binary release process when certificates are available.
 - [ ] `pending` Add macOS/Linux artifacts after Windows flow stabilizes.
 
@@ -107,3 +107,4 @@ Status values:
 - [x] `completed` 2026-05-09: `pnpm run cli:test` passed after online read-only CLI command implementation.
 - [x] `completed` 2026-05-09: `pnpm run test:e2e` passed with Playwright Chromium and mobile Chrome coverage for `/device`.
 - [x] `completed` 2026-05-09: backend `pnpm run lint`, `pnpm run typecheck`, and `pnpm test` passed after CLI permission hardening tests.
+- [x] `completed` 2026-05-09: Added Windows CLI artifact workflow and PowerShell completion packaging docs.
