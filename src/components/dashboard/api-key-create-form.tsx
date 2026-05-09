@@ -29,31 +29,11 @@ const permissionRows: Array<{
   actions: AuthApiKeyPermissionAction[]
 }> = [
   {
-    resource: 'organizations',
-    label: 'Organizations',
-    defaultActions: ['read', 'create'],
-    actions: ['read', 'create'],
-  },
-  {
-    resource: 'projects',
-    label: 'Projects',
-    defaultActions: ['read', 'write'],
-    actions: ['read', 'write'],
-  },
-  {
-    resource: 'secrets',
-    label: 'Secrets',
-    defaultActions: ['read', 'write'],
-    actions: ['read', 'write'],
-  },
-  {
-    resource: 'tokens',
+    resource: 'proxy',
     label: 'Proxy tokens',
-    defaultActions: ['read', 'write'],
-    actions: ['read', 'write'],
+    defaultActions: ['read', 'write', 'create', 'delete'],
+    actions: ['read', 'write', 'create', 'delete'],
   },
-  { resource: 'audit', label: 'Audit logs', defaultActions: ['read'], actions: ['read'] },
-  { resource: 'account', label: 'Account settings', defaultActions: ['read'], actions: ['read'] },
 ]
 
 const defaultPermissions = permissionRows.reduce<AuthApiKeyPermissions>((permissions, row) => {
@@ -134,8 +114,8 @@ export function ApiKeyCreateForm({ onCreated }: ApiKeyCreateFormProps) {
             <div>
               <p className="text-sm font-medium">Recommended permissions</p>
               <p className="text-xs text-muted-foreground">
-                Read/create organization access, read/write project operations, and read-only audit
-                logs.
+                Restrict this key to proxy token actions. Backend role checks still decide what the
+                user is allowed to do.
               </p>
             </div>
             <Button

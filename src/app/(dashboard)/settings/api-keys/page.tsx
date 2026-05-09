@@ -17,12 +17,7 @@ import { getApiFriendlyMessage } from '@/lib/utils/errors'
 import { formatDateTime } from '@/lib/utils/format'
 
 const permissionLabels: Record<string, string> = {
-  organizations: 'orgs',
-  projects: 'projects',
-  secrets: 'secrets',
-  tokens: 'tokens',
-  audit: 'audit',
-  account: 'account',
+  proxy: 'proxy',
 }
 
 function summarizePermissions(apiKey: AuthApiKeyListItem): string {

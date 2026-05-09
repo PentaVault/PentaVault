@@ -98,16 +98,11 @@ const revokeSessionResponseSchema = z.object({
   sessionId: z.string(),
 })
 
-const apiKeyPermissionActionSchema = z.enum(['read', 'write', 'create'])
+const apiKeyPermissionActionSchema = z.enum(['read', 'write', 'create', 'delete'])
 
 const apiKeyPermissionsSchema = z
   .object({
-    organizations: z.array(apiKeyPermissionActionSchema).optional(),
-    projects: z.array(apiKeyPermissionActionSchema).optional(),
-    secrets: z.array(apiKeyPermissionActionSchema).optional(),
-    tokens: z.array(apiKeyPermissionActionSchema).optional(),
-    audit: z.array(apiKeyPermissionActionSchema).optional(),
-    account: z.array(apiKeyPermissionActionSchema).optional(),
+    proxy: z.array(apiKeyPermissionActionSchema).optional(),
   })
   .default({})
 
@@ -520,12 +515,7 @@ export const authApi = {
             mode: 'mock',
           },
           permissions: input.permissions ?? {
-            organizations: ['read', 'create'],
-            projects: ['read', 'write'],
-            secrets: ['read', 'write'],
-            tokens: ['read', 'write'],
-            audit: ['read'],
-            account: ['read'],
+            proxy: ['read', 'write', 'create', 'delete'],
           },
           rateLimitEnabled: false,
           rateLimitMax: null,
@@ -557,12 +547,7 @@ export const authApi = {
             rateLimitMax: null,
             rateLimitTimeWindow: null,
             permissions: {
-              organizations: ['read', 'create'],
-              projects: ['read', 'write'],
-              secrets: ['read', 'write'],
-              tokens: ['read', 'write'],
-              audit: ['read'],
-              account: ['read'],
+              proxy: ['read', 'write', 'create', 'delete'],
             },
             source: 'user',
             isCli: false,

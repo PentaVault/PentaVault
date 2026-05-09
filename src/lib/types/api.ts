@@ -456,15 +456,9 @@ export interface AuthCreateApiKeyRequest {
   permissions?: AuthApiKeyPermissions
 }
 
-export type AuthApiKeyPermissionResource =
-  | 'organizations'
-  | 'projects'
-  | 'secrets'
-  | 'tokens'
-  | 'audit'
-  | 'account'
+export type AuthApiKeyPermissionResource = 'proxy'
 
-export type AuthApiKeyPermissionAction = 'read' | 'write' | 'create'
+export type AuthApiKeyPermissionAction = 'read' | 'write' | 'create' | 'delete'
 
 export type AuthApiKeyPermissions = Partial<
   Record<AuthApiKeyPermissionResource, AuthApiKeyPermissionAction[]>
