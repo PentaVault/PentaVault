@@ -15,6 +15,13 @@ export const queryKeys = {
   organizations: {
     all: ['organizations'] as const,
   },
+  organizationActivity: {
+    all: ['organization-activity'] as const,
+    list: (organizationId: string | null, query: unknown) =>
+      ['organization-activity', organizationId, query] as const,
+    infinite: (organizationId: string | null, query: unknown) =>
+      ['organization-activity', organizationId, 'infinite', query] as const,
+  },
   projects: {
     all: ['projects'] as const,
     detailAll: ['project'] as const,
