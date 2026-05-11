@@ -106,6 +106,14 @@ const apiKeyPermissionsSchema = z
   })
   .default({})
 
+const apiKeyTokenTypeSchema = z.enum([
+  'command-line',
+  'service-account',
+  'personal',
+  'scim',
+  'audit',
+])
+
 const apiKeyListItemSchema = z.object({
   id: z.string(),
   name: z.string().nullable(),
@@ -122,6 +130,9 @@ const apiKeyListItemSchema = z.object({
   rateLimitTimeWindow: z.number().nullable(),
   permissions: apiKeyPermissionsSchema,
   source: z.enum(['user', 'cli', 'application']),
+  tokenType: apiKeyTokenTypeSchema.default('personal'),
+  organizationId: z.string().nullable().default(null),
+  organizationName: z.string().nullable().default(null),
   isCli: z.boolean().optional(),
 })
 
@@ -550,6 +561,9 @@ export const authApi = {
               proxy: ['read', 'write', 'create', 'delete'],
             },
             source: 'user',
+            tokenType: 'personal',
+            organizationId: null,
+            organizationName: null,
             isCli: false,
           },
         ],

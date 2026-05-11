@@ -454,7 +454,11 @@ export type AuthSessionRevokeRequest = RevokeSessionRequest
 export interface AuthCreateApiKeyRequest {
   name?: string
   permissions?: AuthApiKeyPermissions
+  organizationId?: string | null
+  tokenType?: AuthApiKeyTokenType
 }
+
+export type AuthApiKeyTokenType = 'command-line' | 'service-account' | 'personal' | 'scim' | 'audit'
 
 export type AuthApiKeyPermissionResource = 'proxy'
 
@@ -480,6 +484,9 @@ export interface AuthApiKeyListItem {
   rateLimitTimeWindow: number | null
   permissions: AuthApiKeyPermissions
   source: 'user' | 'cli' | 'application'
+  tokenType: AuthApiKeyTokenType
+  organizationId: string | null
+  organizationName: string | null
   isCli?: boolean
 }
 

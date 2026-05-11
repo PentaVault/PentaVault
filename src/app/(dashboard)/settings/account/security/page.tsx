@@ -1,0 +1,587 @@
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { useRef, useState } from 'react'
+import { TurnstileWidget, type TurnstileWidgetHandle } from '@/components/auth/turnstile-widget'
+import { MfaSettingsCard } from '@/components/settings/mfa-settings-card'
+import { PasskeySettingsCard } from '@/components/settings/passkey-settings-card'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogOverlay,
+  DialogPortal,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
+import { authApi } from '@/lib/api/auth'
+import { clearClientAuthHint } from '@/lib/auth/token'
+import { LOGIN_PATH } from '@/lib/constants'
+import { useAuth } from '@/lib/hooks/use-auth'
+import { useAuthCapabilities } from '@/lib/hooks/use-auth-capabilities'
+import { useEmailCooldown } from '@/lib/hooks/use-email-cooldown'
+import { useToast } from '@/lib/hooks/use-toast'
+import { getApiErrorPayload, getApiFieldErrors, getApiFriendlyMessage } from '@/lib/utils/errors'
+
+export default function AccountSecuritySettingsPage() {
+  const auth = useAuth()
+  const {
+    capabilities,
+    error: capabilitiesError,
+    isLoading: isCapabilitiesLoading,
+  } = useAuthCapabilities()
+  const router = useRouter()
+  const { toast } = useToast()
+  const passwordEmailCooldown = useEmailCooldown()
+  const [emailInput, setEmailInput] = useState('')
+  const [totpCode, setTotpCode] = useState('')
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [passwordMode, setPasswordMode] = useState<'current' | 'email'>('current')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordTotpCode, setPasswordTotpCode] = useState('')
+  const [passwordOtp, setPasswordOtp] = useState('')
+  const [passwordOtpSent, setPasswordOtpSent] = useState(false)
+  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({})
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [isSendingPasswordOtp, setIsSendingPasswordOtp] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const captchaWidgetRef = useRef<TurnstileWidgetHandle | null>(null)
+  const isAuthSecurityUnavailable = isCapabilitiesLoading || Boolean(capabilitiesError)
+
+  const user = auth.session?.user
+
+  function resetCaptchaToken(): void {
+    if (!capabilities.captcha.enabled) {
+      return
+    }
+
+    setCaptchaToken('')
+    captchaWidgetRef.current?.reset()
+  }
+
+  function ensureAuthSecurityAvailable(): boolean {
+    if (!isAuthSecurityUnavailable) {
+      return true
+    }
+
+    toast.error('Cannot verify auth security settings right now. Please refresh and try again.')
+    return false
+  }
+
+  async function handleDeleteAccount(): Promise<void> {
+    if (!user?.email || emailInput !== user.email) {
+      return
+    }
+
+    setIsDeleting(true)
+
+    try {
+      const deletion = await authApi.deleteAccount({
+        email: user.email,
+        ...(user.twoFactorEnabled ? { totpCode } : {}),
+      })
+      clearClientAuthHint()
+      auth.clear()
+      // biome-ignore lint/suspicious/noDocumentCookie: Better Auth stores these browser session cookies outside the app state.
+      document.cookie = 'better-auth.session_token=; path=/; max-age=0'
+      // biome-ignore lint/suspicious/noDocumentCookie: Clear the secure Better Auth cookie variant after account deletion.
+      document.cookie = '__Secure-better-auth.session_token=; path=/; max-age=0'
+      const purgeDate = deletion.purgeAfter
+        ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
+            new Date(deletion.purgeAfter)
+          )
+        : null
+      toast.success(
+        purgeDate
+          ? `Account deletion scheduled. Sign in before ${purgeDate} to restore it.`
+          : 'Account deletion scheduled. Sign in within 6 months to restore it.'
+      )
+      router.replace(LOGIN_PATH)
+    } catch (error) {
+      toast.error(
+        getApiFriendlyMessage(
+          error,
+          'Account deletion failed. No account data was changed. Please try again.'
+        )
+      )
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  async function handleSendPasswordOtp(): Promise<void> {
+    if (!user?.email) {
+      return
+    }
+
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
+
+    try {
+      setIsSendingPasswordOtp(true)
+      setPasswordErrors({})
+      await authApi.requestPasswordResetOtp({
+        email: user.email,
+        captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
+      })
+      passwordEmailCooldown.startCooldown(60)
+      setPasswordOtpSent(true)
+      toast.success('Password code sent. Check your email.')
+    } catch (error) {
+      const payload = getApiErrorPayload(error)
+      if (payload?.code === 'RATE_LIMITED' && typeof payload.retryAfter === 'number') {
+        passwordEmailCooldown.startCooldown(payload.retryAfter)
+      }
+      toast.error(getApiFriendlyMessage(error, 'Unable to send a password code right now.'))
+    } finally {
+      resetCaptchaToken()
+      setIsSendingPasswordOtp(false)
+    }
+  }
+
+  async function handleChangePassword(): Promise<void> {
+    if (!user?.email) {
+      return
+    }
+
+    if (passwordMode === 'email' && !ensureAuthSecurityAvailable()) {
+      return
+    }
+
+    const nextErrors: Record<string, string> = {}
+    if (passwordMode === 'current' && !currentPassword) {
+      nextErrors.currentPassword = 'Enter your current password.'
+    }
+    if (passwordMode === 'email' && passwordOtp.trim().length !== 6) {
+      nextErrors.otp = 'Enter the 6-digit email code.'
+    }
+    if (!newPassword) {
+      nextErrors.newPassword = 'Enter a new password.'
+    } else if (passwordMode === 'current' && currentPassword && currentPassword === newPassword) {
+      nextErrors.newPassword = 'New password must be different from your current password.'
+    }
+    if (!confirmPassword) {
+      nextErrors.confirmPassword = 'Confirm your new password.'
+    } else if (newPassword && newPassword !== confirmPassword) {
+      nextErrors.confirmPassword = 'Passwords do not match.'
+    }
+    if (passwordMode === 'current' && user.twoFactorEnabled && passwordTotpCode.length !== 6) {
+      nextErrors.totpCode = 'Enter your 6-digit authenticator code.'
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setPasswordErrors(nextErrors)
+      return
+    }
+
+    try {
+      setIsChangingPassword(true)
+      setPasswordErrors({})
+
+      if (passwordMode === 'current') {
+        await authApi.changePassword({
+          currentPassword,
+          newPassword,
+          ...(user.twoFactorEnabled ? { totpCode: passwordTotpCode } : {}),
+        })
+      } else {
+        await authApi.resetPasswordWithOtp({
+          email: user.email,
+          otp: passwordOtp,
+          password: newPassword,
+          captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
+        })
+      }
+
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setPasswordTotpCode('')
+      setPasswordOtp('')
+      setPasswordOtpSent(false)
+      toast.success('Password changed successfully. Please sign in again.')
+
+      let signOutFailed = false
+      try {
+        await authApi.signOut()
+      } catch {
+        signOutFailed = true
+        clearClientAuthHint()
+        auth.clear()
+      }
+
+      try {
+        await auth.refresh()
+      } catch {
+        auth.clear()
+      }
+
+      if (signOutFailed) {
+        toast.error('Password changed, but automatic sign-out did not complete.')
+      }
+
+      router.replace(LOGIN_PATH)
+    } catch (error) {
+      const fields = getApiFieldErrors(error)
+      if (fields && Object.keys(fields).length > 0) {
+        setPasswordErrors(fields)
+      }
+
+      const payload = getApiErrorPayload(error)
+      if (payload?.code === 'AUTH_MFA_CODE_INVALID') {
+        setPasswordErrors((current) => ({
+          ...current,
+          totpCode: 'The authenticator code is invalid.',
+        }))
+      }
+
+      toast.error(getApiFriendlyMessage(error, 'Unable to change your password right now.'))
+    } finally {
+      if (passwordMode === 'email') {
+        resetCaptchaToken()
+      }
+      setIsChangingPassword(false)
+    }
+  }
+
+  if (auth.status === 'loading' || !user?.id) {
+    return <AccountPageSkeleton />
+  }
+
+  return (
+    <div className="p-6">
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Security</CardTitle>
+            <CardDescription>Manage sign-in methods and sensitive account actions.</CardDescription>
+          </CardHeader>
+        </Card>
+
+        <div className="rounded-xl transition-shadow" id="account-mfa-settings">
+          <MfaSettingsCard onChanged={auth.refresh} user={user} />
+        </div>
+
+        <PasskeySettingsCard onChanged={auth.refresh} />
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Password</CardTitle>
+            <CardDescription>
+              Change your password using your current password or an email code.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => {
+                  setPasswordMode('current')
+                  setPasswordOtp('')
+                  setPasswordErrors({})
+                }}
+                type="button"
+                variant={passwordMode === 'current' ? 'default' : 'outline'}
+              >
+                Current password
+              </Button>
+              <Button
+                onClick={() => {
+                  setPasswordMode('email')
+                  setPasswordTotpCode('')
+                  setPasswordErrors({})
+                }}
+                type="button"
+                variant={passwordMode === 'email' ? 'default' : 'outline'}
+              >
+                Email code
+              </Button>
+            </div>
+
+            {passwordMode === 'current' ? (
+              <div className="space-y-1">
+                <label
+                  className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+                  htmlFor="current-password"
+                >
+                  Current password
+                </label>
+                <PasswordInput
+                  autoComplete="current-password"
+                  id="current-password"
+                  value={currentPassword}
+                  onChange={(event) => {
+                    setCurrentPassword(event.target.value)
+                    setPasswordErrors((current) => ({ ...current, currentPassword: '' }))
+                  }}
+                />
+                {passwordErrors.currentPassword ? (
+                  <p className="text-sm text-danger">{passwordErrors.currentPassword}</p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
+                <div className="space-y-1">
+                  <label
+                    className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+                    htmlFor="password-email-code"
+                  >
+                    Email code
+                  </label>
+                  <Input
+                    autoComplete="one-time-code"
+                    className="h-11 text-center font-mono text-base tracking-[0.4em]"
+                    id="password-email-code"
+                    inputMode="numeric"
+                    maxLength={6}
+                    onChange={(event) => {
+                      setPasswordOtp(event.target.value.replace(/\D/g, '').slice(0, 6))
+                      setPasswordErrors((current) => ({ ...current, otp: '' }))
+                    }}
+                    placeholder="000000"
+                    value={passwordOtp}
+                  />
+                  {passwordErrors.otp ? (
+                    <p className="text-sm text-danger">{passwordErrors.otp}</p>
+                  ) : null}
+                </div>
+                <Button
+                  className="mt-6 h-11"
+                  disabled={
+                    isSendingPasswordOtp ||
+                    passwordEmailCooldown.isOnCooldown ||
+                    isAuthSecurityUnavailable
+                  }
+                  onClick={() => void handleSendPasswordOtp()}
+                  type="button"
+                  variant="outline"
+                >
+                  {isSendingPasswordOtp
+                    ? 'Sending...'
+                    : passwordEmailCooldown.isOnCooldown
+                      ? `Send again in ${passwordEmailCooldown.secondsLeft}s`
+                      : passwordOtpSent
+                        ? 'Send again'
+                        : 'Send code'}
+                </Button>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <label
+                className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+                htmlFor="new-password"
+              >
+                New password
+              </label>
+              <PasswordInput
+                autoComplete="new-password"
+                id="new-password"
+                value={newPassword}
+                onChange={(event) => {
+                  setNewPassword(event.target.value)
+                  setPasswordErrors((current) => ({ ...current, newPassword: '', password: '' }))
+                }}
+              />
+              {passwordErrors.newPassword || passwordErrors.password ? (
+                <p className="text-sm text-danger">
+                  {passwordErrors.newPassword ?? passwordErrors.password}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="space-y-1">
+              <label
+                className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+                htmlFor="confirm-password"
+              >
+                Confirm password
+              </label>
+              <PasswordInput
+                autoComplete="new-password"
+                id="confirm-password"
+                value={confirmPassword}
+                onChange={(event) => {
+                  setConfirmPassword(event.target.value)
+                  setPasswordErrors((current) => ({ ...current, confirmPassword: '' }))
+                }}
+              />
+              {passwordErrors.confirmPassword ? (
+                <p className="text-sm text-danger">{passwordErrors.confirmPassword}</p>
+              ) : null}
+            </div>
+
+            {passwordMode === 'current' && user.twoFactorEnabled ? (
+              <div className="space-y-1">
+                <label
+                  className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+                  htmlFor="password-totp-code"
+                >
+                  Authenticator code
+                </label>
+                <Input
+                  autoComplete="one-time-code"
+                  className="h-11 text-center font-mono text-base tracking-[0.4em]"
+                  id="password-totp-code"
+                  inputMode="numeric"
+                  maxLength={6}
+                  onChange={(event) => {
+                    setPasswordTotpCode(event.target.value.replace(/\D/g, '').slice(0, 6))
+                    setPasswordErrors((current) => ({ ...current, totpCode: '' }))
+                  }}
+                  placeholder="000000"
+                  value={passwordTotpCode}
+                />
+                {passwordErrors.totpCode ? (
+                  <p className="text-sm text-danger">{passwordErrors.totpCode}</p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {passwordMode === 'email' && capabilities.captcha.enabled ? (
+              <TurnstileWidget
+                ref={captchaWidgetRef}
+                siteKey={capabilities.captcha.siteKey}
+                onToken={setCaptchaToken}
+              />
+            ) : null}
+
+            <div className="flex justify-end">
+              <Button
+                disabled={
+                  isChangingPassword || (passwordMode === 'email' && isAuthSecurityUnavailable)
+                }
+                onClick={() => void handleChangePassword()}
+                type="button"
+              >
+                {isChangingPassword ? 'Changing password...' : 'Change password'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-danger/40">
+          <CardHeader>
+            <CardTitle className="text-danger">Danger zone</CardTitle>
+            <CardDescription>
+              Deleting your account immediately signs you out and revokes active credentials. Your
+              retained account data is purged after a 6-month recovery window.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-end">
+            <Button onClick={() => setIsDeleteDialogOpen(true)} type="button" variant="danger">
+              Delete account
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Dialog
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open)
+          if (!open) {
+            setTotpCode('')
+          }
+        }}
+        open={isDeleteDialogOpen}
+      >
+        <DialogPortal>
+          <DialogOverlay className="fixed inset-0 bg-black/45" />
+          <DialogContent
+            aria-describedby="delete-account-description"
+            className="fixed top-1/2 left-1/2 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-visible rounded-xl border border-border bg-card p-5"
+          >
+            <DialogTitle className="text-danger">Schedule account deletion</DialogTitle>
+            <DialogDescription
+              className="mt-2 text-sm text-muted-foreground"
+              id="delete-account-description"
+            >
+              Your account will be disabled now and permanently purged after the recovery window.
+            </DialogDescription>
+            <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+              <li>Active sessions, account tokens, and proxy tokens are revoked immediately</li>
+              <li>Owned organisations and project data are retained until final purge</li>
+              <li>Signing in again before the purge date restores the account</li>
+            </ul>
+            <div className="mt-4 space-y-2 pt-1">
+              <p className="text-sm">Type your email address to confirm:</p>
+              <Input
+                onChange={(event) => setEmailInput(event.target.value)}
+                placeholder={user?.email ?? ''}
+                type="email"
+                value={emailInput}
+              />
+            </div>
+            {user.twoFactorEnabled ? (
+              <div className="mt-4 space-y-2">
+                <p className="text-sm">Enter your authenticator code:</p>
+                <Input
+                  autoComplete="one-time-code"
+                  className="h-11 text-center font-mono text-base tracking-[0.4em]"
+                  inputMode="numeric"
+                  maxLength={6}
+                  onChange={(event) =>
+                    setTotpCode(event.target.value.replace(/\D/g, '').slice(0, 6))
+                  }
+                  placeholder="000000"
+                  value={totpCode}
+                />
+              </div>
+            ) : null}
+            <div className="mt-5 flex justify-end gap-2">
+              <Button
+                onClick={() => {
+                  setIsDeleteDialogOpen(false)
+                  setTotpCode('')
+                }}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={
+                  emailInput !== user?.email ||
+                  isDeleting ||
+                  (user.twoFactorEnabled && totpCode.length !== 6)
+                }
+                onClick={() => void handleDeleteAccount()}
+                size="sm"
+                type="button"
+                variant="danger"
+              >
+                {isDeleting ? 'Scheduling deletion...' : 'Schedule deletion'}
+              </Button>
+            </div>
+          </DialogContent>
+        </DialogPortal>
+      </Dialog>
+    </div>
+  )
+}
+
+function AccountPageSkeleton() {
+  return (
+    <div className="p-6">
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="h-7 w-28 animate-pulse rounded bg-background-secondary" />
+            <div className="h-4 w-64 animate-pulse rounded bg-background-secondary" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="h-12 animate-pulse rounded bg-background-secondary" />
+            <div className="h-12 animate-pulse rounded bg-background-secondary" />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}

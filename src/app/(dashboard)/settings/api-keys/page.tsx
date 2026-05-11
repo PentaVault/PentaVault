@@ -1,6 +1,7 @@
 'use client'
 
-import { KeyRound, RefreshCw, Terminal, Trash2 } from 'lucide-react'
+import { KeyRound, RefreshCw, ShieldCheck, Terminal, Trash2 } from 'lucide-react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
 import { ApiKeyCreateForm } from '@/components/dashboard/api-key-create-form'
@@ -10,9 +11,11 @@ import { ErrorState } from '@/components/shared/error-state'
 import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { authApi } from '@/lib/api/auth'
 import { useToast } from '@/lib/hooks/use-toast'
-import type { AuthApiKeyListItem } from '@/lib/types/api'
+import { useUiStore } from '@/lib/stores/ui-store'
+import type { AuthApiKeyListItem, AuthApiKeyTokenType } from '@/lib/types/api'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
 import { formatDateTime } from '@/lib/utils/format'
 
@@ -40,13 +43,69 @@ function apiKeySourceLabel(source: AuthApiKeyListItem['source']): string {
   return 'User'
 }
 
+const tokenTabs: Array<{
+  value: AuthApiKeyTokenType
+  label: string
+  title: string
+  description: string
+  canCreate: boolean
+}> = [
+  {
+    value: 'command-line',
+    label: 'Command Line',
+    title: 'Command line tokens',
+    description: 'Tokens created by interactive CLI login for local development workflows.',
+    canCreate: false,
+  },
+  {
+    value: 'service-account',
+    label: 'Service Account',
+    title: 'Service account tokens',
+    description: 'Automation tokens for shared services and production integrations.',
+    canCreate: true,
+  },
+  {
+    value: 'personal',
+    label: 'Personal',
+    title: 'Personal tokens',
+    description: 'Account-owned tokens for individual development and ad hoc API automation.',
+    canCreate: true,
+  },
+  {
+    value: 'scim',
+    label: 'SCIM',
+    title: 'SCIM tokens',
+    description: 'Tokens reserved for identity-provider provisioning and team management.',
+    canCreate: true,
+  },
+  {
+    value: 'audit',
+    label: 'Audit',
+    title: 'Audit tokens',
+    description: 'Read-focused tokens for compliance tooling and activity monitoring.',
+    canCreate: true,
+  },
+]
+
+function isTokenTab(value: string | null): value is AuthApiKeyTokenType {
+  return tokenTabs.some((tab) => tab.value === value)
+}
+
 export default function ApiKeysPage() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const [apiKeys, setApiKeys] = useState<AuthApiKeyListItem[] | null>(null)
   const [isPending, setIsPending] = useState(false)
   const [revokingId, setRevokingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const activeTab = useUiStore((state) => state.accountTokensActiveTab)
+  const setActiveTab = useUiStore((state) => state.setAccountTokensActiveTab)
   const listedApiKeys = apiKeys ?? []
+  const activeTabConfig = tokenTabs.find((tab) => tab.value === activeTab) ?? tokenTabs[0]
+  const visibleApiKeys = listedApiKeys.filter((apiKey) => apiKey.tokenType === activeTab)
+  const tabFromUrl = searchParams.get('tab')
 
   const refreshApiKeys = useCallback(async (signal?: { cancelled: boolean }): Promise<void> => {
     if (signal?.cancelled) {
@@ -63,7 +122,7 @@ export default function ApiKeysPage() {
       }
     } catch (refreshError) {
       if (!signal?.cancelled) {
-        setError(getApiFriendlyMessage(refreshError, 'Unable to load API keys right now.'))
+        setError(getApiFriendlyMessage(refreshError, 'Unable to load tokens right now.'))
       }
     } finally {
       if (!signal?.cancelled) {
@@ -76,10 +135,10 @@ export default function ApiKeysPage() {
     try {
       setRevokingId(apiKeyId)
       await authApi.revokeApiKey(apiKeyId)
-      toast.success('API key revoked.')
+      toast.success('Token revoked.')
       await refreshApiKeys()
     } catch (revokeError) {
-      toast.error(getApiFriendlyMessage(revokeError, 'Unable to revoke this API key.'))
+      toast.error(getApiFriendlyMessage(revokeError, 'Unable to revoke this token.'))
     } finally {
       setRevokingId(null)
     }
@@ -94,28 +153,83 @@ export default function ApiKeysPage() {
     }
   }, [refreshApiKeys])
 
+  useEffect(() => {
+    if (isTokenTab(tabFromUrl)) {
+      setActiveTab(tabFromUrl)
+      return
+    }
+
+    setActiveTab('command-line')
+  }, [setActiveTab, tabFromUrl])
+
+  function handleTabChange(value: string): void {
+    if (!isTokenTab(value)) {
+      return
+    }
+
+    const nextParams = new URLSearchParams(searchParams.toString())
+    nextParams.set('tab', value)
+    setActiveTab(value)
+    router.replace(`${pathname}?${nextParams.toString()}`, { scroll: false })
+  }
+
   return (
     <PageWrapper>
       <Card>
         <CardHeader>
-          <CardTitle>Account API keys</CardTitle>
+          <CardTitle>Tokens</CardTitle>
           <CardDescription>
-            Create account-scoped keys for automation and CLI access. Backend authorization still
-            enforces your organization and project permissions.
+            Manage account-owned authentication tokens for CLI, automation, identity, and audit
+            workflows. Organisation scopes limit where a token can be used.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <ApiKeyCreateForm onCreated={() => void refreshApiKeys()} />
-        </CardContent>
+        <CardContent />
       </Card>
+
+      <Tabs className="mt-6 space-y-6" onValueChange={handleTabChange} value={activeTab}>
+        <TabsList className="flex flex-wrap gap-2 border-b border-border">
+          {tokenTabs.map((tab) => (
+            <TabsTrigger
+              className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors data-[state=active]:bg-card-elevated data-[state=active]:text-foreground"
+              key={tab.value}
+              value={tab.value}
+            >
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {tokenTabs.map((tab) => (
+          <TabsContent className="space-y-6" key={tab.value} value={tab.value}>
+            <Card>
+              <CardHeader>
+                <CardTitle>{tab.title}</CardTitle>
+                <CardDescription>{tab.description}</CardDescription>
+              </CardHeader>
+              {tab.canCreate ? (
+                <CardContent>
+                  <ApiKeyCreateForm onCreated={() => void refreshApiKeys()} tokenType={tab.value} />
+                </CardContent>
+              ) : (
+                <CardContent>
+                  <div className="rounded-md border border-border p-4 text-sm text-muted-foreground">
+                    Command line tokens are created by signing in from the PentaVault CLI. They are
+                    shown here for review and revocation.
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+          </TabsContent>
+        ))}
+      </Tabs>
 
       <Card className="mt-6">
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle>Generated keys</CardTitle>
+            <CardTitle>{activeTabConfig.label} tokens</CardTitle>
             <CardDescription>
-              All keys appear here with a source tag for CLI, user-created, or application-created
-              credentials.
+              Generated credentials are shown with their source, status, permissions, and
+              organisation scope.
             </CardDescription>
           </div>
           <Button
@@ -132,22 +246,22 @@ export default function ApiKeysPage() {
         <CardContent className="space-y-4">
           {error ? (
             <ErrorState
-              title="Unable to load API keys"
+              title="Unable to load tokens"
               message={error}
               onRetry={() => void refreshApiKeys()}
             />
           ) : null}
 
           {!error && !apiKeys ? (
-            <p className="text-sm text-muted-foreground">Loading API keys...</p>
-          ) : !error && listedApiKeys.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Loading tokens...</p>
+          ) : !error && visibleApiKeys.length === 0 ? (
             <EmptyState
-              title="No API keys yet"
-              description="Create an account API key or sign in from the CLI to see generated keys here."
+              title={`No ${activeTabConfig.label.toLowerCase()} tokens yet`}
+              description="Create a token or sign in from the CLI to see generated credentials here."
             />
           ) : !error ? (
             <div className="space-y-3">
-              {listedApiKeys.map((apiKey) => (
+              {visibleApiKeys.map((apiKey) => (
                 <div
                   className="flex flex-col gap-4 rounded-xl border border-border p-4 sm:flex-row sm:items-center sm:justify-between"
                   key={apiKey.id}
@@ -156,11 +270,13 @@ export default function ApiKeysPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       {apiKey.source === 'cli' ? (
                         <Terminal className="h-4 w-4 text-accent" />
+                      ) : apiKey.tokenType === 'audit' || apiKey.tokenType === 'scim' ? (
+                        <ShieldCheck className="h-4 w-4 text-muted-foreground" />
                       ) : (
                         <KeyRound className="h-4 w-4 text-muted-foreground" />
                       )}
                       <p className="truncate text-sm font-medium">
-                        {apiKey.name ?? (apiKey.source === 'cli' ? 'PentaVault CLI' : 'API key')}
+                        {apiKey.name ?? (apiKey.source === 'cli' ? 'PentaVault CLI' : 'Token')}
                       </p>
                       <StatusBadge tone={apiKey.source === 'cli' ? 'success' : 'neutral'}>
                         {apiKeySourceLabel(apiKey.source)}
@@ -180,6 +296,11 @@ export default function ApiKeysPage() {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Permissions: {summarizePermissions(apiKey)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Organisation:{' '}
+                      {apiKey.organizationName ??
+                        (apiKey.organizationId ? apiKey.organizationId : 'All accessible')}
                     </p>
                   </div>
 

@@ -1,5 +1,5 @@
-import ApiKeysPage from '@/app/(dashboard)/settings/api-keys/page'
+import { redirect } from 'next/navigation'
 
 export default function AccountApiKeysPage() {
-  return <ApiKeysPage />
+  redirect('/settings/account/tokens')
 }

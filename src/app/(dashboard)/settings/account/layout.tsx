@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronLeft, Key, Shield, User } from 'lucide-react'
+import { ChevronLeft, Key, MonitorCheck, Shield, User } from 'lucide-react'
 import Link from 'next/link'
 
 import { DashboardNavLink } from '@/components/layout/dashboard-nav-link'
@@ -8,14 +8,16 @@ import {
   DASHBOARD_HOME_PATH,
   SETTINGS_ACCOUNT_API_KEYS_PATH,
   SETTINGS_ACCOUNT_PATH,
+  SETTINGS_ACCOUNT_SECURITY_PATH,
   SETTINGS_ACCOUNT_SESSIONS_PATH,
 } from '@/lib/constants'
 
 export default function AccountSettingsLayout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: SETTINGS_ACCOUNT_PATH, label: 'Profile', icon: User, exact: true },
-    { href: SETTINGS_ACCOUNT_SESSIONS_PATH, label: 'Sessions', icon: Shield },
-    { href: SETTINGS_ACCOUNT_API_KEYS_PATH, label: 'API keys', icon: Key },
+    { href: SETTINGS_ACCOUNT_SECURITY_PATH, label: 'Security', icon: Shield },
+    { href: SETTINGS_ACCOUNT_SESSIONS_PATH, label: 'Sessions', icon: MonitorCheck },
+    { href: SETTINGS_ACCOUNT_API_KEYS_PATH, label: 'Tokens', icon: Key },
   ]
 
   return (

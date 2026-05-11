@@ -8,18 +8,29 @@ import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { authApi } from '@/lib/api/auth'
+import { useAuth } from '@/lib/hooks/use-auth'
 import { useToast } from '@/lib/hooks/use-toast'
 import type {
   AuthApiKeyPermissionAction,
   AuthApiKeyPermissionResource,
   AuthApiKeyPermissions,
+  AuthApiKeyTokenType,
   AuthCreateApiKeyResponse,
 } from '@/lib/types/api'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
 
 type ApiKeyCreateFormProps = {
   onCreated?: (apiKey: AuthCreateApiKeyResponse) => void
+  tokenType?: AuthApiKeyTokenType
 }
 
 const permissionRows: Array<{
@@ -57,10 +68,14 @@ function togglePermission(
   }
 }
 
-export function ApiKeyCreateForm({ onCreated }: ApiKeyCreateFormProps) {
+export function ApiKeyCreateForm({ onCreated, tokenType = 'personal' }: ApiKeyCreateFormProps) {
   const { toast } = useToast()
+  const auth = useAuth()
 
   const [name, setName] = useState('')
+  const [organizationId, setOrganizationId] = useState<string>(
+    auth.activeOrganization?.organization.id ?? 'all'
+  )
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [permissions, setPermissions] = useState<AuthApiKeyPermissions>(defaultPermissions)
   const [loading, setLoading] = useState(false)
@@ -76,14 +91,16 @@ export function ApiKeyCreateForm({ onCreated }: ApiKeyCreateFormProps) {
       const trimmedName = name.trim()
       const response = await authApi.createApiKey({
         ...(trimmedName ? { name: trimmedName } : {}),
+        tokenType,
+        organizationId: organizationId === 'all' ? null : organizationId,
         permissions,
       })
       setResult(response)
       onCreated?.(response)
-      toast.success('API key created. Copy it now; this is your only chance to see it.')
+      toast.success('Token created. Copy it now; this is your only chance to see it.')
       setName('')
     } catch (submitError) {
-      const message = getApiFriendlyMessage(submitError, 'Unable to create API key right now.')
+      const message = getApiFriendlyMessage(submitError, 'Unable to create token right now.')
       setError(message)
       toast.error(message)
     } finally {
@@ -107,6 +124,33 @@ export function ApiKeyCreateForm({ onCreated }: ApiKeyCreateFormProps) {
             placeholder="work-laptop"
             value={name}
           />
+        </div>
+
+        <div className="space-y-1">
+          <label
+            className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+            htmlFor="api-key-organization"
+          >
+            Organisation scope
+          </label>
+          <Select onValueChange={setOrganizationId} value={organizationId}>
+            <SelectTrigger id="api-key-organization">
+              <SelectValue placeholder="All organisations" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="all">All organisations this account can access</SelectItem>
+                {auth.organizations.map((entry) => (
+                  <SelectItem key={entry.organization.id} value={entry.organization.id}>
+                    {entry.organization.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Scoped tokens are easier to audit and should be preferred for organisation automation.
+          </p>
         </div>
 
         <div className="rounded-md border border-border p-3">
@@ -157,11 +201,11 @@ export function ApiKeyCreateForm({ onCreated }: ApiKeyCreateFormProps) {
         {error ? <p className="text-sm text-danger">{error}</p> : null}
 
         <Button disabled={loading} type="submit">
-          {loading ? 'Creating...' : 'Create API key'}
+          {loading ? 'Creating...' : 'Create token'}
         </Button>
 
         <p className="text-xs text-muted-foreground">
-          API keys are shown once. Save securely before leaving this page.
+          Tokens are shown once. Save securely before leaving this page.
         </p>
       </form>
 

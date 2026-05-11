@@ -65,6 +65,15 @@ function isProjectAuditRequest(url: string | undefined): boolean {
   return /^v1\/projects\/[^/]+\/audit(?:\?|$)/.test(normalizedUrl)
 }
 
+function isOrganizationActivityRequest(url: string | undefined): boolean {
+  if (!url) {
+    return false
+  }
+
+  const normalizedUrl = normalizeUrlPath(url)
+  return /^v1\/organizations\/[^/]+\/activity(?:\?|$)/.test(normalizedUrl)
+}
+
 function isUpstreamUnavailableResponse(error: unknown): boolean {
   if (!axios.isAxiosError(error)) {
     return false
@@ -192,6 +201,11 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     isProjectAuditRequest(error.config?.url) &&
     error.response?.status === 429 &&
     errorCode === 'RATE_LIMITED'
+  const isOrganizationActivityRouteMissing =
+    error.config?.method?.toLowerCase() === 'get' &&
+    isOrganizationActivityRequest(error.config?.url) &&
+    error.response?.status === 404 &&
+    errorCode === 'ROUTE_NOT_FOUND'
 
   return (
     isProjectDeleteNotFound ||
@@ -203,6 +217,7 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     isAuthSetActiveKnownFailure ||
     isOrgDeleteGuardedFailure ||
     isProjectAuditReadRateLimited ||
+    isOrganizationActivityRouteMissing ||
     isExpectedEmailNotVerified
   )
 }
