@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 :root {
+  --app-max-width: 1680px;
+  color-scheme: dark;
   --background: #171717;
   --background-deep: #0f0f0f;
   --background-elevated: rgba(41, 41, 41, 0.84);

@@ -1,6 +1,6 @@
 'use client'
 
-import { BarChart3, Building2, FolderKanban, LayoutDashboard, User } from 'lucide-react'
+import { Activity, Building2, FolderKanban, LayoutDashboard, User } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
@@ -24,8 +24,8 @@ import { authApi } from '@/lib/api/auth'
 import {
   APP_NAME,
   DASHBOARD_HOME_PATH,
+  getOrgActivityPath,
   getOrgDashboardPath,
-  getOrgOnboardingPath,
   getOrgProjectsPath,
   SETTINGS_ACCOUNT_PATH,
   SETTINGS_ORGANIZATION_PATH,
@@ -94,7 +94,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
       <header className="z-20 flex-shrink-0 border-b border-border bg-[var(--header-glass)] backdrop-blur">
-        <div className="flex w-full flex-col gap-3 px-2 py-3 sm:px-3 lg:px-4">
+        <div className="mx-auto flex w-full max-w-[var(--app-max-width)] flex-col gap-3 px-2 py-3 sm:px-3 lg:px-4">
           <div className="flex w-full items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2.5">
               <Link
@@ -175,7 +175,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
       <div
         className={cn(
-          'grid min-h-0 flex-1 w-full grid-cols-1 gap-0 overflow-hidden',
+          'mx-auto grid min-h-0 flex-1 w-full max-w-[var(--app-max-width)] grid-cols-1 gap-0 overflow-hidden',
           shouldUseContextSidebar ? 'md:grid-cols-1' : 'md:grid-cols-[220px_1fr]'
         )}
       >
@@ -204,11 +204,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
               <DashboardNavLink
                 href={
                   activeOrganization
-                    ? getOrgOnboardingPath(activeOrganization.id)
+                    ? getOrgActivityPath(activeOrganization.id)
                     : DASHBOARD_HOME_PATH
                 }
-                icon={<BarChart3 />}
-                label="Onboarding"
+                icon={<Activity />}
+                label="Activity"
               />
             </nav>
 

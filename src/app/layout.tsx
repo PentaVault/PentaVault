@@ -39,6 +39,10 @@ export default async function RootLayout({ children }: RootLayoutProps) {
       className={`${brandSans.variable} ${brandMono.variable} h-full`}
       suppressHydrationWarning
     >
+      <head>
+        <meta name="color-scheme" content="dark" />
+        <meta name="darkreader-lock" />
+      </head>
       <body className="min-h-full bg-background text-foreground antialiased">
         <AppProviders {...providerProps}>{children}</AppProviders>
       </body>

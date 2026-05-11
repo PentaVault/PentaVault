@@ -114,7 +114,7 @@ export function ProfileMenu() {
           <Link
             href={activeOrgId ? getOrgSettingsApiKeysPath(activeOrgId) : SETTINGS_API_KEYS_PATH}
           >
-            API Keys
+            Tokens
           </Link>
         </DropdownMenuItem>
 

@@ -430,7 +430,12 @@ export default function ProjectsPage() {
         )}
       </div>
 
-      <div className="fixed right-6 bottom-6 z-10">
+      <div
+        className="fixed bottom-6 z-10"
+        style={{
+          right: 'max(1.5rem, calc((100vw - var(--app-max-width)) / 2 + 1.5rem))',
+        }}
+      >
         <Button
           className="border-border-strong bg-background-deep"
           onClick={() => setIsArchiveOpen(true)}
