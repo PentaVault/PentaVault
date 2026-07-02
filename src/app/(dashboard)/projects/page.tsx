@@ -6,6 +6,7 @@ import type { FormEvent } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { PageWrapper } from '@/components/layout/page-wrapper'
+import { BottomActionBar } from '@/components/shared/bottom-action-bar'
 import { EmptyState } from '@/components/shared/empty-state'
 import { ErrorState } from '@/components/shared/error-state'
 import {
@@ -355,52 +356,6 @@ export default function ProjectsPage() {
         ) : null}
       </div>
 
-      {anySelected ? (
-        <div className="mt-3 flex items-center gap-3 rounded-md border border-border bg-background-secondary px-3 py-2">
-          <button
-            className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            onClick={handleDeselectAll}
-            type="button"
-          >
-            <X className="h-3.5 w-3.5" />
-            Deselect all
-          </button>
-          <span className="text-border">|</span>
-          <button
-            className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-            onClick={handleSelectAll}
-            type="button"
-          >
-            Select all ({filteredProjects.filter((item) => item.canAccess).length})
-          </button>
-          <span className="text-border">|</span>
-          <span className="text-xs text-muted-foreground">{selectedIds.size} selected</span>
-
-          <div className="ml-auto flex items-center gap-2">
-            <Button
-              className="px-3 text-xs"
-              onClick={() => void handleBulkArchive()}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <Archive className="mr-1.5 h-3.5 w-3.5" />
-              Archive
-            </Button>
-            <Button
-              className="px-3 text-xs"
-              onClick={() => setIsBulkDeleteOpen(true)}
-              size="sm"
-              type="button"
-              variant="danger"
-            >
-              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-              Delete
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
       <div className="mt-6 space-y-3">
         {filteredProjects.length === 0 ? (
           <EmptyState
@@ -430,14 +385,9 @@ export default function ProjectsPage() {
         )}
       </div>
 
-      <div
-        className="fixed bottom-6 z-10"
-        style={{
-          right: 'max(1.5rem, calc((100vw - var(--app-max-width)) / 2 + 1.5rem))',
-        }}
-      >
+      <BottomActionBar align="right" visible={!anySelected}>
         <Button
-          className="border-border-strong bg-background-deep"
+          className="border-border-strong bg-background-deep shadow-lg"
           onClick={() => setIsArchiveOpen(true)}
           size="sm"
           title="Archived projects"
@@ -450,7 +400,50 @@ export default function ProjectsPage() {
             <span className="ml-1 text-xs text-muted-foreground">({archivedProjects.length})</span>
           ) : null}
         </Button>
-      </div>
+      </BottomActionBar>
+
+      <BottomActionBar align="center" visible={anySelected}>
+        <div className="flex items-center gap-3 rounded-full border border-border-strong bg-background-deep px-4 py-2 shadow-lg">
+          <span className="text-xs font-medium text-foreground">{selectedIds.size} selected</span>
+          <span className="text-border">|</span>
+          <button
+            className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+            onClick={handleSelectAll}
+            type="button"
+          >
+            Select all ({filteredProjects.filter((item) => item.canAccess).length})
+          </button>
+          <button
+            className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            onClick={handleDeselectAll}
+            type="button"
+          >
+            <X className="h-3.5 w-3.5" />
+            Deselect
+          </button>
+          <span className="text-border">|</span>
+          <Button
+            className="px-3 text-xs"
+            onClick={() => void handleBulkArchive()}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <Archive className="mr-1.5 h-3.5 w-3.5" />
+            Archive
+          </Button>
+          <Button
+            className="px-3 text-xs"
+            onClick={() => setIsBulkDeleteOpen(true)}
+            size="sm"
+            type="button"
+            variant="danger"
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+            Delete
+          </Button>
+        </div>
+      </BottomActionBar>
 
       <ProjectCreateDialog
         createPending={createProject.isPending}
@@ -684,6 +677,9 @@ function ArchiveDialog({
               </Button>
             </DialogClose>
           </div>
+          <DialogDescription className="mt-1 text-sm text-muted-foreground">
+            Restore an archived project or delete it and its data permanently.
+          </DialogDescription>
           {archivedProjects.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">No archived projects.</p>
           ) : (
@@ -811,8 +807,8 @@ function ProjectCard({
     >
       <div
         className={cn(
-          'transition-opacity group-hover:opacity-100',
-          showCheckbox ? 'opacity-100' : 'opacity-0'
+          'transition-opacity group-hover:pointer-events-auto group-hover:opacity-100',
+          showCheckbox ? 'opacity-100' : 'pointer-events-none opacity-0'
         )}
       >
         <Checkbox
