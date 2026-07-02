@@ -1,6 +1,14 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 
+const AUTH_PROTECTED_PATH_PREFIXES = [
+  '/activity',
+  '/change-requests',
+  '/dashboard',
+  '/projects',
+  '/settings',
+] as const
+
 function getApiOrigin(): string | null {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL
 
@@ -42,6 +50,12 @@ export function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set('x-nonce', nonce)
   requestHeaders.set('Content-Security-Policy', csp)
+  if (AUTH_PROTECTED_PATH_PREFIXES.some((prefix) => request.nextUrl.pathname.startsWith(prefix))) {
+    requestHeaders.set(
+      'x-pentavault-current-path',
+      `${request.nextUrl.pathname}${request.nextUrl.search}`
+    )
+  }
 
   const response = NextResponse.next({
     request: {
@@ -63,5 +77,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: [
+    '/((?!api/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 }

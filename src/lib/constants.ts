@@ -9,6 +9,7 @@ export const AUTH_REVOKE_SESSION_PATH = `${API_V1_PREFIX}/auth/sessions/revoke`
 
 export const DASHBOARD_HOME_PATH = '/dashboard'
 export const ACTIVITY_PATH = '/activity'
+export const CHANGE_REQUESTS_PATH = '/change-requests'
 export const PROJECTS_PATH = '/projects'
 export const SETTINGS_PATH = '/settings'
 export const SETTINGS_ORGANIZATION_PATH = '/settings/organization'
@@ -30,6 +31,7 @@ export const DEVICE_PATH = '/device'
 export const AUTH_PROTECTED_PATH_PREFIXES = [
   DASHBOARD_HOME_PATH,
   ACTIVITY_PATH,
+  CHANGE_REQUESTS_PATH,
   PROJECTS_PATH,
   SETTINGS_PATH,
 ] as const
@@ -46,6 +48,11 @@ export function getOrgProjectsPath(orgId: string): string {
 export function getOrgActivityPath(orgId: string): string {
   void orgId
   return ACTIVITY_PATH
+}
+
+export function getOrgChangeRequestsPath(orgId: string): string {
+  void orgId
+  return CHANGE_REQUESTS_PATH
 }
 
 export function getOrgProjectPath(orgId: string, projectId: string): string {
@@ -160,7 +167,7 @@ export function getProjectSettingsPath(projectId: string): string {
 
 export const DEFAULT_QUERY_STALE_TIME_MS = 30_000
 
-export const PROJECT_ROLES = ['owner', 'admin', 'member'] as const
+export const PROJECT_ROLES = ['admin', 'member'] as const
 export const PROJECT_STATUSES = ['active', 'archived'] as const
 
 export const SECRET_MODES = ['compatibility', 'gateway'] as const

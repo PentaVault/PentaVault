@@ -2,11 +2,11 @@ import type { HTMLAttributes } from 'react'
 
 import { cn } from '@/lib/utils/cn'
 
-type BadgeProps = HTMLAttributes<HTMLDivElement>
+type BadgeProps = HTMLAttributes<HTMLSpanElement>
 
 export function Badge({ className, ...props }: BadgeProps) {
   return (
-    <div
+    <span
       className={cn(
         'inline-flex items-center rounded-md border border-border bg-background-elevated px-2.5 py-1 text-xs font-mono tracking-[0.12em] uppercase text-foreground',
         className

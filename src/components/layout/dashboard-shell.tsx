@@ -1,6 +1,6 @@
 'use client'
 
-import { Activity, Building2, FolderKanban, LayoutDashboard, User } from 'lucide-react'
+import { Activity, Building2, FileDiff, FolderKanban, LayoutDashboard, User } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
@@ -25,6 +25,7 @@ import {
   APP_NAME,
   DASHBOARD_HOME_PATH,
   getOrgActivityPath,
+  getOrgChangeRequestsPath,
   getOrgDashboardPath,
   getOrgProjectsPath,
   SETTINGS_ACCOUNT_PATH,
@@ -209,6 +210,15 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 }
                 icon={<Activity />}
                 label="Activity"
+              />
+              <DashboardNavLink
+                href={
+                  activeOrganization
+                    ? getOrgChangeRequestsPath(activeOrganization.id)
+                    : DASHBOARD_HOME_PATH
+                }
+                icon={<FileDiff />}
+                label="Change Requests"
               />
             </nav>
 
