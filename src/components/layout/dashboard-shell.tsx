@@ -1,6 +1,15 @@
 'use client'
 
-import { Activity, Building2, FileDiff, FolderKanban, LayoutDashboard, User } from 'lucide-react'
+import {
+  Activity,
+  Building2,
+  FileDiff,
+  FolderKanban,
+  LayoutDashboard,
+  PanelLeftClose,
+  PanelLeftOpen,
+  User,
+} from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
@@ -54,6 +63,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const shouldUseContextSidebar = isProjectRoute || isSettingsContextRoute
   const isCreateOrgOpen = useUiStore((state) => state.createOrganizationDialogOpen)
   const setIsCreateOrgOpen = useUiStore((state) => state.setCreateOrganizationDialogOpen)
+  const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed)
+  const toggleSidebarCollapsed = useUiStore((state) => state.toggleSidebarCollapsed)
   const [organizationName, setOrganizationName] = useState('')
   const [isCreatingOrganization, setIsCreatingOrganization] = useState(false)
 
@@ -102,7 +113,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 className="text-sm font-mono tracking-[0.12em] uppercase"
                 href={DASHBOARD_HOME_PATH}
               >
-                <span className="text-[#00c573]">{APP_NAME}</span> Console
+                <span className="text-accent-strong">{APP_NAME}</span> Console
               </Link>
 
               {auth.status === 'loading' ? (
@@ -176,14 +187,19 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
       <div
         className={cn(
-          'mx-auto grid min-h-0 flex-1 w-full max-w-[var(--app-max-width)] grid-cols-1 gap-0 overflow-hidden',
-          shouldUseContextSidebar ? 'md:grid-cols-1' : 'md:grid-cols-[220px_1fr]'
+          'mx-auto grid min-h-0 flex-1 w-full max-w-[var(--app-max-width)] grid-cols-1 gap-0 overflow-hidden transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none',
+          shouldUseContextSidebar
+            ? 'md:grid-cols-1'
+            : sidebarCollapsed
+              ? 'md:grid-cols-[64px_1fr]'
+              : 'md:grid-cols-[220px_1fr]'
         )}
       >
         {!shouldUseContextSidebar ? (
           <aside className="flex h-full flex-col overflow-y-auto border-b border-border bg-card md:border-r md:border-b-0">
             <nav className="flex flex-1 flex-wrap gap-2 px-2 py-3 md:flex-col md:px-3 md:py-4">
               <DashboardNavLink
+                collapsed={sidebarCollapsed}
                 exact
                 href={
                   activeOrganization
@@ -194,6 +210,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 label="Overview"
               />
               <DashboardNavLink
+                collapsed={sidebarCollapsed}
                 href={
                   activeOrganization
                     ? getOrgProjectsPath(activeOrganization.id)
@@ -203,6 +220,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 label="Projects"
               />
               <DashboardNavLink
+                collapsed={sidebarCollapsed}
                 href={
                   activeOrganization
                     ? getOrgActivityPath(activeOrganization.id)
@@ -212,6 +230,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 label="Activity"
               />
               <DashboardNavLink
+                collapsed={sidebarCollapsed}
                 href={
                   activeOrganization
                     ? getOrgChangeRequestsPath(activeOrganization.id)
@@ -224,11 +243,32 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
             <div className="border-t border-border p-2">
               <DashboardNavLink
+                collapsed={sidebarCollapsed}
                 href={SETTINGS_ORGANIZATION_PATH}
                 icon={<Building2 />}
                 label="Organisation"
               />
-              <DashboardNavLink href={SETTINGS_ACCOUNT_PATH} icon={<User />} label="Account" />
+              <DashboardNavLink
+                collapsed={sidebarCollapsed}
+                href={SETTINGS_ACCOUNT_PATH}
+                icon={<User />}
+                label="Account"
+              />
+              <button
+                aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                className={cn(
+                  'mt-1 hidden w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-card-elevated hover:text-foreground md:flex',
+                  sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
+                )}
+                onClick={toggleSidebarCollapsed}
+                title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                type="button"
+              >
+                <span className="inline-flex h-4 w-4 items-center justify-center text-current">
+                  {sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+                </span>
+                {sidebarCollapsed ? null : 'Collapse'}
+              </button>
             </div>
           </aside>
         ) : null}
