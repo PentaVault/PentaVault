@@ -37,7 +37,13 @@ export const AUTH_PROTECTED_PATH_PREFIXES = [
 ] as const
 
 export function getOrgDashboardPath(orgId: string): string {
-  return `${DASHBOARD_HOME_PATH}/org/${orgId}`
+  // The dashboard is org-aware via the active-organization context, so every
+  // nav surface points at the single canonical `/dashboard` route. Resolving
+  // here (rather than to `/dashboard/org/{orgId}`) keeps users out of the
+  // legacy org-scoped route tree, whose settings subtree is incomplete and was
+  // the source of the intermittent 404s.
+  void orgId
+  return DASHBOARD_HOME_PATH
 }
 
 export function getOrgProjectsPath(orgId: string): string {

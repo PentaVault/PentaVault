@@ -213,7 +213,6 @@ export default function OrganizationActivityPage() {
                         isHighlighted={event.id === highlightedEventId}
                         key={event.id}
                         memberNames={memberNames}
-                        orgId={orgId}
                         projectNameById={projectNameById}
                         secretDetailsByProjectAndSecretId={secretDetailsByProjectAndSecretId}
                       />
@@ -240,14 +239,12 @@ export default function OrganizationActivityPage() {
 function ActivityItem({
   event,
   memberNames,
-  orgId,
   isHighlighted,
   projectNameById,
   secretDetailsByProjectAndSecretId,
 }: {
   event: AuditEvent
   memberNames: Map<string, string>
-  orgId: string | null
   isHighlighted: boolean
   projectNameById: Map<string, string>
   secretDetailsByProjectAndSecretId: Map<string, { name: string; environment: string }>
@@ -265,12 +262,7 @@ function ActivityItem({
     stringMetadata(event.metadata, 'environment') ?? fallbackSecretDetails?.environment ?? null
   const linkedProjectName =
     stringMetadata(event.metadata, 'projectName') ?? fallbackProjectName ?? null
-  const projectHref =
-    resolvedProjectId && orgId
-      ? `/dashboard/org/${orgId}/projects/${resolvedProjectId}`
-      : resolvedProjectId
-        ? `/dashboard/projects/${resolvedProjectId}`
-        : null
+  const projectHref = resolvedProjectId ? `/projects/${resolvedProjectId}` : null
   const summary = describeOrganizationEvent(event, memberNames, {
     environment: fallbackEnvironment,
     projectName: fallbackProjectName,
@@ -278,12 +270,7 @@ function ActivityItem({
   })
 
   async function handleCopyLink() {
-    if (!orgId) {
-      toast.error('Unable to build an activity link right now.')
-      return
-    }
-
-    const link = activityPermalink(orgId, event.id)
+    const link = activityPermalink(event.id)
     const copied = await copyToClipboard(link)
 
     if (!copied) {
@@ -853,8 +840,8 @@ function routeSegment(route: string | null, segment: string) {
   return parts[segmentIndex + 1] ?? null
 }
 
-function activityPermalink(orgId: string, eventId: string) {
-  const url = new URL(`/dashboard/org/${orgId}/activity`, window.location.origin)
+function activityPermalink(eventId: string) {
+  const url = new URL('/activity', window.location.origin)
   url.searchParams.set('event', eventId)
   return url.toString()
 }

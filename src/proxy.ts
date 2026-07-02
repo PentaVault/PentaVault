@@ -9,6 +9,72 @@ const AUTH_PROTECTED_PATH_PREFIXES = [
   '/settings',
 ] as const
 
+/**
+ * Resolve a legacy dashboard URL to its canonical equivalent, or `null` when
+ * the path is already canonical.
+ *
+ * Two legacy route trees used to shadow the canonical flat tree:
+ *   - `/dashboard/org/{orgId}/…`  (org-scoped; its settings subtree was
+ *     incomplete, so deep links 404'd)
+ *   - `/dashboard/projects/…`     (dead duplicate of `/projects/…`)
+ *
+ * Both are collapsed here so any bookmarked or in-flight legacy URL lands on
+ * the real page instead of a missing route.
+ */
+function resolveLegacyDashboardPath(pathname: string): string | null {
+  // /dashboard/projects/… -> /projects/…
+  if (pathname === '/dashboard/projects' || pathname.startsWith('/dashboard/projects/')) {
+    return pathname.slice('/dashboard'.length)
+  }
+
+  // /dashboard/org/{orgId}/… -> canonical flat route
+  const orgMatch = pathname.match(/^\/dashboard\/org\/[^/]+(\/.*)?$/)
+  if (!orgMatch) {
+    return null
+  }
+
+  const rest = orgMatch[1] ?? ''
+
+  if (rest === '' || rest === '/') {
+    return '/dashboard'
+  }
+  // Projects, activity, change-requests, and onboarding share the same slug in
+  // the canonical tree, so the remainder maps across directly.
+  if (
+    rest.startsWith('/projects') ||
+    rest.startsWith('/activity') ||
+    rest.startsWith('/change-requests') ||
+    rest.startsWith('/onboarding')
+  ) {
+    return rest
+  }
+  // Settings split into account- vs organisation-scoped sections in the
+  // canonical tree.
+  if (rest === '/settings' || rest === '/settings/') {
+    return '/settings/organization'
+  }
+  if (rest.startsWith('/settings/api-keys') || rest.startsWith('/settings/tokens')) {
+    return '/settings/account/tokens'
+  }
+  if (rest.startsWith('/settings/sessions')) {
+    return '/settings/account/sessions'
+  }
+  if (rest.startsWith('/settings/billing')) {
+    return '/settings/organization/billing'
+  }
+  if (rest.startsWith('/settings/members')) {
+    return '/settings/organization/members'
+  }
+  if (rest.startsWith('/settings/access')) {
+    return '/settings/organization/access'
+  }
+  if (rest.startsWith('/settings')) {
+    return '/settings/organization'
+  }
+
+  return '/dashboard'
+}
+
 function getApiOrigin(): string | null {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL
 
@@ -24,6 +90,13 @@ function getApiOrigin(): string | null {
 }
 
 export function proxy(request: NextRequest) {
+  const legacyTarget = resolveLegacyDashboardPath(request.nextUrl.pathname)
+  if (legacyTarget) {
+    const redirectUrl = request.nextUrl.clone()
+    redirectUrl.pathname = legacyTarget
+    return NextResponse.redirect(redirectUrl)
+  }
+
   const apiOrigin = getApiOrigin()
   const isSecureRequest = request.nextUrl.protocol === 'https:'
   const nonce = crypto.randomUUID().replaceAll('-', '')
