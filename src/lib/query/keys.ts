@@ -32,6 +32,8 @@ export const queryKeys = {
     all: ['project-access-requests'] as const,
     list: (projectId: string | null, status: string) =>
       ['project-access-requests', projectId, status] as const,
+    organization: (organizationId: string | null, status: string) =>
+      ['project-access-requests', 'organization', organizationId, status] as const,
   },
   projectAudit: {
     all: ['project-audit'] as const,
@@ -53,6 +55,12 @@ export const queryKeys = {
     all: ['project-environments'] as const,
     list: (projectId: string | null) => ['project-environments', projectId] as const,
   },
+  projectConfigs: {
+    all: ['project-configs'] as const,
+    list: (projectId: string | null) => ['project-configs', projectId] as const,
+    changeRequests: (projectId: string | null) =>
+      ['project-configs', projectId, 'change-requests'] as const,
+  },
   projectSettings: {
     all: ['project-settings'] as const,
     detail: (projectId: string | null) => ['project-settings', projectId] as const,
@@ -60,10 +68,13 @@ export const queryKeys = {
   projectMembers: {
     all: ['project-members'] as const,
     list: (projectId: string | null) => ['project-members', projectId] as const,
+    environmentAccess: (projectId: string | null, userId: string | null) =>
+      ['project-members', projectId, userId, 'environment-access'] as const,
   },
   projectSecrets: {
     all: ['project-secrets'] as const,
-    list: (projectId: string | null) => ['project-secrets', projectId] as const,
+    list: (projectId: string | null, configId?: string | null) =>
+      ['project-secrets', projectId, configId ?? 'root'] as const,
     personal: (projectId: string | null) => ['project-secrets', projectId, 'personal'] as const,
     access: (projectId: string | null) => ['project-secrets', projectId, 'access'] as const,
     accessRequests: (projectId: string | null) =>

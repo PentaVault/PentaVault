@@ -6,7 +6,7 @@ import type {
   SECRET_STATUSES,
 } from '@/lib/constants'
 
-export type ProjectRole = (typeof PROJECT_ROLES)[number]
+export type ProjectRole = (typeof PROJECT_ROLES)[number] | 'owner'
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number]
 export type ProjectVisibility = 'open' | 'private'
 export type AccessRequestStatus = 'pending' | 'approved' | 'denied' | 'rejected' | 'cancelled'
@@ -16,6 +16,8 @@ export type SecretStatus = (typeof SECRET_STATUSES)[number]
 export type SecretEncryptionMode = 'encrypted' | 'plaintext'
 export type SecretScope = 'project' | 'personal'
 export type ProjectSettingsAccessMode = 'proxy' | 'direct' | 'both'
+export type ProjectConfigType = 'root' | 'branch'
+export type ProjectConfigVisibility = 'protected' | 'private' | 'shared'
 export type SecretAccessMode = 'direct' | 'proxy'
 export type UserSecretAccessLevel = 'read'
 export type UserSecretAccessStatus = 'active' | 'revoked'
@@ -134,6 +136,7 @@ export interface Secret {
   organizationId?: string | null
   environment: string
   environmentId?: string | null
+  configId?: string | null
   name: string
   mode: SecretMode
   encryptionMode?: SecretEncryptionMode
@@ -207,6 +210,79 @@ export interface ProjectEnvironment {
   color: string | null
   isDefault: boolean
   createdAt: string
+}
+
+export interface ProjectConfig {
+  id: string
+  projectId: string
+  environmentId: string
+  parentConfigId: string | null
+  type: ProjectConfigType
+  name: string
+  slug: string
+  isProtected: boolean
+  isPersonalDefault?: boolean
+  visibility?: ProjectConfigVisibility
+  canEdit?: boolean
+  canShare?: boolean
+  sharedWith?: ProjectConfigShare[]
+  createdByUserId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ProjectConfigShare {
+  configId: string
+  userId: string
+  sharedByUserId: string | null
+  permission: 'read'
+  createdAt: string
+}
+
+export interface ConfigChangeRequestItem {
+  id: string
+  changeRequestId: string
+  operation: 'create' | 'update' | 'delete'
+  secretName: string
+  currentSecretId: string | null
+  proposedSecretId: string | null
+  createdAt: string
+}
+
+export interface ConfigChangeRequestApproval {
+  id: string
+  changeRequestId: string
+  reviewerUserId: string
+  status: 'approved' | 'rescinded'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ConfigChangeRequest {
+  id: string
+  organizationId: string
+  projectId: string
+  sourceConfigId: string | null
+  targetConfigId: string
+  title: string
+  description: string | null
+  status: 'draft' | 'in_review' | 'approved' | 'merged' | 'cancelled' | 'closed'
+  requestedByUserId: string
+  mergedByUserId: string | null
+  mergedAt: string | null
+  createdAt: string
+  updatedAt: string
+  items: ConfigChangeRequestItem[]
+  approvals: ConfigChangeRequestApproval[]
+}
+
+export interface ProjectMemberEnvironmentAccess {
+  id: string
+  projectId: string
+  userId: string
+  environmentId: string
+  grantedBy: string
+  grantedAt: string
 }
 
 export interface ProjectSettings {

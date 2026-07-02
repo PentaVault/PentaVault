@@ -8,10 +8,14 @@ import type {
 import type {
   AccessRequest,
   AuditEvent,
+  ConfigChangeRequest,
   PersonalSecretPromotionRequest,
   Project,
   ProjectAnalyticsSummary,
+  ProjectConfig,
+  ProjectConfigShare,
   ProjectEnvironment,
+  ProjectMemberEnvironmentAccess,
   ProjectMembership,
   ProjectRole,
   ProjectSettings,
@@ -71,6 +75,56 @@ export interface ProjectTokensResponse {
 
 export interface ProjectEnvironmentsResponse {
   environments: ProjectEnvironment[]
+}
+
+export interface ProjectConfigsResponse {
+  configs: ProjectConfig[]
+}
+
+export interface ProjectConfigResponse {
+  config: ProjectConfig
+}
+
+export interface CreateProjectConfigInput {
+  environmentId: string
+  name: string
+  slug: string
+  parentConfigId?: string | null
+}
+
+export interface DeleteProjectConfigResponse {
+  deleted: boolean
+  configId: string
+}
+
+export interface ProjectConfigShareResponse {
+  share: ProjectConfigShare
+}
+
+export interface ConfigChangeRequestsResponse {
+  requests: ConfigChangeRequest[]
+}
+
+export interface ConfigChangeRequestResponse {
+  request: ConfigChangeRequest | null
+}
+
+export interface CreateConfigChangeRequestInput {
+  sourceConfigId: string
+  targetConfigId?: string | null
+  title: string
+  description?: string | null
+  allKeys?: boolean
+  secretNames?: string[]
+}
+
+export interface ProjectMemberEnvironmentAccessResponse {
+  access: ProjectMemberEnvironmentAccess[]
+  unavailable?: boolean
+}
+
+export interface ReplaceProjectMemberEnvironmentAccessInput {
+  environmentIds: string[]
 }
 
 export interface CreateProjectEnvironmentInput {
@@ -135,6 +189,7 @@ export interface CreatePersonalSecretInput {
   projectId: string
   environment?: string
   environmentId?: string
+  configId?: string
   name: string
   plaintext: string
   mode: SecretMode
@@ -303,6 +358,7 @@ export interface CreateSecretInput {
   projectId: string
   environment?: string
   environmentId?: string
+  configId?: string
   name: string
   plaintext: string
   mode: SecretMode
@@ -341,6 +397,7 @@ export interface ImportSecretsInput {
   projectId: string
   environment?: string
   environmentId?: string
+  configId?: string
   mode: SecretMode
   encryptionMode?: Secret['encryptionMode']
   isSensitive?: boolean
@@ -454,7 +511,7 @@ export type AuthSessionRevokeRequest = RevokeSessionRequest
 export interface AuthCreateApiKeyRequest {
   name?: string
   permissions?: AuthApiKeyPermissions
-  organizationId?: string | null
+  organizationId: string
   tokenType?: AuthApiKeyTokenType
 }
 
