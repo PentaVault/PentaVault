@@ -8,6 +8,7 @@ export const AUTH_SESSIONS_PATH = `${API_V1_PREFIX}/auth/sessions`
 export const AUTH_REVOKE_SESSION_PATH = `${API_V1_PREFIX}/auth/sessions/revoke`
 
 export const DASHBOARD_HOME_PATH = '/dashboard'
+export const HOME_PATH = '/home'
 export const ACTIVITY_PATH = '/activity'
 export const CHANGE_REQUESTS_PATH = '/change-requests'
 export const PROJECTS_PATH = '/projects'
