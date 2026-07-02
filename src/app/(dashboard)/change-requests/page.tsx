@@ -1,14 +1,20 @@
 'use client'
 
-import { Check, Filter, RotateCw, Search, Send, Trash2, Undo2, X } from 'lucide-react'
+import { Check, Filter, RotateCw, Search, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useOrganizationAccessRequests, useProjectsQuery } from '@/lib/hooks/use-projects'
+import {
+  useOrganizationAccessRequests,
+  useProjectsQuery,
+  useReviewProjectAccessRequest,
+} from '@/lib/hooks/use-projects'
+import { useToast } from '@/lib/hooks/use-toast'
 import type { AccessRequest } from '@/lib/types/models'
+import { getApiFriendlyMessage } from '@/lib/utils/errors'
 
 type RequestStatusFilter = 'all' | 'pending' | 'approved' | 'rejected' | 'cancelled'
 
@@ -17,6 +23,8 @@ const FILTERS: RequestStatusFilter[] = ['all', 'pending', 'approved', 'rejected'
 export default function ChangeRequestsPage() {
   const auth = useAuth()
   const organizationId = auth.activeOrganization?.organization.id ?? null
+  const role = auth.activeOrganization?.membership.role
+  const canReview = role === 'owner' || role === 'admin'
   const [status, setStatus] = useState<RequestStatusFilter>('all')
   const [query, setQuery] = useState('')
   const requestsQuery = useOrganizationAccessRequests(
@@ -96,6 +104,7 @@ export default function ChangeRequestsPage() {
         ) : (
           requests.map((request) => (
             <ChangeRequestCard
+              canReview={canReview}
               key={request.id}
               projectName={projectById.get(request.projectId)?.name ?? 'Project'}
               request={request}
@@ -108,13 +117,18 @@ export default function ChangeRequestsPage() {
 }
 
 function ChangeRequestCard({
+  canReview,
   projectName,
   request,
 }: {
+  canReview: boolean
   projectName: string
   request: AccessRequest
 }) {
+  const { toast } = useToast()
+  const reviewRequest = useReviewProjectAccessRequest(request.projectId)
   const requester = request.requester?.name ?? request.requester?.email ?? request.requesterId
+  const isPending = request.status === 'pending'
   const statusTone =
     request.status === 'approved'
       ? 'success'
@@ -124,6 +138,23 @@ function ChangeRequestCard({
           ? 'danger'
           : 'neutral'
 
+  async function handleReview(decision: 'approved' | 'rejected') {
+    try {
+      await reviewRequest.mutateAsync({
+        requestId: request.id,
+        input:
+          decision === 'approved'
+            ? { status: 'approved', grantedRole: 'member' }
+            : { status: 'rejected' },
+      })
+      toast.success(
+        decision === 'approved' ? 'Access request approved.' : 'Access request rejected.'
+      )
+    } catch (error) {
+      toast.error(getApiFriendlyMessage(error, 'Unable to update this request right now.'))
+    }
+  }
+
   return (
     <section className="overflow-hidden rounded-lg border border-border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
@@ -131,21 +162,7 @@ function ChangeRequestCard({
           <p className="text-sm font-medium">{projectName}</p>
           <p className="text-xs text-muted-foreground">{requester}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <StatusBadge tone={statusTone}>{request.status}</StatusBadge>
-          <Button disabled size="sm" type="button" variant="outline">
-            <Send className="mr-2 h-4 w-4" />
-            Resend
-          </Button>
-          <Button disabled size="sm" type="button" variant="outline">
-            <Undo2 className="mr-2 h-4 w-4" />
-            Revoke
-          </Button>
-          <Button disabled size="sm" type="button" variant="outline">
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete
-          </Button>
-        </div>
+        <StatusBadge tone={statusTone}>{request.status}</StatusBadge>
       </div>
 
       <div className="bg-[#111317] p-4">
@@ -166,16 +183,35 @@ function ChangeRequestCard({
           <DiffRow label="REQUESTER" left="not assigned" right={requester} />
         </div>
 
-        <div className="mt-4 flex justify-end gap-2">
-          <Button disabled size="sm" type="button" variant="outline">
-            <X className="mr-2 h-4 w-4" />
-            Reject
-          </Button>
-          <Button disabled size="sm" type="button">
-            <Check className="mr-2 h-4 w-4" />
-            Apply to Config
-          </Button>
-        </div>
+        {canReview && isPending ? (
+          <div className="mt-4 flex justify-end gap-2">
+            <Button
+              disabled={reviewRequest.isPending}
+              onClick={() => void handleReview('rejected')}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <X className="mr-2 h-4 w-4" />
+              Reject
+            </Button>
+            <Button
+              disabled={reviewRequest.isPending}
+              onClick={() => void handleReview('approved')}
+              size="sm"
+              type="button"
+            >
+              <Check className="mr-2 h-4 w-4" />
+              Approve
+            </Button>
+          </div>
+        ) : (
+          <p className="mt-4 text-right text-xs text-muted-foreground">
+            {isPending
+              ? 'Only organisation owners and admins can review requests.'
+              : `This request is ${request.status}.`}
+          </p>
+        )}
       </div>
     </section>
   )
