@@ -667,6 +667,7 @@ export const authApi = {
       {
         name: input.name,
         email: input.email,
+        username: input.username,
         password: input.password,
       },
       captchaHeaders(input.captchaToken)

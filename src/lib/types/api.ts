@@ -609,6 +609,7 @@ export interface AuthSignUpWithEmailInput {
 export interface AuthStartRegistrationInput {
   name: string
   email: string
+  username: string
   password: string
   captchaToken?: string | undefined
 }
