@@ -100,6 +100,19 @@ export const projectsApi = {
     return parseApiResponse(listAccessRequestsResponseSchema, response.data)
   },
 
+  async listOrganizationAccessRequests(
+    organizationId: string,
+    status?: 'pending' | 'approved' | 'denied' | 'rejected' | 'cancelled'
+  ): Promise<ListAccessRequestsResponse> {
+    const response = await apiClient.get<ListAccessRequestsResponse>(
+      `/v1/organizations/${organizationId}/access-requests`,
+      {
+        params: status ? { status } : undefined,
+      }
+    )
+    return parseApiResponse(listAccessRequestsResponseSchema, response.data)
+  },
+
   async reviewAccessRequest(
     requestId: string,
     input: ReviewAccessRequestInput

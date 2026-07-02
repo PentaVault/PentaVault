@@ -52,7 +52,6 @@ import { useCreateSecretAccessRequest } from '@/lib/hooks/use-projects'
 import {
   useCancelSecretAccessRequest,
   useGrantSecretAccess,
-  usePersonalSecrets,
   useProjectSecretAccess,
   useProjectSecrets,
   useRevokeSecretAccess,
@@ -128,7 +127,6 @@ export function TokenAssignmentView({
     mode === 'manage' && (effectiveRole === 'owner' || effectiveRole === 'admin')
   const membersQuery = useProjectMembers(projectId, mode === 'manage')
   const secretsQuery = useProjectSecrets(projectId)
-  const personalSecretsQuery = usePersonalSecrets(projectId, mode === 'self')
   const secretAccessQuery = useProjectSecretAccess(projectId)
   const tokensQuery = useProjectTokens(projectId, true, mode === 'manage' ? 'all' : 'self')
   const secretAccessRequestsQuery = useSecretAccessRequests(projectId)
@@ -136,7 +134,6 @@ export function TokenAssignmentView({
   if (
     (mode === 'manage' && membersQuery.isLoading) ||
     secretsQuery.isLoading ||
-    (mode === 'self' && personalSecretsQuery.isLoading) ||
     secretAccessQuery.isLoading ||
     tokensQuery.isLoading
   ) {
@@ -165,10 +162,7 @@ export function TokenAssignmentView({
       : null
   const members =
     mode === 'manage' ? (membersQuery.data?.members ?? []) : selfMember ? [selfMember] : []
-  const secrets = [
-    ...(secretsQuery.data ?? []),
-    ...(mode === 'self' ? (personalSecretsQuery.data ?? []) : []),
-  ]
+  const secrets = secretsQuery.data ?? []
   const tokens = tokensQuery.data ?? []
   const activeTokens = tokens.filter((token) => token.revokedAt === null)
   const activeSecretAccess = (secretAccessQuery.data ?? []).filter(

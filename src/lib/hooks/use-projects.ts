@@ -95,6 +95,24 @@ export function useProjectAccessRequests(
   })
 }
 
+export function useOrganizationAccessRequests(
+  organizationId: string | null,
+  status?: 'pending' | 'approved' | 'denied' | 'rejected' | 'cancelled',
+  enabled = true
+) {
+  return useQuery({
+    queryKey: queryKeys.projectAccessRequests.organization(organizationId, status ?? 'all'),
+    queryFn: async () => {
+      if (!organizationId) {
+        throw new Error('organizationId is required to list access requests')
+      }
+
+      return projectsApi.listOrganizationAccessRequests(organizationId, status)
+    },
+    enabled: Boolean(organizationId) && enabled,
+  })
+}
+
 export function useReviewProjectAccessRequest(projectId?: string | null) {
   const queryClient = useQueryClient()
 
