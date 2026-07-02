@@ -7,10 +7,12 @@ describe('ProjectSecretsPage', () => {
     'utf8'
   )
 
-  it('uses a top-level environment dropdown instead of environment tabs', () => {
-    expect(source).toContain('@/components/ui/select')
-    expect(source).toContain('setSelectedEnvironmentId(value)')
-    expect(source).toContain('canManageSecrets && environments.length > 0')
+  it('uses top-level environment tabs and secondary config tabs', () => {
+    expect(source).toContain('useProjectConfigs')
+    expect(source).toContain('setSelectedEnvironmentId(environment.id)')
+    expect(source).toContain('environmentConfigs.map')
+    expect(source).toContain('setSelectedConfigId(config.id)')
+    expect(source).toContain('New branch')
     expect(source).not.toContain('scopeTab')
   })
 
@@ -20,8 +22,9 @@ describe('ProjectSecretsPage', () => {
     expect(source).toContain('canAccessProject &&')
     expect(source).toContain("effectiveRole === 'developer'")
     expect(source).toContain("effectiveRole === 'member'")
-    expect(source).toContain('{canCreateSecrets ? (')
-    expect(source).toContain('allowProjectScope={canManageSecrets}')
+    expect(source).toContain('canEditSelectedConfig')
+    expect(source).toContain('{canCreateSecrets && canEditSelectedConfig ? (')
+    expect(source).not.toContain('allowProjectScope=')
     expect(source).toContain("environment.slug === 'development'")
     expect(source).not.toContain('{canAccessProject ? (\n            <Button')
   })

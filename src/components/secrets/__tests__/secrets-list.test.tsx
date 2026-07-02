@@ -7,13 +7,13 @@ describe('SecretsList', () => {
     'utf8'
   )
 
-  it('keeps personal secrets user-scoped while rendering fixed scope indicators', () => {
-    expect(source).toContain('usePersonalSecrets')
-    expect(source).toContain('usePersonalSecrets(projectId, enabled && !canManage)')
-    expect(source).toContain("{isPersonal ? 'personal' : 'project'}")
+  it('renders branch-scoped secrets without personal/project overlays', () => {
+    expect(source).not.toContain('usePersonalSecrets')
+    expect(source).not.toContain('usePromotePersonalSecret')
+    expect(source).toContain('branch')
     expect(source).toContain('grid-cols-[minmax(10rem,1fr)_6.5rem_7.25rem]')
     expect(source).toContain('flex w-8 justify-end')
-    expect(source).not.toContain("if ((secret.scope ?? 'project') !== 'project')")
+    expect(source).not.toContain("secret.scope ?? 'project'")
   })
 
   it('only renders the reveal control for plaintext values', () => {
