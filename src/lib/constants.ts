@@ -77,6 +77,11 @@ export function getOrgProjectTokensPath(orgId: string, projectId: string): strin
   return getProjectTokensPath(projectId)
 }
 
+export function getOrgProjectConnectPath(orgId: string, projectId: string): string {
+  void orgId
+  return getProjectConnectPath(projectId)
+}
+
 export function getOrgProjectTeamPath(orgId: string, projectId: string): string {
   void orgId
   return getProjectTeamPath(projectId)
@@ -144,6 +149,10 @@ export function getProjectTokensPath(projectId: string): string {
   return `${getProjectPath(projectId)}/tokens`
 }
 
+export function getProjectConnectPath(projectId: string): string {
+  return `${getProjectPath(projectId)}/connect`
+}
+
 export function getProjectTeamPath(projectId: string): string {
   return `${getProjectPath(projectId)}/team`
 }
@@ -181,3 +190,76 @@ export const SECRET_MODES = ['compatibility', 'gateway'] as const
 export const SECRET_STATUSES = ['active', 'archived', 'revoked'] as const
 
 export const AUDIT_OUTCOMES = ['success', 'failure'] as const
+
+export const GATEWAY_PATH_PREFIX = `${API_V1_PREFIX}/gateway`
+
+/**
+ * AI providers reachable through the PentaVault gateway. `available: true` marks
+ * providers whose gateway route is live today (OpenAI is always registered;
+ * Anthropic when its service is configured). The remaining providers are
+ * catalogued for discovery but do not yet expose a dispatcher route, so the
+ * "Connect your tool" UI keeps them disabled rather than showing an endpoint
+ * that would 404.
+ */
+export type GatewayProvider = {
+  id: string
+  label: string
+  /** Gateway request path, relative to the API origin. */
+  path: string
+  /** Env var an app usually reads for this provider's base URL, if any. */
+  baseUrlEnvVar?: string
+  available: boolean
+}
+
+export const GATEWAY_PROVIDERS: readonly GatewayProvider[] = [
+  {
+    id: 'openai',
+    label: 'OpenAI',
+    path: `${GATEWAY_PATH_PREFIX}/openai/chat/completions`,
+    baseUrlEnvVar: 'OPENAI_BASE_URL',
+    available: true,
+  },
+  {
+    id: 'anthropic',
+    label: 'Anthropic',
+    path: `${GATEWAY_PATH_PREFIX}/anthropic/messages`,
+    baseUrlEnvVar: 'ANTHROPIC_BASE_URL',
+    available: true,
+  },
+  {
+    id: 'groq',
+    label: 'Groq',
+    path: `${GATEWAY_PATH_PREFIX}/groq/chat/completions`,
+    available: false,
+  },
+  {
+    id: 'mistral',
+    label: 'Mistral',
+    path: `${GATEWAY_PATH_PREFIX}/mistral/chat/completions`,
+    available: false,
+  },
+  {
+    id: 'deepseek',
+    label: 'DeepSeek',
+    path: `${GATEWAY_PATH_PREFIX}/deepseek/chat/completions`,
+    available: false,
+  },
+  {
+    id: 'together',
+    label: 'Together',
+    path: `${GATEWAY_PATH_PREFIX}/together/chat/completions`,
+    available: false,
+  },
+  {
+    id: 'xai',
+    label: 'xAI',
+    path: `${GATEWAY_PATH_PREFIX}/xai/chat/completions`,
+    available: false,
+  },
+  {
+    id: 'fireworks',
+    label: 'Fireworks',
+    path: `${GATEWAY_PATH_PREFIX}/fireworks/chat/completions`,
+    available: false,
+  },
+] as const

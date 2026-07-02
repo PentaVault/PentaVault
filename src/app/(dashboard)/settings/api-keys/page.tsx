@@ -11,7 +11,8 @@ import { ErrorState } from '@/components/shared/error-state'
 import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { SegmentedTabs } from '@/components/ui/segmented-tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { authApi } from '@/lib/api/auth'
 import { useToast } from '@/lib/hooks/use-toast'
 import { useUiStore } from '@/lib/stores/ui-store'
@@ -187,17 +188,12 @@ export default function ApiKeysPage() {
       </Card>
 
       <Tabs className="mt-6 space-y-6" onValueChange={handleTabChange} value={activeTab}>
-        <TabsList className="flex flex-wrap gap-2 border-b border-border">
-          {tokenTabs.map((tab) => (
-            <TabsTrigger
-              className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors data-[state=active]:bg-card-elevated data-[state=active]:text-foreground"
-              key={tab.value}
-              value={tab.value}
-            >
-              {tab.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <SegmentedTabs
+          aria-label="Token type"
+          onValueChange={handleTabChange}
+          tabs={tokenTabs.map((tab) => ({ value: tab.value, label: tab.label }))}
+          value={activeTab}
+        />
 
         {tokenTabs.map((tab) => (
           <TabsContent className="space-y-6" key={tab.value} value={tab.value}>
