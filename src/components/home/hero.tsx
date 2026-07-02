@@ -1,6 +1,4 @@
-import Link from 'next/link'
-
-import { LOGIN_PATH, REGISTER_PATH } from '@/lib/constants'
+import { HomeCta } from '@/components/home/home-cta'
 
 /**
  * Browser-framed product shot. The frame tilts back and lifts on hover using
@@ -12,17 +10,14 @@ export function Hero() {
   return (
     <section className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute left-1/2 top-[-10%] h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-emerald-300/30 blur-[120px]" />
-        <div className="absolute right-[8%] top-[30%] h-[280px] w-[280px] rounded-full bg-teal-200/40 blur-[90px]" />
+        <div className="absolute left-1/2 top-[-10%] h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-emerald-300/40 blur-[120px]" />
+        <div className="absolute right-[8%] top-[30%] h-[280px] w-[280px] rounded-full bg-teal-300/50 blur-[90px]" />
+        <div className="absolute left-[6%] top-[45%] h-[240px] w-[240px] rounded-full bg-sky-300/40 blur-[90px]" />
       </div>
 
       <div className="mx-auto max-w-6xl px-6 pb-16 pt-16 sm:px-10 sm:pt-24">
         <div className="mx-auto max-w-3xl text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium tracking-wide text-emerald-700">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            Runtime secrets, proxied and audited
-          </span>
-          <h1 className="mt-6 text-balance text-4xl font-semibold leading-[1.05] tracking-tight text-slate-900 sm:text-6xl">
+          <h1 className="text-balance text-4xl font-semibold leading-[1.05] tracking-tight text-slate-900 sm:text-6xl">
             Ship secrets safely, without pasting them into your code
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-pretty text-base leading-7 text-slate-600 sm:text-lg">
@@ -30,20 +25,7 @@ export function Hero() {
             instead of raw keys, and records every access with project-scoped roles, approvals, and
             a full audit trail.
           </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              className="inline-flex h-11 items-center justify-center rounded-lg bg-slate-900 px-7 text-sm font-medium text-white shadow-sm transition-transform hover:-translate-y-0.5 hover:bg-slate-800"
-              href={REGISTER_PATH}
-            >
-              Get started free
-            </Link>
-            <Link
-              className="inline-flex h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-7 text-sm font-medium text-slate-700 transition-colors hover:border-slate-400 hover:text-slate-900"
-              href={LOGIN_PATH}
-            >
-              Sign in
-            </Link>
-          </div>
+          <HomeCta className="mt-8" variant="hero" />
           <p className="mt-4 text-xs text-slate-500">
             Free for up to 3 members. No credit card required.
           </p>
