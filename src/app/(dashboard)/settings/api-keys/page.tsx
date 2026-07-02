@@ -300,7 +300,7 @@ export default function ApiKeysPage() {
                     <p className="text-xs text-muted-foreground">
                       Organisation:{' '}
                       {apiKey.organizationName ??
-                        (apiKey.organizationId ? apiKey.organizationId : 'All accessible')}
+                        (apiKey.organizationId ? apiKey.organizationId : 'Unscoped legacy token')}
                     </p>
                   </div>
 

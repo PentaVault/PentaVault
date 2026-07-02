@@ -219,6 +219,23 @@ function captchaHeaders(captchaToken?: string): { headers?: Record<string, strin
   return captchaToken ? { headers: { 'x-captcha-response': captchaToken } } : {}
 }
 
+function parseOptionalJsonPayload(data: unknown): unknown {
+  if (typeof data !== 'string') {
+    return data
+  }
+
+  const trimmedData = data.trim()
+  if (!trimmedData) {
+    return null
+  }
+
+  try {
+    return JSON.parse(trimmedData)
+  } catch {
+    return data
+  }
+}
+
 export const authApi = {
   async getCapabilities(): Promise<AuthCapabilitiesResponse> {
     if (isMockAuthEnabled()) {
@@ -251,7 +268,13 @@ export const authApi = {
 
     try {
       const response = await apiClient.get<AuthSessionResponse>(AUTH_SESSION_PATH)
-      return parseApiResponse(authSessionSchema, response.data)
+      const data = parseOptionalJsonPayload(response.data)
+
+      if (data === null) {
+        return null
+      }
+
+      return parseApiResponse(authSessionSchema, data)
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         return null
@@ -326,7 +349,15 @@ export const authApi = {
 
     try {
       const response = await apiClient.get<AuthOrganizationsResponse>('/v1/auth/organizations')
-      return parseApiResponse(authOrganizationsResponseSchema, response.data)
+      const data = parseOptionalJsonPayload(response.data)
+
+      if (data === null) {
+        return {
+          organizations: [],
+        }
+      }
+
+      return parseApiResponse(authOrganizationsResponseSchema, data)
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         return {

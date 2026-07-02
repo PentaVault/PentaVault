@@ -1,7 +1,7 @@
 'use client'
 
 import type { FormEvent } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { CopyButton } from '@/components/shared/copy-button'
 import { StatusBadge } from '@/components/ui/badge'
@@ -71,16 +71,26 @@ function togglePermission(
 export function ApiKeyCreateForm({ onCreated, tokenType = 'personal' }: ApiKeyCreateFormProps) {
   const { toast } = useToast()
   const auth = useAuth()
+  const defaultOrganizationId =
+    auth.activeOrganization?.organization.id ?? auth.organizations[0]?.organization.id ?? ''
 
   const [name, setName] = useState('')
-  const [organizationId, setOrganizationId] = useState<string>(
-    auth.activeOrganization?.organization.id ?? 'all'
-  )
+  const [organizationId, setOrganizationId] = useState<string>(defaultOrganizationId)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [permissions, setPermissions] = useState<AuthApiKeyPermissions>(defaultPermissions)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<AuthCreateApiKeyResponse | null>(null)
+
+  useEffect(() => {
+    if (
+      defaultOrganizationId &&
+      (!organizationId ||
+        !auth.organizations.some((entry) => entry.organization.id === organizationId))
+    ) {
+      setOrganizationId(defaultOrganizationId)
+    }
+  }, [auth.organizations, defaultOrganizationId, organizationId])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
@@ -88,11 +98,15 @@ export function ApiKeyCreateForm({ onCreated, tokenType = 'personal' }: ApiKeyCr
     setError(null)
 
     try {
+      if (!organizationId) {
+        throw new Error('Choose an organisation scope for this token.')
+      }
+
       const trimmedName = name.trim()
       const response = await authApi.createApiKey({
         ...(trimmedName ? { name: trimmedName } : {}),
         tokenType,
-        organizationId: organizationId === 'all' ? null : organizationId,
+        organizationId,
         permissions,
       })
       setResult(response)
@@ -135,11 +149,10 @@ export function ApiKeyCreateForm({ onCreated, tokenType = 'personal' }: ApiKeyCr
           </label>
           <Select onValueChange={setOrganizationId} value={organizationId}>
             <SelectTrigger id="api-key-organization">
-              <SelectValue placeholder="All organisations" />
+              <SelectValue placeholder="Choose an organisation" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="all">All organisations this account can access</SelectItem>
                 {auth.organizations.map((entry) => (
                   <SelectItem key={entry.organization.id} value={entry.organization.id}>
                     {entry.organization.name}
@@ -149,7 +162,7 @@ export function ApiKeyCreateForm({ onCreated, tokenType = 'personal' }: ApiKeyCr
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            Scoped tokens are easier to audit and should be preferred for organisation automation.
+            Tokens are restricted to this organisation and cannot switch to another one.
           </p>
         </div>
 
@@ -200,7 +213,7 @@ export function ApiKeyCreateForm({ onCreated, tokenType = 'personal' }: ApiKeyCr
 
         {error ? <p className="text-sm text-danger">{error}</p> : null}
 
-        <Button disabled={loading} type="submit">
+        <Button disabled={loading || !organizationId} type="submit">
           {loading ? 'Creating...' : 'Create token'}
         </Button>
 

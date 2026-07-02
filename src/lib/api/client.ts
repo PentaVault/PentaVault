@@ -74,6 +74,24 @@ function isOrganizationActivityRequest(url: string | undefined): boolean {
   return /^v1\/organizations\/[^/]+\/activity(?:\?|$)/.test(normalizedUrl)
 }
 
+function isProjectConfigRequest(url: string | undefined): boolean {
+  if (!url) {
+    return false
+  }
+
+  const normalizedUrl = normalizeUrlPath(url)
+  return /^v1\/projects\/[^/]+\/configs(?:\/[^/?]+)?(?:\?|$)/.test(normalizedUrl)
+}
+
+function isProjectMemberEnvironmentAccessRequest(url: string | undefined): boolean {
+  if (!url) {
+    return false
+  }
+
+  const normalizedUrl = normalizeUrlPath(url)
+  return /^v1\/projects\/[^/]+\/members\/[^/]+\/environments(?:\?|$)/.test(normalizedUrl)
+}
+
 function isUpstreamUnavailableResponse(error: unknown): boolean {
   if (!axios.isAxiosError(error)) {
     return false
@@ -206,6 +224,16 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     isOrganizationActivityRequest(error.config?.url) &&
     error.response?.status === 404 &&
     errorCode === 'ROUTE_NOT_FOUND'
+  const isProjectConfigRouteMissing =
+    error.config?.method?.toLowerCase() === 'get' &&
+    isProjectConfigRequest(error.config?.url) &&
+    error.response?.status === 404 &&
+    errorCode === 'ROUTE_NOT_FOUND'
+  const isProjectMemberEnvironmentAccessRouteMissing =
+    error.config?.method?.toLowerCase() === 'get' &&
+    isProjectMemberEnvironmentAccessRequest(error.config?.url) &&
+    error.response?.status === 404 &&
+    errorCode === 'ROUTE_NOT_FOUND'
 
   return (
     isProjectDeleteNotFound ||
@@ -218,6 +246,8 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     isOrgDeleteGuardedFailure ||
     isProjectAuditReadRateLimited ||
     isOrganizationActivityRouteMissing ||
+    isProjectConfigRouteMissing ||
+    isProjectMemberEnvironmentAccessRouteMissing ||
     isExpectedEmailNotVerified
   )
 }
