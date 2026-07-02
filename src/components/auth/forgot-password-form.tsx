@@ -259,7 +259,7 @@ export function ForgotPasswordForm() {
                 : 'Send code'}
           </Button>
           <Link
-            className="text-sm text-[#00c573] underline decoration-[#00c573]/55 underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out hover:text-[#3ecf8e] hover:decoration-[#3ecf8e]"
+            className="text-sm text-accent underline decoration-accent/55 underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out hover:text-accent-strong hover:decoration-accent-strong"
             href={LOGIN_PATH}
           >
             Back to sign in

@@ -200,7 +200,7 @@ export default function DeviceApprovalPage() {
               User code
             </label>
             {formattedCode ? (
-              <span className="font-mono text-xs text-[#00c573]">{formattedCode}</span>
+              <span className="font-mono text-xs text-accent">{formattedCode}</span>
             ) : null}
           </div>
 

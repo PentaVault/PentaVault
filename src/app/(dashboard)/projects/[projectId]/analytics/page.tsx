@@ -40,7 +40,7 @@ import type { SecretAccessEvent } from '@/lib/types/models'
 import { formatDateTime, formatNumber } from '@/lib/utils/format'
 
 const DEFAULT_ANALYTICS_LIMIT = 100
-const CHART_COLORS = ['#3ecf8e', '#d9a441', '#d55b73', '#60a5fa', '#a78bfa', '#f97316']
+const CHART_COLORS = ['var(--accent)', '#d9a441', '#d55b73', '#60a5fa', '#a78bfa', '#f97316']
 
 type CountRow = {
   id: string

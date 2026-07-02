@@ -752,7 +752,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <input
             checked={trustDevice}
-            className="h-4 w-4 accent-[#00c573]"
+            className="h-4 w-4 accent-[color:var(--accent)]"
             onChange={(event) => setTrustDevice(event.target.checked)}
             type="checkbox"
           />
@@ -808,7 +808,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
           Email
         </label>
         {lastEmailLoginMethodLabel ? (
-          <p className="text-xs text-[#00c573]" data-testid="last-login-method-email">
+          <p className="text-xs text-accent" data-testid="last-login-method-email">
             {lastEmailLoginMethodLabel}
           </p>
         ) : null}
@@ -837,7 +837,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
             Password
           </label>
           <Link
-            className="text-xs text-[#00c573] underline decoration-[#00c573]/55 underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out hover:text-[#3ecf8e] hover:decoration-[#3ecf8e]"
+            className="text-xs text-accent underline decoration-accent/55 underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out hover:text-accent-strong hover:decoration-accent-strong"
             href={FORGOT_PASSWORD_PATH}
           >
             Forgot password?
@@ -884,7 +884,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         </Button>
 
         <Link
-          className="text-sm whitespace-normal text-[#00c573] underline decoration-[#00c573]/55 underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out hover:text-[#3ecf8e] hover:decoration-[#3ecf8e]"
+          className="text-sm whitespace-normal text-accent underline decoration-accent/55 underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out hover:text-accent-strong hover:decoration-accent-strong"
           href={REGISTER_PATH}
         >
           Need an account? Create one
