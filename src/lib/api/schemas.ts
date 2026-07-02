@@ -58,6 +58,7 @@ export const authOrganizationMembershipSchema = z.object({
     privateProjectDiscoverability: nullableStringSchema,
     membersCanSeeAllProjects: z.boolean().optional(),
     membersCanRequestProjectAccess: z.boolean().optional(),
+    plan: z.string().optional(),
   }),
   membership: z.object({
     id: z.string(),

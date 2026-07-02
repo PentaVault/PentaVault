@@ -27,6 +27,8 @@ export interface AuthOrganization {
   privateProjectDiscoverability: string | null
   membersCanSeeAllProjects?: boolean
   membersCanRequestProjectAccess?: boolean
+  /** Normalized billing plan (free|pro|team); absent falls back to free. */
+  plan?: string
 }
 
 export interface AuthOrganizationMembership {

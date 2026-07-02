@@ -37,6 +37,9 @@ export function ProfileMenu() {
   const userName = auth.session?.user.name ?? 'Unknown user'
   const userEmail = auth.session?.user.email ?? 'No email'
   const activeOrgId = auth.activeOrganization?.organization.id ?? null
+  // Cosmetic tier badge only — never gate any action on this client value.
+  const plan = auth.activeOrganization?.organization.plan
+  const tierLabel = plan === 'team' ? 'Team' : plan === 'pro' ? 'Pro' : null
 
   async function handleLogout(): Promise<void> {
     try {
@@ -58,7 +61,7 @@ export function ProfileMenu() {
           className="h-9 w-9 overflow-hidden rounded-full border-border p-0"
           variant="ghost"
         >
-          <span className="block h-full w-full rounded-full bg-[radial-gradient(circle_at_30%_25%,#7fffd4_0%,#00c573_42%,#0f3d2e_100%)]" />
+          <span className="block h-full w-full rounded-full bg-[radial-gradient(circle_at_30%_25%,#f4f4f5_0%,#a1a1aa_45%,#3f3f46_100%)]" />
         </Button>
       </DropdownMenuTrigger>
 
@@ -69,7 +72,14 @@ export function ProfileMenu() {
         sideOffset={8}
       >
         <div className="px-2 py-1.5">
-          <p className="truncate text-sm font-medium text-foreground">{userName}</p>
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-medium text-foreground">{userName}</p>
+            {tierLabel ? (
+              <span className="shrink-0 rounded-md border border-accent-border bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-accent">
+                {tierLabel}
+              </span>
+            ) : null}
+          </div>
           <p className="truncate text-xs text-muted-foreground">{userEmail}</p>
         </div>
 
