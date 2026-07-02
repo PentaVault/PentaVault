@@ -123,6 +123,7 @@ fn projects_list_uses_bearer_auth_without_printing_token() {
         .env("PENTAVAULT_TOKEN", "pv_test_secret_token")
         .assert()
         .success()
+        .stdout(predicate::str::contains("Projects for pentavault"))
         .stdout(predicate::str::contains("project_123"))
         .stdout(predicate::str::contains("pv_test_secret_token").not());
 

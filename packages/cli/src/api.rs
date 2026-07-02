@@ -84,6 +84,33 @@ pub struct CliEnvironmentsResponse {
 
 #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CliConfig {
+    pub id: String,
+    pub project_id: String,
+    pub environment_id: String,
+    pub parent_config_id: Option<String>,
+    #[serde(rename = "type")]
+    pub config_type: String,
+    pub name: String,
+    pub slug: String,
+    pub is_protected: bool,
+    pub visibility: Option<String>,
+    pub can_edit: Option<bool>,
+    pub can_share: Option<bool>,
+    pub is_personal_default: Option<bool>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliConfigsResponse {
+    pub project_id: String,
+    pub configs: Vec<CliConfig>,
+}
+
+#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CliSecret {
     pub id: String,
     pub name: String,
@@ -258,16 +285,33 @@ impl ApiClient {
         )
     }
 
+    pub fn list_configs(
+        &self,
+        token: &str,
+        project_id: &str,
+    ) -> Result<CliConfigsResponse, String> {
+        self.get_json(
+            token,
+            &format!("/api/v1/cli/projects/{project_id}/configs"),
+            &[],
+        )
+    }
+
     pub fn list_secrets(
         &self,
         token: &str,
         project_id: &str,
         environment: &str,
+        config: Option<&str>,
     ) -> Result<CliSecretsResponse, String> {
+        let mut query = vec![("environment", environment)];
+        if let Some(config) = config {
+            query.push(("config", config));
+        }
         self.get_json(
             token,
             &format!("/api/v1/cli/projects/{project_id}/secrets"),
-            &[("environment", environment)],
+            &query,
         )
     }
 
@@ -276,12 +320,17 @@ impl ApiClient {
         token: &str,
         project_id: &str,
         environment: &str,
+        config: Option<&str>,
         name: &str,
     ) -> Result<CliSecretValueResponse, String> {
+        let mut query = vec![("environment", environment)];
+        if let Some(config) = config {
+            query.push(("config", config));
+        }
         self.get_json(
             token,
             &format!("/api/v1/cli/projects/{project_id}/secrets/{name}"),
-            &[("environment", environment)],
+            &query,
         )
     }
 
@@ -290,12 +339,17 @@ impl ApiClient {
         token: &str,
         project_id: &str,
         environment: &str,
+        config: Option<&str>,
         purpose: &str,
     ) -> Result<CliSecretValuesResponse, String> {
+        let mut query = vec![("environment", environment), ("purpose", purpose)];
+        if let Some(config) = config {
+            query.push(("config", config));
+        }
         self.get_json(
             token,
             &format!("/api/v1/cli/projects/{project_id}/secrets/values"),
-            &[("environment", environment), ("purpose", purpose)],
+            &query,
         )
     }
 

@@ -10,6 +10,7 @@ pub struct AppConfig {
     pub api_url: Option<String>,
     pub project: Option<String>,
     pub environment: Option<String>,
+    pub config: Option<String>,
     pub format: Option<String>,
 }
 
@@ -19,6 +20,7 @@ impl AppConfig {
             "api_url" | "api-url" => Ok(self.api_url.clone()),
             "project" => Ok(self.project.clone()),
             "env" | "environment" => Ok(self.environment.clone()),
+            "config" => Ok(self.config.clone()),
             "format" => Ok(self.format.clone()),
             _ => Err(format!("unknown config key `{key}`")),
         }
@@ -29,6 +31,7 @@ impl AppConfig {
             "api_url" | "api-url" => self.api_url = Some(value),
             "project" => self.project = Some(value),
             "env" | "environment" => self.environment = Some(value),
+            "config" => self.config = Some(value),
             "format" => self.format = Some(value),
             _ => return Err(format!("unknown config key `{key}`")),
         }
@@ -41,6 +44,7 @@ impl AppConfig {
             "api_url" | "api-url" => self.api_url = None,
             "project" => self.project = None,
             "env" | "environment" => self.environment = None,
+            "config" => self.config = None,
             "format" => self.format = None,
             _ => return Err(format!("unknown config key `{key}`")),
         }

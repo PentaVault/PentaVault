@@ -19,6 +19,9 @@ pub struct Cli {
     #[arg(long = "env", global = true, value_name = "ENVIRONMENT")]
     pub environment: Option<String>,
 
+    #[arg(long, global = true, value_name = "CONFIG")]
+    pub config: Option<String>,
+
     #[arg(long, global = true, value_enum, default_value_t = OutputFormat::Human)]
     pub format: OutputFormat,
 
@@ -64,6 +67,8 @@ pub enum Command {
     Projects(ProjectsCommand),
     #[command(subcommand, about = "Manage environment selection.")]
     Envs(EnvsCommand),
+    #[command(subcommand, about = "Manage config branch selection.")]
+    Configs(ConfigsCommand),
     #[command(subcommand, about = "Read and manage secrets.")]
     Secrets(SecretsCommand),
     #[command(about = "Run a command with PentaVault secrets injected.")]
@@ -73,6 +78,8 @@ pub enum Command {
     },
     #[command(subcommand, about = "Read or update non-secret CLI configuration.")]
     Config(ConfigCommand),
+    #[command(subcommand, about = "Work with change requests.")]
+    ChangeRequests(ChangeRequestsCommand),
     #[command(about = "Run local diagnostics for the CLI environment.")]
     Doctor,
     #[command(about = "Generate shell completion scripts.")]
@@ -94,6 +101,25 @@ pub enum ProjectsCommand {
 pub enum EnvsCommand {
     List,
     Select { environment: String },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ConfigsCommand {
+    List,
+    Select {
+        config: String,
+    },
+    Create {
+        name: String,
+        #[arg(long)]
+        slug: Option<String>,
+        #[arg(long)]
+        parent: Option<String>,
+    },
+    Diff {
+        #[arg(long)]
+        target: Option<String>,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -121,6 +147,26 @@ pub enum ConfigCommand {
     Get { key: String },
     Set { key: String, value: String },
     Unset { key: String },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ChangeRequestsCommand {
+    List,
+    Create {
+        #[arg(long)]
+        config: String,
+        #[arg(long)]
+        target: String,
+    },
+    Approve {
+        id: String,
+    },
+    Merge {
+        id: String,
+    },
+    Cancel {
+        id: String,
+    },
 }
 
 #[derive(Clone, Debug, ValueEnum)]

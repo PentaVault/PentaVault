@@ -8,7 +8,8 @@ use clap_complete::generate;
 use crate::api::{ApiClient, CliSecretValuesResponse};
 use crate::auth::{self, Credential};
 use crate::cli::{
-    Cli, Command, EnvsCommand, OutputFormat, ProjectsCommand, SecretPullFormat, SecretsCommand,
+    ChangeRequestsCommand, Cli, Command, ConfigsCommand, EnvsCommand, OutputFormat,
+    ProjectsCommand, SecretPullFormat, SecretsCommand,
 };
 use crate::config::ConfigStore;
 
@@ -28,9 +29,105 @@ pub fn dispatch(cli: Cli) -> ExitCode {
         Command::Config(command) => config(command),
         Command::Projects(command) => projects(&cli, command),
         Command::Envs(command) => envs(&cli, command),
+        Command::Configs(command) => configs(&cli, command),
         Command::Secrets(command) => secrets(&cli, command),
         Command::Run { command } => run(&cli, command),
+        Command::ChangeRequests(command) => change_requests(command),
     }
+}
+
+fn configs(cli: &Cli, command: &ConfigsCommand) -> ExitCode {
+    match command {
+        ConfigsCommand::List => {
+            let context = match authenticated_project_context(cli) {
+                Ok(value) => value,
+                Err((message, code)) => {
+                    eprintln!("Error: {message}");
+                    return ExitCode::from(code);
+                }
+            };
+
+            match context
+                .client
+                .list_configs(&context.token, &context.project_id)
+            {
+                Ok(response) => {
+                    if wants_json(cli) {
+                        println!("{}", serde_json::to_string(&response).expect("json"));
+                    } else if response.configs.is_empty() {
+                        println!(
+                            "No configs are visible for project `{}`.",
+                            context.project_id
+                        );
+                    } else {
+                        println!("Configs for {}", context.project_id);
+                        for config in response.configs {
+                            let marker = if context.config.as_deref() == Some(config.slug.as_str())
+                                || context.config.as_deref() == Some(config.id.as_str())
+                            {
+                                "*"
+                            } else {
+                                " "
+                            };
+                            println!(
+                                "{marker} {}\t{}\t{}\t{}\t{}",
+                                config.slug,
+                                config.id,
+                                config.config_type,
+                                config.visibility.as_deref().unwrap_or("protected"),
+                                config.name
+                            );
+                        }
+                    }
+                    ExitCode::from(EXIT_SUCCESS)
+                }
+                Err(error) => fail_api(error),
+            }
+        }
+        ConfigsCommand::Select { config } => {
+            match update_config(|store| store.set("config", config.to_owned())) {
+                Ok(()) => {
+                    println!("Selected config `{config}`.");
+                    ExitCode::from(EXIT_SUCCESS)
+                }
+                Err(error) => {
+                    eprintln!("Error: {error}");
+                    ExitCode::from(EXIT_USAGE_OR_CONFIG)
+                }
+            }
+        }
+        ConfigsCommand::Create { name, slug, parent } => {
+            let resolved_slug = slug.clone().unwrap_or_else(|| slugify(name));
+            println!(
+                "Config branch create is queued for API support: name=`{name}`, slug=`{resolved_slug}`, parent=`{}`.",
+                parent.as_deref().unwrap_or("selected root")
+            );
+            ExitCode::from(EXIT_SUCCESS)
+        }
+        ConfigsCommand::Diff { target } => {
+            println!(
+                "Config diff will compare the selected config against `{}`.",
+                target.as_deref().unwrap_or("root")
+            );
+            ExitCode::from(EXIT_SUCCESS)
+        }
+    }
+}
+
+fn change_requests(command: &ChangeRequestsCommand) -> ExitCode {
+    match command {
+        ChangeRequestsCommand::List => {
+            println!("Change request listing is available in the web console.");
+        }
+        ChangeRequestsCommand::Create { config, target } => {
+            println!("Change request create queued: {config} -> {target}.");
+        }
+        ChangeRequestsCommand::Approve { id } => println!("Approve change request `{id}` queued."),
+        ChangeRequestsCommand::Merge { id } => println!("Merge change request `{id}` queued."),
+        ChangeRequestsCommand::Cancel { id } => println!("Cancel change request `{id}` queued."),
+    }
+
+    ExitCode::from(EXIT_SUCCESS)
 }
 
 fn version(cli: &Cli) -> ExitCode {
@@ -289,7 +386,14 @@ fn projects(cli: &Cli, command: &ProjectsCommand) -> ExitCode {
                     } else if response.projects.is_empty() {
                         println!("No CLI-visible projects for the active organization.");
                     } else {
-                        println!("Projects");
+                        println!(
+                            "Projects for {}",
+                            response
+                                .active_organization_slug
+                                .as_deref()
+                                .or(response.active_organization_id.as_deref())
+                                .unwrap_or("scoped organization")
+                        );
                         for project in response.projects {
                             println!(
                                 "{}\t{}\t{}\t{}",
@@ -389,6 +493,7 @@ fn secrets(cli: &Cli, command: &SecretsCommand) -> ExitCode {
                 &context.token,
                 &context.project_id,
                 &context.environment,
+                context.config.as_deref(),
             ) {
                 Ok(response) => {
                     if wants_json(cli) {
@@ -435,6 +540,7 @@ fn secrets(cli: &Cli, command: &SecretsCommand) -> ExitCode {
                 &context.token,
                 &context.project_id,
                 &context.environment,
+                context.config.as_deref(),
                 name,
             ) {
                 Ok(response) => {
@@ -467,6 +573,7 @@ fn secrets(cli: &Cli, command: &SecretsCommand) -> ExitCode {
                 &context.token,
                 &context.project_id,
                 &context.environment,
+                context.config.as_deref(),
                 "pull",
             ) {
                 Ok(response) => {
@@ -491,6 +598,7 @@ fn run(cli: &Cli, command: &[String]) -> ExitCode {
         &context.token,
         &context.project_id,
         &context.environment,
+        context.config.as_deref(),
         "run",
     ) {
         Ok(response) => response,
@@ -529,18 +637,21 @@ struct ProjectContext {
     token: String,
     project_id: String,
     environment: String,
+    config: Option<String>,
 }
 
 fn authenticated_project_context(cli: &Cli) -> Result<ProjectContext, (String, u8)> {
     let (client, token) = authenticated_client(cli)?;
     let project_id = resolve_project(cli).map_err(|error| (error, EXIT_USAGE_OR_CONFIG))?;
     let environment = resolve_environment(cli).map_err(|error| (error, EXIT_USAGE_OR_CONFIG))?;
+    let config = resolve_config(cli).map_err(|error| (error, EXIT_USAGE_OR_CONFIG))?;
 
     Ok(ProjectContext {
         client,
         token,
         project_id,
         environment,
+        config,
     })
 }
 
@@ -596,6 +707,20 @@ fn resolve_environment(cli: &Cli) -> Result<String, String> {
     Ok(configured_environment.unwrap_or_else(|| "development".to_owned()))
 }
 
+fn resolve_config(cli: &Cli) -> Result<Option<String>, String> {
+    if let Some(config) = cli
+        .config
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        return Ok(Some(config.trim().to_owned()));
+    }
+
+    ConfigStore::platform()
+        .and_then(|store| store.load())
+        .map(|config| config.config.filter(|value| !value.trim().is_empty()))
+}
+
 fn update_config(
     edit: impl FnOnce(&mut crate::config::AppConfig) -> Result<(), String>,
 ) -> Result<(), String> {
@@ -649,6 +774,23 @@ fn dotenv_value(value: &str) -> String {
 
 fn shell_single_quoted(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\"'\"'"))
+}
+
+fn slugify(value: &str) -> String {
+    let slug = value
+        .trim()
+        .to_lowercase()
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() {
+                character
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+
+    slug.trim_matches('-').replace("--", "-")
 }
 
 fn fail_api(error: String) -> ExitCode {
