@@ -64,7 +64,7 @@ export function FeatureGrid() {
             const Icon = feature.icon
             return (
               <div
-                className="group rounded-2xl border border-border bg-card p-6 transition-all hover:-translate-y-1 hover:border-border-strong hover:shadow-[0_20px_50px_-25px_rgba(0,0,0,0.6)]"
+                className="group rounded-2xl border border-border bg-card p-6 transition-colors hover:border-accent/60 hover:shadow-[0_20px_50px_-25px_rgba(16,185,129,0.25)]"
                 key={feature.title}
               >
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent/15 text-accent transition-colors group-hover:bg-accent/25">

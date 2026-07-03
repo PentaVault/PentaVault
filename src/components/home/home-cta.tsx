@@ -66,7 +66,7 @@ export function HomeCta({ variant, className }: HomeCtaProps) {
   return (
     <div className={cn('flex flex-col items-center justify-center gap-3 sm:flex-row', className)}>
       <Link
-        className="inline-flex h-12 items-center justify-center rounded-lg bg-accent-strong px-8 text-base font-semibold text-background shadow-lg shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)] transition-transform hover:-translate-y-0.5 hover:bg-accent"
+        className="inline-flex h-12 items-center justify-center rounded-lg bg-accent-strong px-8 text-base font-semibold text-background shadow-lg shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)] transition-colors hover:bg-accent"
         href={primaryHref}
       >
         {primaryLabel}
