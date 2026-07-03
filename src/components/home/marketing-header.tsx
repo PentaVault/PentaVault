@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { HomeCta } from '@/components/home/home-cta'
+import { BrandMark } from '@/components/shared/brand-mark'
 import { APP_NAME } from '@/lib/constants'
 import { cn } from '@/lib/utils/cn'
 
@@ -35,9 +36,9 @@ export function MarketingHeader() {
       )}
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6 sm:px-10">
-        <Link className="flex items-center gap-2" href="/home">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-foreground to-muted-foreground text-sm font-bold text-background shadow-sm">
-            P
+        <Link className="group flex items-center gap-2" href="/home">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-accent/30 bg-accent-muted transition-colors group-hover:border-accent/60">
+            <BrandMark size={20} />
           </span>
           <span className="text-base font-semibold text-foreground">{APP_NAME}</span>
         </Link>

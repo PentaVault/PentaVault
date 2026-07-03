@@ -61,7 +61,7 @@ export function ProfileMenu() {
           className="h-9 w-9 overflow-hidden rounded-full border-border p-0"
           variant="ghost"
         >
-          <span className="block h-full w-full rounded-full bg-[radial-gradient(circle_at_30%_25%,#f4f4f5_0%,#a1a1aa_45%,#3f3f46_100%)]" />
+          <span className="block h-full w-full rounded-full bg-[radial-gradient(circle_at_30%_25%,#34d399_0%,#10b981_45%,#0f3d2e_100%)]" />
         </Button>
       </DropdownMenuTrigger>
 

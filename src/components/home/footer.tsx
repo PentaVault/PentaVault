@@ -1,5 +1,6 @@
 import Link from 'next/link'
 
+import { BrandMark } from '@/components/shared/brand-mark'
 import { APP_NAME } from '@/lib/constants'
 
 const FOOTER_LINKS: { heading: string; links: { label: string; href: string }[] }[] = [
@@ -29,8 +30,8 @@ export function Footer() {
         <div className="flex flex-col gap-10 md:flex-row md:justify-between">
           <div className="max-w-xs">
             <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-sm font-bold text-background">
-                P
+              <span className="flex h-7 w-7 items-center justify-center rounded-md border border-accent/30 bg-accent-muted">
+                <BrandMark animate={false} size={18} />
               </span>
               <span className="text-base font-semibold text-foreground">{APP_NAME}</span>
             </div>
