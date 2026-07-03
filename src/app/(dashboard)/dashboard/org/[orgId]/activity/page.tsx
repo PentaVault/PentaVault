@@ -633,21 +633,58 @@ function describeOrganizationEvent(
 
   if (event.eventType === 'projects.updated') {
     const previousProjectName = stringMetadata(event.metadata, 'previousProjectName')
+    const status = stringMetadata(event.metadata, 'status')
+    const previousStatus = stringMetadata(event.metadata, 'previousStatus')
+    const projectLabel = targetName ?? 'a project'
+
+    // A status change is the most common non-rename update — describe the exact
+    // transition instead of a vague "Updated a project".
+    if (changedFields.includes('status') && status && status !== previousStatus) {
+      const statusSentence =
+        status === 'archived'
+          ? `Archived ${projectLabel}.`
+          : status === 'active' && previousStatus === 'archived'
+            ? `Restored ${projectLabel} from the archive.`
+            : `Changed ${projectLabel} status to ${status}.`
+      return {
+        actor,
+        sentence: statusSentence,
+        tone: status === 'archived' ? ('warning' as const) : ('success' as const),
+        context,
+        change:
+          previousStatus && status
+            ? {
+                label: 'Status',
+                tone: 'neutral' as const,
+                items: [`${previousStatus} → ${status}`],
+              }
+            : null,
+      }
+    }
+
+    if (changedFields.includes('name') && previousProjectName && targetName) {
+      return {
+        actor,
+        sentence: `Renamed ${previousProjectName} to ${targetName}.`,
+        tone: 'warning' as const,
+        context,
+        change: {
+          label: 'Name',
+          tone: 'neutral' as const,
+          items: [`${previousProjectName} → ${targetName}`],
+        },
+      }
+    }
 
     return {
       actor,
-      sentence:
-        changedFields.includes('name') && previousProjectName && targetName
-          ? `Renamed ${previousProjectName} to ${targetName}.`
-          : `Updated ${targetName ?? 'a project'}.`,
+      sentence: changedFields.length
+        ? `Updated ${projectLabel} (${changedFields.join(', ')}).`
+        : `Updated ${projectLabel}.`,
       tone: 'warning' as const,
       context,
       change: changedFields.length
-        ? {
-            label: 'Changed',
-            tone: 'warning' as const,
-            items: changedFields,
-          }
+        ? { label: 'Changed', tone: 'warning' as const, items: changedFields }
         : null,
     }
   }
