@@ -30,22 +30,22 @@ export function MarketingHeader() {
       className={cn(
         'sticky top-0 z-40 border-b transition-shadow duration-200',
         // Always keep a solid, readable bar; deepen the shadow once scrolled.
-        'border-slate-200 bg-white/90 backdrop-blur',
+        'border-border bg-background/90 backdrop-blur',
         scrolled && 'shadow-sm'
       )}
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6 sm:px-10">
         <Link className="flex items-center gap-2" href="/home">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400 to-teal-500 text-sm font-bold text-white shadow-sm">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-foreground to-muted-foreground text-sm font-bold text-background shadow-sm">
             P
           </span>
-          <span className="text-base font-semibold text-slate-900">{APP_NAME}</span>
+          <span className="text-base font-semibold text-foreground">{APP_NAME}</span>
         </Link>
 
         <nav className="hidden items-center gap-1 sm:flex">
           {NAV_LINKS.map((link) => (
             <Link
-              className="rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:text-emerald-600"
+              className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-accent"
               href={link.href}
               key={link.label}
             >

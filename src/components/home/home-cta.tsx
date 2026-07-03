@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 
-import { DASHBOARD_HOME_PATH, LOGIN_PATH, REGISTER_PATH } from '@/lib/constants'
+import { DASHBOARD_HOME_PATH, LOGIN_PATH, PROJECTS_PATH, REGISTER_PATH } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { cn } from '@/lib/utils/cn'
 
@@ -14,10 +14,12 @@ type HomeCtaProps = {
 
 /**
  * Auth-aware call-to-action used by both the marketing header and the hero.
- * Signed-in visitors see a single "Dashboard" button; everyone else sees
- * "Sign in" + "Get started". While auth status is resolving we render the
- * signed-out buttons so nothing flickers to empty (they navigate correctly
- * either way).
+ * The header shows a single "Dashboard" button when signed in, otherwise
+ * "Sign in" + "Get started". The hero always shows two side-by-side buttons:
+ * signed-in visitors get "Open dashboard" + "View projects", everyone else
+ * gets "Get started free" + "Sign in". While auth status is resolving we
+ * render the signed-out buttons so nothing flickers to empty (they navigate
+ * correctly either way).
  */
 export function HomeCta({ variant, className }: HomeCtaProps) {
   const auth = useAuth()
@@ -28,7 +30,7 @@ export function HomeCta({ variant, className }: HomeCtaProps) {
       return (
         <div className={cn('flex items-center gap-2', className)}>
           <Link
-            className="inline-flex h-9 items-center rounded-lg bg-emerald-500 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-400"
+            className="inline-flex h-9 items-center rounded-lg bg-accent-strong px-4 text-sm font-semibold text-background shadow-sm transition-colors hover:bg-accent"
             href={DASHBOARD_HOME_PATH}
           >
             Dashboard
@@ -40,13 +42,13 @@ export function HomeCta({ variant, className }: HomeCtaProps) {
     return (
       <div className={cn('flex items-center gap-2', className)}>
         <Link
-          className="hidden h-9 items-center rounded-lg px-3 text-sm font-medium text-slate-700 transition-colors hover:text-slate-950 sm:inline-flex"
+          className="hidden h-9 items-center rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:inline-flex"
           href={LOGIN_PATH}
         >
           Sign in
         </Link>
         <Link
-          className="inline-flex h-9 items-center rounded-lg bg-emerald-500 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-400"
+          className="inline-flex h-9 items-center rounded-lg bg-accent-strong px-4 text-sm font-semibold text-background shadow-sm transition-colors hover:bg-accent"
           href={REGISTER_PATH}
         >
           Get started
@@ -55,33 +57,25 @@ export function HomeCta({ variant, className }: HomeCtaProps) {
     )
   }
 
-  // hero variant
-  if (isAuthenticated) {
-    return (
-      <div className={cn('flex flex-col items-center justify-center gap-3 sm:flex-row', className)}>
-        <Link
-          className="inline-flex h-12 items-center justify-center rounded-lg bg-emerald-500 px-8 text-base font-semibold text-white shadow-lg shadow-emerald-500/30 transition-transform hover:-translate-y-0.5 hover:bg-emerald-400"
-          href={DASHBOARD_HOME_PATH}
-        >
-          Go to dashboard
-        </Link>
-      </div>
-    )
-  }
+  // hero variant — always two buttons side by side
+  const primaryHref = isAuthenticated ? DASHBOARD_HOME_PATH : REGISTER_PATH
+  const primaryLabel = isAuthenticated ? 'Open dashboard' : 'Get started free'
+  const secondaryHref = isAuthenticated ? PROJECTS_PATH : LOGIN_PATH
+  const secondaryLabel = isAuthenticated ? 'View projects' : 'Sign in'
 
   return (
     <div className={cn('flex flex-col items-center justify-center gap-3 sm:flex-row', className)}>
       <Link
-        className="inline-flex h-12 items-center justify-center rounded-lg bg-emerald-500 px-8 text-base font-semibold text-white shadow-lg shadow-emerald-500/30 transition-transform hover:-translate-y-0.5 hover:bg-emerald-400"
-        href={REGISTER_PATH}
+        className="inline-flex h-12 items-center justify-center rounded-lg bg-accent-strong px-8 text-base font-semibold text-background shadow-lg shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)] transition-transform hover:-translate-y-0.5 hover:bg-accent"
+        href={primaryHref}
       >
-        Get started free
+        {primaryLabel}
       </Link>
       <Link
-        className="inline-flex h-12 items-center justify-center rounded-lg border-2 border-slate-300 bg-white px-8 text-base font-semibold text-slate-800 transition-colors hover:border-emerald-400 hover:text-emerald-600"
-        href={LOGIN_PATH}
+        className="inline-flex h-12 items-center justify-center rounded-lg border-2 border-border bg-card px-8 text-base font-semibold text-foreground transition-colors hover:border-accent hover:text-accent"
+        href={secondaryHref}
       >
-        Sign in
+        {secondaryLabel}
       </Link>
     </div>
   )

@@ -48,13 +48,13 @@ const FEATURES: Feature[] = [
 
 export function FeatureGrid() {
   return (
-    <section className="border-t border-slate-200 bg-white py-20" id="features">
+    <section className="border-t border-border bg-background py-20" id="features">
       <div className="mx-auto max-w-6xl px-6 sm:px-10">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+          <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
             A secrets platform, not just a vault
           </h2>
-          <p className="mt-4 text-slate-600">
+          <p className="mt-4 text-muted-foreground">
             Store, proxy, govern, and audit — the whole lifecycle of a secret in one place.
           </p>
         </div>
@@ -64,14 +64,16 @@ export function FeatureGrid() {
             const Icon = feature.icon
             return (
               <div
-                className="group rounded-2xl border border-slate-200 bg-white p-6 transition-all hover:-translate-y-1 hover:border-emerald-200 hover:shadow-[0_20px_50px_-25px_rgba(16,185,129,0.4)]"
+                className="group rounded-2xl border border-border bg-card p-6 transition-all hover:-translate-y-1 hover:border-border-strong hover:shadow-[0_20px_50px_-25px_rgba(0,0,0,0.6)]"
                 key={feature.title}
               >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition-colors group-hover:bg-emerald-100">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent/15 text-accent transition-colors group-hover:bg-accent/25">
                   <Icon className="h-5 w-5" />
                 </div>
-                <h3 className="mt-5 text-lg font-semibold text-slate-900">{feature.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600">{feature.description}</p>
+                <h3 className="mt-5 text-lg font-semibold text-foreground">{feature.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {feature.description}
+                </p>
               </div>
             )
           })}

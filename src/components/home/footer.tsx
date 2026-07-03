@@ -24,17 +24,17 @@ export function Footer() {
   const year = new Date().getFullYear()
 
   return (
-    <footer className="border-t border-slate-200 bg-white">
+    <footer className="border-t border-border bg-background">
       <div className="mx-auto max-w-6xl px-6 py-14 sm:px-10">
         <div className="flex flex-col gap-10 md:flex-row md:justify-between">
           <div className="max-w-xs">
             <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-500 text-sm font-bold text-white">
+              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-sm font-bold text-background">
                 P
               </span>
-              <span className="text-base font-semibold text-slate-900">{APP_NAME}</span>
+              <span className="text-base font-semibold text-foreground">{APP_NAME}</span>
             </div>
-            <p className="mt-3 text-sm leading-6 text-slate-500">
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
               Runtime secrets, proxied and audited. Store keys once, hand out short-lived tokens.
             </p>
           </div>
@@ -42,14 +42,14 @@ export function Footer() {
           <div className="grid grid-cols-2 gap-10 sm:gap-16">
             {FOOTER_LINKS.map((column) => (
               <div key={column.heading}>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {column.heading}
                 </p>
                 <ul className="mt-4 space-y-2.5">
                   {column.links.map((link) => (
                     <li key={link.label}>
                       <Link
-                        className="text-sm text-slate-600 transition-colors hover:text-slate-900"
+                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                         href={link.href}
                       >
                         {link.label}
@@ -62,12 +62,12 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-slate-100 pt-6 sm:flex-row">
-          <p className="text-xs text-slate-400">
+        <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-border-subtle pt-6 sm:flex-row">
+          <p className="text-xs text-muted-foreground">
             © {year} {APP_NAME}. All rights reserved.
           </p>
-          <div className="flex items-center gap-1.5 text-xs text-slate-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
             All systems operational
           </div>
         </div>
