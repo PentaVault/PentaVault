@@ -1,0 +1,23 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">PentaVault icon</title>
+  <desc id="desc">A minimal emerald pentagon vault mark with a center keyhole for PentaVault.</desc>
+  <defs>
+    <linearGradient id="pentavault-emerald" x1="185" y1="158" x2="836" y2="852" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#34D399"/>
+      <stop offset="0.52" stop-color="#10B981"/>
+      <stop offset="1" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="pentavault-accent" x1="627" y1="170" x2="843" y2="444" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#A855F7"/>
+    </linearGradient>
+    <mask id="keyhole-cutout" maskUnits="userSpaceOnUse">
+      <rect width="1024" height="1024" fill="white"/>
+      <circle cx="512" cy="471" r="66" fill="black"/>
+      <path d="M463 531C463 511.67 478.67 496 498 496H526C545.33 496 561 511.67 561 531V654C561 674.435 544.435 691 524 691H500C479.565 691 463 674.435 463 654V531Z" fill="black"/>
+    </mask>
+  </defs>
+  <path d="M512 104L860.098 356.9L727.121 766.1H296.879L163.902 356.9L512 104Z" fill="url(#pentavault-emerald)" mask="url(#keyhole-cutout)"/>
+  <path d="M512 132L833.469 365.559L710.67 743.5H313.33L190.531 365.559L512 132Z" stroke="#BBF7D0" stroke-opacity="0.5" stroke-width="26" stroke-linejoin="round" mask="url(#keyhole-cutout)"/>
+  <path d="M650 209L792 312L756 423" stroke="url(#pentavault-accent)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

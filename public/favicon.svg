@@ -1,0 +1,8 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PentaVault favicon">
+  <mask id="cutout">
+    <rect width="64" height="64" fill="white"/>
+    <circle cx="32" cy="30" r="4" fill="black"/>
+    <rect x="29" y="33" width="6" height="10" rx="2" fill="black"/>
+  </mask>
+  <path d="M32 6L54.825 22.58L46.107 49.42H17.893L9.175 22.58L32 6Z" fill="#10B981" mask="url(#cutout)"/>
+</svg>
