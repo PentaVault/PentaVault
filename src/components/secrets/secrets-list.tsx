@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import type { FormEvent } from 'react'
 import { useMemo, useState } from 'react'
-
+import { SpotlightCard } from '@/components/shared/spotlight-card'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -483,7 +483,7 @@ export function SecretsList({
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-lg border border-border">
+      <SpotlightCard className="overflow-hidden border border-border">
         {filtered.map((secret, index) => (
           <SecretRow
             anySelected={anySelected}
@@ -507,7 +507,7 @@ export function SecretsList({
             secret={secret}
           />
         ))}
-      </div>
+      </SpotlightCard>
 
       {canManage || editTarget ? (
         <EditSecretDialog
