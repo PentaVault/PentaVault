@@ -20,8 +20,13 @@ export type Plan = {
   id: PlanId
   name: string
   tagline: string
-  priceMonthly: number | null // null => custom / contact
+  /** Per-seat price in INR for this seat band; null => custom / contact. */
+  priceMonthly: number | null
+  /** ISO currency code for priceMonthly (INR). */
+  currency: string
   priceUnit: string
+  /** Seat band this tier is derived from (Polar graduated per-seat pricing). */
+  seatBand: string
   highlighted: boolean
   limits: PlanLimits
   features: string[]
@@ -33,7 +38,9 @@ export const PLANS: Plan[] = [
     name: 'Free',
     tagline: 'For personal projects and small teams getting started.',
     priceMonthly: 0,
+    currency: 'INR',
     priceUnit: 'forever',
+    seatBand: '1–3 seats',
     highlighted: false,
     limits: {
       members: 3,
@@ -55,22 +62,24 @@ export const PLANS: Plan[] = [
     id: 'pro',
     name: 'Pro',
     tagline: 'For growing teams that need governance and approvals.',
-    priceMonthly: 12,
+    priceMonthly: 350,
+    currency: 'INR',
     priceUnit: 'per member / month',
+    seatBand: '4–15 seats',
     highlighted: true,
     limits: {
-      members: 10,
+      members: 15,
       projects: null,
       environmentsPerProject: null,
-      auditRetentionDays: 30,
+      auditRetentionDays: 60,
     },
     features: [
-      'Up to 10 organisation members',
+      '4 to 15 organisation members',
       'Unlimited environments',
       'Role-based access & custom project roles',
       'Change requests & approvals',
       'Secret rotation reminders',
-      '30-day audit log retention',
+      '60-day audit log retention',
       'Priority email support',
     ],
   },
@@ -78,23 +87,25 @@ export const PLANS: Plan[] = [
     id: 'team',
     name: 'Team',
     tagline: 'For organisations with compliance and scale needs.',
-    priceMonthly: 28,
+    priceMonthly: 600,
+    currency: 'INR',
     priceUnit: 'per member / month',
+    seatBand: '16+ seats',
     highlighted: false,
     limits: {
-      members: 50,
+      members: null,
       projects: null,
       environmentsPerProject: null,
-      auditRetentionDays: 90,
+      auditRetentionDays: 180,
     },
     features: [
-      'Up to 50 organisation members',
+      '16+ organisation members',
       'SSO / SAML sign-in',
+      'Advanced security analytics',
       'Change-request policies',
       'Trusted IPs & device binding',
       'Slack & webhook security alerts',
-      'Security analytics dashboard',
-      '90-day audit log retention',
+      '180-day audit log retention',
     ],
   },
 ]

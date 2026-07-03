@@ -9,10 +9,21 @@ import { useAuth } from '@/lib/hooks/use-auth'
 import { useOrganizationMembers } from '@/lib/hooks/use-team'
 import { cn } from '@/lib/utils/cn'
 
-function formatPrice(priceMonthly: number | null): string {
+function formatCurrency(amount: number, currency: string): string {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0,
+  }).format(amount)
+}
+
+function formatPrice(priceMonthly: number | null, currency: string): string {
   if (priceMonthly === null) return 'Custom'
-  if (priceMonthly === 0) return '$0'
-  return `$${priceMonthly}`
+  return formatCurrency(priceMonthly, currency)
+}
+
+function isPlanId(value: string | undefined): value is PlanId {
+  return value === 'free' || value === 'pro' || value === 'team'
 }
 
 export default function OrgBillingPage() {
@@ -22,12 +33,18 @@ export default function OrgBillingPage() {
   const canManageBilling = role === 'owner' || role === 'admin'
   const membersQuery = useOrganizationMembers(organizationId)
 
-  // The plan is not yet exposed on the org record; default to free until the
-  // billing read endpoint lands. Seat usage is the live member count.
-  const currentPlanId: PlanId = 'free'
+  // Plan comes from the org record (exposed via listOrganizations); a missing
+  // or unknown value falls back to free (deny-by-default). Seats = live members.
+  const planFromOrg = auth.activeOrganization?.organization.plan
+  const currentPlanId: PlanId = isPlanId(planFromOrg) ? planFromOrg : 'free'
   const currentPlan = PLANS.find((plan) => plan.id === currentPlanId) ?? PLANS[0]
   const seatsUsed = membersQuery.data?.members?.length ?? null
   const seatLimit = currentPlan.limits.members
+  // Per-seat pricing: the org's bill is the per-member price × seats in use.
+  const monthlyTotal =
+    currentPlan.priceMonthly === null || currentPlan.priceMonthly === 0
+      ? currentPlan.priceMonthly
+      : currentPlan.priceMonthly * (seatsUsed ?? 0)
 
   return (
     <div className="space-y-6 p-6">
@@ -54,11 +71,26 @@ export default function OrgBillingPage() {
                   : `${seatsUsed} of ${seatLimit} seats used`}
             </p>
           </div>
-          {seatLimit !== null && seatsUsed !== null && seatsUsed >= seatLimit ? (
-            <p className="text-xs text-warning">
-              Seat limit reached — upgrade to invite more members.
-            </p>
-          ) : null}
+          <div className="text-right">
+            {monthlyTotal === null ? (
+              <p className="text-sm font-medium">Custom pricing</p>
+            ) : monthlyTotal === 0 ? (
+              <p className="text-sm font-medium">Free</p>
+            ) : (
+              <>
+                <p className="text-sm font-medium">
+                  {formatCurrency(monthlyTotal, currentPlan.currency)} / month
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {seatsUsed} {seatsUsed === 1 ? 'seat' : 'seats'} ×{' '}
+                  {formatCurrency(currentPlan.priceMonthly ?? 0, currentPlan.currency)}
+                </p>
+              </>
+            )}
+            {seatLimit !== null && seatsUsed !== null && seatsUsed >= seatLimit ? (
+              <p className="mt-1 text-xs text-warning">Seat limit reached — upgrade to add more.</p>
+            ) : null}
+          </div>
         </CardContent>
       </Card>
 
@@ -86,9 +118,12 @@ export default function OrgBillingPage() {
                   </div>
                   <CardDescription>{plan.tagline}</CardDescription>
                   <div className="mt-2 flex items-baseline gap-1.5">
-                    <span className="text-2xl font-semibold">{formatPrice(plan.priceMonthly)}</span>
+                    <span className="text-2xl font-semibold">
+                      {formatPrice(plan.priceMonthly, plan.currency)}
+                    </span>
                     <span className="text-xs text-muted-foreground">{plan.priceUnit}</span>
                   </div>
+                  <p className="mt-1 text-xs text-muted-foreground">{plan.seatBand}</p>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col">
                   <ul className="flex-1 space-y-2">

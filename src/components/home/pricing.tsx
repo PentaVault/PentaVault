@@ -4,14 +4,15 @@ import Link from 'next/link'
 import { PLANS } from '@/lib/billing/plans'
 import { REGISTER_PATH } from '@/lib/constants'
 
-function formatPrice(priceMonthly: number | null): string {
+function formatPrice(priceMonthly: number | null, currency: string): string {
   if (priceMonthly === null) {
     return 'Custom'
   }
-  if (priceMonthly === 0) {
-    return '$0'
-  }
-  return `$${priceMonthly}`
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0,
+  }).format(priceMonthly)
 }
 
 export function Pricing() {
@@ -48,10 +49,11 @@ export function Pricing() {
 
               <div className="mt-5 flex items-baseline gap-1.5">
                 <span className="text-4xl font-semibold tracking-tight text-foreground">
-                  {formatPrice(plan.priceMonthly)}
+                  {formatPrice(plan.priceMonthly, plan.currency)}
                 </span>
                 <span className="text-sm text-muted-foreground">{plan.priceUnit}</span>
               </div>
+              <p className="mt-1 text-xs text-muted-foreground">{plan.seatBand}</p>
 
               <Link
                 className={`mt-6 inline-flex h-10 items-center justify-center rounded-lg px-5 text-sm font-medium transition-colors ${
