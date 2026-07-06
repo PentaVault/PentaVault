@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, Check, CreditCard, ShieldCheck, Smartphone, Users } from 'lucide-react'
+import { ArrowLeft, Check, CreditCard, ShieldCheck, Users } from 'lucide-react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useState } from 'react'
@@ -8,7 +8,6 @@ import { useState } from 'react'
 import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import type { BillingPaymentMethod } from '@/lib/api/billing'
 import {
   getMonthlySeatTotal,
   isHigherPlan,
@@ -25,7 +24,6 @@ import {
   useCreateBillingCheckout,
 } from '@/lib/hooks/use-billing'
 import { useOrganizationMembers } from '@/lib/hooks/use-team'
-import { cn } from '@/lib/utils/cn'
 
 function formatCurrency(amount: number, currency: string): string {
   return new Intl.NumberFormat('en-IN', {
@@ -68,7 +66,6 @@ export default function BillingUpgradePage() {
   const checkoutMutation = useCreateBillingCheckout()
   const changePlanMutation = useChangeBillingPlan()
   const [actionError, setActionError] = useState<string | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState<BillingPaymentMethod>('card')
 
   const currentPlanId = normalizePlanId(billingSummary.data?.billing.plan ?? organization?.plan)
   const currentPlan = PLANS.find((plan) => plan.id === currentPlanId) ?? PLANS[0]
@@ -89,7 +86,6 @@ export default function BillingUpgradePage() {
       if (!isPaidPlan(currentPlanId)) {
         const response = await checkoutMutation.mutateAsync({
           planId: targetPlanId,
-          paymentMethod,
           seats: billableSeats,
         })
         window.location.assign(response.checkout.url)
@@ -256,49 +252,16 @@ export default function BillingUpgradePage() {
                   PentaVault creates a Polar checkout session. Stripe may appear inside that
                   checkout because Polar uses Stripe for card processing.
                 </p>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <button
-                    className={cn(
-                      'rounded-lg border p-3 text-left transition',
-                      paymentMethod === 'card'
-                        ? 'border-accent bg-accent-muted text-foreground'
-                        : 'border-border bg-card hover:border-accent/50'
-                    )}
-                    onClick={() => {
-                      setPaymentMethod('card')
-                      setActionError(null)
-                    }}
-                    type="button"
-                  >
-                    <span className="flex items-center gap-2 text-sm font-medium">
-                      <CreditCard className="h-4 w-4 text-accent" />
-                      Card via Polar
-                    </span>
-                    <span className="mt-2 block text-xs text-muted-foreground">
-                      Sandbox accepts test cards only. Use 4242 4242 4242 4242, any future expiry,
-                      and any CVC.
-                    </span>
-                  </button>
-                  <button
-                    aria-disabled="true"
-                    className="cursor-not-allowed rounded-lg border border-warning/35 bg-warning-muted p-3 text-left opacity-80"
-                    onClick={() => {
-                      setPaymentMethod('upi')
-                      setActionError(
-                        'UPI is not available in Polar hosted checkout yet. Use card checkout in sandbox.'
-                      )
-                    }}
-                    type="button"
-                  >
-                    <span className="flex items-center gap-2 text-sm font-medium text-warning">
-                      <Smartphone className="h-4 w-4" />
-                      UPI
-                    </span>
-                    <span className="mt-2 block text-xs text-warning">
-                      Not enabled by Polar hosted checkout yet. The backend rejects UPI checkout
-                      requests clearly instead of redirecting to card payment.
-                    </span>
-                  </button>
+                <div className="mt-4 rounded-lg border border-accent bg-accent-muted p-3 text-left">
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    <CreditCard className="h-4 w-4 text-accent" />
+                    Card via Polar
+                  </span>
+                  <span className="mt-2 block text-xs text-muted-foreground">
+                    Sandbox accepts test cards only. Use 4242 4242 4242 4242, any future expiry, and
+                    any CVC. Other local payment methods are intentionally hidden until the provider
+                    migration is ready.
+                  </span>
                 </div>
               </div>
             ) : null}
@@ -337,7 +300,7 @@ export default function BillingUpgradePage() {
               <p className="text-sm font-medium">Checkout status</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {isPaidPlan(currentPlanId)
-                  ? 'This change is sent to Polar and applies after the webhook confirms the subscription update.'
+                  ? 'This change is sent to Polar and applies immediately when Polar accepts the subscription update. Any prorated adjustment is included on the next invoice.'
                   : 'You will be redirected to Polar sandbox checkout to complete the subscription.'}
               </p>
               {changePlanMutation.isSuccess ? (
@@ -352,12 +315,7 @@ export default function BillingUpgradePage() {
               ) : null}
               <Button
                 className="mt-4"
-                disabled={
-                  !isAvailableUpgrade ||
-                  !canManageBilling ||
-                  isSubmitting ||
-                  (!isPaidPlan(currentPlanId) && paymentMethod === 'upi')
-                }
+                disabled={!isAvailableUpgrade || !canManageBilling || isSubmitting}
                 onClick={handleContinueToCheckout}
                 size="sm"
                 type="button"
@@ -367,9 +325,7 @@ export default function BillingUpgradePage() {
                     ? 'Working...'
                     : isPaidPlan(currentPlanId)
                       ? 'Upgrade with Polar'
-                      : paymentMethod === 'upi'
-                        ? 'UPI not available yet'
-                        : 'Continue to Polar checkout'
+                      : 'Continue to Polar checkout'
                   : 'Owner or admin required'}
               </Button>
             </div>

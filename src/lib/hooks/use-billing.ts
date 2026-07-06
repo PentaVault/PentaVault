@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { billingApi } from '@/lib/api/billing'
 import type { PlanId } from '@/lib/billing/plans'
+import { useAuth } from '@/lib/hooks/use-auth'
 import { queryKeys } from '@/lib/query/keys'
 
 export function useBillingSummary(enabled = true) {
@@ -28,12 +29,14 @@ export function useCreateBillingCheckout() {
 
 export function useChangeBillingPlan() {
   const queryClient = useQueryClient()
+  const auth = useAuth()
 
   return useMutation({
     mutationFn: billingApi.changePlan,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.billing.all })
       await queryClient.invalidateQueries({ queryKey: queryKeys.organizations.all })
+      await auth.refresh()
     },
   })
 }

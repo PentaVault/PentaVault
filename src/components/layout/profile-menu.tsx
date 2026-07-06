@@ -58,10 +58,15 @@ export function ProfileMenu() {
       <DropdownMenuTrigger asChild>
         <Button
           aria-label="Open profile menu"
-          className="h-9 w-9 overflow-hidden rounded-full border-border p-0"
+          className="relative h-9 w-9 rounded-full border-border p-0"
           variant="ghost"
         >
-          <span className="block h-full w-full rounded-full bg-[radial-gradient(circle_at_30%_25%,#34d399_0%,#10b981_45%,#0f3d2e_100%)]" />
+          <span className="block h-full w-full overflow-hidden rounded-full bg-[radial-gradient(circle_at_30%_25%,#34d399_0%,#10b981_45%,#0f3d2e_100%)]" />
+          {tierLabel ? (
+            <span className="absolute -right-1 -bottom-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-background bg-accent px-1 text-[8px] font-bold leading-none text-background uppercase shadow-sm">
+              {tierLabel === 'Team' ? 'T' : 'P'}
+            </span>
+          ) : null}
         </Button>
       </DropdownMenuTrigger>
 

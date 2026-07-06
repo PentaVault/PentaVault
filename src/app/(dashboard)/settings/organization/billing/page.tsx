@@ -153,9 +153,10 @@ export default function OrgBillingPage() {
             </p>
           </div>
           <div className="rounded-lg border border-border bg-background-deep p-3">
-            <p className="font-medium text-foreground">UPI status</p>
+            <p className="font-medium text-foreground">Card checkout only</p>
             <p className="mt-1">
-              UPI is shown as unavailable until Polar exposes it in hosted checkout.
+              Polar is the active sandbox provider. Local payment methods can be revisited during
+              the planned Dodo Payments migration.
             </p>
           </div>
         </CardContent>

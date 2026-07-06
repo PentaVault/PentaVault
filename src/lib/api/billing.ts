@@ -1,8 +1,6 @@
 import { apiClient } from '@/lib/api/client'
 import type { PlanId } from '@/lib/billing/plans'
 
-export type BillingPaymentMethod = 'card' | 'upi'
-
 export type BillingStatus = {
   organizationId: string
   plan: PlanId
@@ -44,7 +42,6 @@ export const billingApi = {
   async createCheckout(input: {
     planId: Exclude<PlanId, 'free'>
     seats?: number
-    paymentMethod?: BillingPaymentMethod
   }): Promise<{ checkout: BillingCheckout }> {
     const response = await apiClient.post<{ checkout: BillingCheckout }>(
       '/v1/billing/checkout',
