@@ -1,7 +1,8 @@
 'use client'
 
-import { ArrowRight, Check, CreditCard, ShieldCheck, TriangleAlert, Users } from 'lucide-react'
+import { ArrowRight, CreditCard, ShieldCheck, TriangleAlert, Users } from 'lucide-react'
 import Link from 'next/link'
+import { useState } from 'react'
 
 import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,9 +15,14 @@ import {
 } from '@/lib/billing/plan-utils'
 import { PLANS, type Plan } from '@/lib/billing/plans'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { isPaidPlan, useBillingSummary, useOpenBillingPortal } from '@/lib/hooks/use-billing'
+import {
+  isPaidPlan,
+  useBillingSummary,
+  useChangeBillingPlan,
+  useOpenBillingPortal,
+} from '@/lib/hooks/use-billing'
 import { useOrganizationMembers } from '@/lib/hooks/use-team'
-import { cn } from '@/lib/utils/cn'
+import { getApiFriendlyMessage } from '@/lib/utils/errors'
 
 function formatCurrency(amount: number, currency: string): string {
   return new Intl.NumberFormat('en-IN', {
@@ -24,11 +30,6 @@ function formatCurrency(amount: number, currency: string): string {
     currency,
     maximumFractionDigits: 0,
   }).format(amount)
-}
-
-function formatPrice(priceMonthly: number | null, currency: string): string {
-  if (priceMonthly === null) return 'Custom'
-  return formatCurrency(priceMonthly, currency)
 }
 
 function formatSeatLimit(plan: Plan): string {
@@ -53,19 +54,6 @@ function billingStatusLabel(status: string | null): string {
   return 'Not connected'
 }
 
-function PlanFeatureList({ plan, limit = 4 }: { plan: Plan; limit?: number }) {
-  return (
-    <ul className="space-y-2">
-      {plan.features.slice(0, limit).map((feature) => (
-        <li className="flex items-start gap-2 text-xs text-muted-foreground" key={feature}>
-          <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-accent" />
-          <span>{feature}</span>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
 export default function OrgBillingPage() {
   const auth = useAuth()
   const organization = auth.activeOrganization?.organization ?? null
@@ -74,13 +62,18 @@ export default function OrgBillingPage() {
   const billingSummary = useBillingSummary(Boolean(organizationId))
   const billing = billingSummary.data?.billing ?? null
   const portalMutation = useOpenBillingPortal()
+  const changePlanMutation = useChangeBillingPlan()
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const canManageBilling = billing?.canManageBilling ?? (role === 'owner' || role === 'admin')
   const membersQuery = useOrganizationMembers(organizationId)
 
   const currentPlanId = normalizePlanId(billing?.plan ?? organization?.plan)
   const currentPlan = PLANS.find((plan) => plan.id === currentPlanId) ?? PLANS[0]
   const upgradeOptions = getHigherPlans(currentPlanId)
+  const nextUpgrade = upgradeOptions[0] ?? null
   const seatsUsed = membersQuery.data?.members?.length ?? null
+  const billableSeats = Math.max(seatsUsed ?? 1, 1)
   const seatLimit = currentPlan.limits.members
   const monthlyTotal = getMonthlySeatTotal(currentPlan, seatsUsed)
   const billingStatus = billingStatusLabel(billing?.status ?? null)
@@ -89,14 +82,38 @@ export default function OrgBillingPage() {
     canManageBilling &&
     Boolean(billing?.customerId) &&
     (isPaidPlan(currentPlanId) || billing?.status === 'past_due')
+  const isBillingActionPending = portalMutation.isPending || changePlanMutation.isPending
+  const canDowngradeToPro = currentPlanId === 'team' && billableSeats <= 15
+
+  async function handleOpenPortal() {
+    setActionError(null)
+    setActionMessage(null)
+    try {
+      await portalMutation.mutateAsync()
+    } catch (error) {
+      setActionError(getApiFriendlyMessage(error, 'Unable to open the billing portal right now.'))
+    }
+  }
+
+  async function handlePlanChange(planId: 'free' | 'pro') {
+    setActionError(null)
+    setActionMessage(null)
+    try {
+      const payload = planId === 'free' ? { planId } : { planId, seats: billableSeats }
+      const response = await changePlanMutation.mutateAsync(payload)
+      setActionMessage(response.change.message)
+    } catch (error) {
+      setActionError(getApiFriendlyMessage(error, 'Unable to update billing right now.'))
+    }
+  }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 pb-14">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold">Billing</h2>
           <p className="text-sm text-muted-foreground">
-            Review your organisation&apos;s plan, seat usage, and available upgrades.
+            Review your organisation&apos;s plan, seat usage, and subscription actions.
           </p>
         </div>
         <StatusBadge tone={upgradeOptions.length > 0 ? 'neutral' : 'success'}>
@@ -118,8 +135,8 @@ export default function OrgBillingPage() {
           </div>
           {shouldShowPortal ? (
             <Button
-              disabled={portalMutation.isPending}
-              onClick={() => portalMutation.mutate()}
+              disabled={isBillingActionPending}
+              onClick={() => void handleOpenPortal()}
               size="sm"
               type="button"
               variant="outline"
@@ -129,38 +146,6 @@ export default function OrgBillingPage() {
           ) : null}
         </div>
       ) : null}
-
-      <Card className="border-sapphire/35 bg-sapphire-muted/40">
-        <CardHeader>
-          <CardTitle className="text-base">Sandbox payment notes</CardTitle>
-          <CardDescription>
-            Checkout is created with Polar. Polar may show Stripe messaging because Stripe is
-            Polar&apos;s card processor, not because PentaVault is using a separate Stripe checkout.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3 text-xs text-muted-foreground md:grid-cols-3">
-          <div className="rounded-lg border border-border bg-background-deep p-3">
-            <p className="font-medium text-foreground">Use test cards only</p>
-            <p className="mt-1">
-              In sandbox mode, enter Stripe test card 4242 4242 4242 4242 with any future expiry and
-              CVC.
-            </p>
-          </div>
-          <div className="rounded-lg border border-border bg-background-deep p-3">
-            <p className="font-medium text-foreground">Do not use real cards</p>
-            <p className="mt-1">
-              A real card in sandbox checkout is rejected with a test-mode card error.
-            </p>
-          </div>
-          <div className="rounded-lg border border-border bg-background-deep p-3">
-            <p className="font-medium text-foreground">Card checkout only</p>
-            <p className="mt-1">
-              Polar is the active sandbox provider. Local payment methods can be revisited during
-              the planned Dodo Payments migration.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <Card>
@@ -264,8 +249,8 @@ export default function OrgBillingPage() {
             ) : null}
             {shouldShowPortal ? (
               <Button
-                disabled={portalMutation.isPending}
-                onClick={() => portalMutation.mutate()}
+                disabled={isBillingActionPending}
+                onClick={() => void handleOpenPortal()}
                 size="sm"
                 type="button"
                 variant="outline"
@@ -277,94 +262,90 @@ export default function OrgBillingPage() {
         </Card>
       </div>
 
-      <section className="space-y-3">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h3 className="text-sm font-semibold">Available upgrades</h3>
-            <p className="text-xs text-muted-foreground">
-              Only plans above your current tier are shown here.
-            </p>
-          </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Billing actions</CardTitle>
+          <CardDescription>
+            Upgrade, downgrade, cancel, or open Polar for invoices and payment method changes.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
           {!canManageBilling ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="rounded-md border border-border bg-background-deep px-3 py-2 text-xs text-muted-foreground">
               Only organisation owners and admins can change billing.
             </p>
           ) : null}
-        </div>
 
-        {upgradeOptions.length > 0 ? (
-          <div
-            className={cn(
-              'grid gap-4',
-              upgradeOptions.length === 1 ? 'lg:grid-cols-1' : 'lg:grid-cols-2'
-            )}
-          >
-            {upgradeOptions.map((plan) => {
-              const estimatedTotal = getMonthlySeatTotal(plan, seatsUsed)
-              return (
-                <Card
-                  className={cn('relative flex flex-col', plan.highlighted && 'border-accent')}
-                  key={plan.id}
-                >
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <CardTitle className="text-base">{plan.name}</CardTitle>
-                        <CardDescription>{plan.tagline}</CardDescription>
-                      </div>
-                      {plan.highlighted ? <StatusBadge tone="success">Popular</StatusBadge> : null}
-                    </div>
-                    <div className="mt-2 flex items-baseline gap-1.5">
-                      <span className="text-2xl font-semibold">
-                        {formatPrice(plan.priceMonthly, plan.currency)}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{plan.priceUnit}</span>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">{plan.seatBand}</p>
-                  </CardHeader>
-                  <CardContent className="flex flex-1 flex-col">
-                    <PlanFeatureList plan={plan} />
-                    <div className="mt-5 rounded-lg border border-border bg-background-deep p-3 text-xs text-muted-foreground">
-                      {estimatedTotal === null
-                        ? 'Custom pricing is handled with the sales team.'
-                        : `Estimated total: ${formatCurrency(
-                            estimatedTotal,
-                            plan.currency
-                          )} / month for ${Math.max(seatsUsed ?? 1, 1)} seats.`}
-                    </div>
-                    {canManageBilling ? (
-                      <Button asChild className="mt-5" size="sm" variant="default">
-                        <Link href={getBillingUpgradePath(plan.id)}>
-                          Upgrade
-                          <ArrowRight className="ml-2 h-3.5 w-3.5" />
-                        </Link>
-                      </Button>
-                    ) : (
-                      <Button className="mt-5" disabled size="sm" type="button" variant="outline">
-                        Upgrade
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
+          <div className="flex flex-wrap gap-2">
+            {nextUpgrade ? (
+              canManageBilling ? (
+                <Button asChild size="sm">
+                  <Link href={getBillingUpgradePath(nextUpgrade.id)}>
+                    Upgrade to {nextUpgrade.name}
+                    <ArrowRight className="ml-2 h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              ) : (
+                <Button disabled size="sm" type="button">
+                  Upgrade to {nextUpgrade.name}
+                </Button>
               )
-            })}
+            ) : null}
+
+            {currentPlanId === 'team' ? (
+              <Button
+                disabled={!canManageBilling || !canDowngradeToPro || isBillingActionPending}
+                onClick={() => void handlePlanChange('pro')}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                {changePlanMutation.isPending ? 'Updating...' : 'Downgrade to Pro'}
+              </Button>
+            ) : null}
+
+            {isPaidPlan(currentPlanId) ? (
+              <Button
+                disabled={!canManageBilling || isBillingActionPending || billing?.cancelAtPeriodEnd}
+                onClick={() => void handlePlanChange('free')}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                {changePlanMutation.isPending ? 'Updating...' : 'Cancel subscription'}
+              </Button>
+            ) : null}
+
+            {shouldShowPortal ? (
+              <Button
+                disabled={!canManageBilling || isBillingActionPending}
+                onClick={() => void handleOpenPortal()}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                {portalMutation.isPending ? 'Opening...' : 'Manage billing'}
+              </Button>
+            ) : null}
           </div>
-        ) : (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm font-medium">No higher-tier plan is available.</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Your organisation is already on the highest published plan.
-                  </p>
-                </div>
-                <StatusBadge tone="success">Fully upgraded</StatusBadge>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </section>
+
+          {currentPlanId === 'team' && !canDowngradeToPro ? (
+            <p className="text-xs text-warning">
+              Remove members until the organisation has 15 or fewer seats before downgrading to Pro.
+            </p>
+          ) : null}
+          {actionMessage ? (
+            <p className="rounded-md border border-success/45 bg-success-muted px-3 py-2 text-xs text-success">
+              {actionMessage}
+            </p>
+          ) : null}
+          {actionError ? (
+            <p className="rounded-md border border-destructive/45 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {actionError}
+            </p>
+          ) : null}
+        </CardContent>
+      </Card>
     </div>
   )
 }

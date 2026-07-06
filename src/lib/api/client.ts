@@ -245,6 +245,11 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     isProjectMemberEnvironmentAccessRequest(error.config?.url) &&
     error.response?.status === 404 &&
     errorCode === 'ROUTE_NOT_FOUND'
+  const isBillingPortalSetupFailure =
+    error.config?.method?.toLowerCase() === 'get' &&
+    normalizeUrlPath(error.config?.url ?? '') === 'v1/billing/portal' &&
+    error.response?.status === 409 &&
+    errorCode === 'BILLING_STATE_INVALID'
 
   return (
     isProjectDeleteNotFound ||
@@ -260,6 +265,7 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     isOrganizationActivityRouteMissing ||
     isProjectConfigRouteMissing ||
     isProjectMemberEnvironmentAccessRouteMissing ||
+    isBillingPortalSetupFailure ||
     isExpectedEmailNotVerified
   )
 }
