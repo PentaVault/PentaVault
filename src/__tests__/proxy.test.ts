@@ -24,7 +24,7 @@ describe('proxy', () => {
 
   it('does not run the proxy on API route handlers', () => {
     expect(config.matcher).toEqual([
-      '/((?!api/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+      '/((?!api/|_next/static|_next/image|.*\\.(?:ico|svg|png|jpg|jpeg|gif|webp)$).*)',
     ])
   })
 

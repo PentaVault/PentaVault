@@ -1,65 +1,59 @@
 'use client'
 
 import { motion, useReducedMotion } from 'motion/react'
+import Image from 'next/image'
 
 import { cn } from '@/lib/utils/cn'
+
+const BRAND_MARK_EASE = [0.16, 1, 0.3, 1] as const
 
 type BrandMarkProps = {
   className?: string
   /** Pixel size of the square mark. Defaults to 24. */
   size?: number
   /**
-   * When false the mark renders in its final state with no entrance animation
-   * (use inside already-animated containers or dense lists).
+   * When false the mark renders with no entrance animation (use inside
+   * already-animated containers, dense lists, or when reduced motion is on).
    */
   animate?: boolean
 }
 
-// A pentagon "vault" mark — five sides for "Penta", a keyhole dot for "Vault".
-// The pentagon path is a unit shape scaled into a 24x24 viewBox.
-const PENTAGON = 'M12 2.5 L20.9 9 L17.5 19.5 L6.5 19.5 L3.1 9 Z'
-
 /**
- * Animated brand mark. The outline draws itself in on mount and the center
- * keyhole fades/scales up just after, using the `motion` library. Falls back to
- * a static mark when the user prefers reduced motion.
+ * The PentaVault brand mark renders the app's SVG logo (public/logo.svg,
+ * sourced from src/app/icon.svg). Keeps a subtle scale/fade entrance for polish,
+ * disabled under prefers-reduced-motion. Decorative: the wordmark text beside it
+ * carries the accessible name, so this is aria-hidden.
  */
 export function BrandMark({ className, size = 24, animate = true }: BrandMarkProps) {
   const reduceMotion = useReducedMotion()
   const shouldAnimate = animate && !reduceMotion
+  const animationProps = shouldAnimate
+    ? {
+        animate: { opacity: 1, scale: 1 },
+        initial: { opacity: 0, scale: 0.8 },
+        transition: { duration: 0.4, ease: BRAND_MARK_EASE },
+      }
+    : {
+        initial: false as const,
+      }
 
   return (
-    <svg
+    <motion.span
       aria-hidden
-      className={cn('text-accent', className)}
-      fill="none"
-      height={size}
-      viewBox="0 0 24 24"
-      width={size}
-      xmlns="http://www.w3.org/2000/svg"
+      className={cn('block shrink-0', className)}
+      style={{ width: size, height: size }}
+      {...animationProps}
     >
-      <title>PentaVault</title>
-      {/* initial={false} makes motion render directly at the animate target
-          with no entrance transition — the reduced-motion / static path. */}
-      <motion.path
-        animate={{ pathLength: 1, opacity: 1 }}
-        d={PENTAGON}
-        initial={shouldAnimate ? { pathLength: 0, opacity: 0 } : false}
-        stroke="currentColor"
-        strokeLinejoin="round"
-        strokeWidth={1.6}
-        transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+      <Image
+        alt=""
+        aria-hidden
+        className="h-full w-full"
+        draggable={false}
+        height={size}
+        src="/logo.svg"
+        unoptimized
+        width={size}
       />
-      <motion.circle
-        animate={{ scale: 1, opacity: 1 }}
-        cx={12}
-        cy={12}
-        fill="currentColor"
-        initial={shouldAnimate ? { scale: 0, opacity: 0 } : false}
-        r={2.4}
-        style={{ transformOrigin: 'center' }}
-        transition={{ delay: 0.6, duration: 0.4, ease: 'easeOut' }}
-      />
-    </svg>
+    </motion.span>
   )
 }

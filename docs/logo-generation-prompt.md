@@ -5,11 +5,10 @@ Recraft, Flux, etc.). It encodes the product, the brand palette already in the
 app, and the "minimal / fast / colorful" qualities you asked for. A second,
 tighter prompt is included for the favicon/app-icon size.
 
-The in-app placeholder mark (`src/components/shared/brand-mark.tsx`) is an
-animated **emerald pentagon with a center keyhole** — "Penta" (five sides) +
-"Vault" (the lock). The prompt intentionally builds on that concept so the
-generated logo and the running app stay coherent; change it if you want a
-different direction.
+The active in-app mark is the SVG logo served from `public/logo.svg`, with
+matching Next.js metadata icons in `src/app/icon.svg`, `src/app/apple-icon.svg`,
+and the source `src/app/favicon.svg`. Regenerate only if you want a different
+brand direction.
 
 Brand palette (from `src/styles/globals.css` — keep the logo in these):
 
@@ -63,10 +62,9 @@ noise, must stay legible at 16x16px. Transparent background. Crisp, fast, iconic
 
 ## After you generate it
 
-1. Export the icon as **SVG** (preferred) plus **PNG** at 512, 192, 32, and 16 px,
-   and an **ICO** for the favicon.
-2. Drop the files in `public/` (e.g. `public/logo.svg`, `public/favicon.ico`,
-   `public/icon-192.png`, `public/icon-512.png`).
-3. Tell me when they're in — I'll wire them into the `BrandMark` component (swap
-   the placeholder pentagon for your SVG), the Next.js `app/icon` / favicon, the
-   marketing header/footer, and the PWA manifest, and verify they render.
+1. Export the icon as **SVG**. PNG exports at 512, 192, 32, and 16 px are useful
+   for app-store or social surfaces, but the website icon should stay SVG.
+2. Put the same SVG in `src/app/icon.svg`, `src/app/apple-icon.svg`,
+   `src/app/favicon.svg`, and `public/logo.svg`.
+3. Verify `BrandMark`, root metadata, OpenGraph, and Twitter card images still
+   point at those SVG files.
