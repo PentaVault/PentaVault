@@ -12,6 +12,14 @@ import type {
   UpdateProjectInput,
 } from '@/lib/types/api'
 
+async function invalidateProjectMutationCaches(queryClient: ReturnType<typeof useQueryClient>) {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.projects.all }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.organizationActivity.all }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.projectAudit.all }),
+  ])
+}
+
 export function useProjectsQuery() {
   const auth = useAuth()
   const activeOrgId = auth.activeOrganization?.organization.id ?? null
@@ -160,7 +168,7 @@ export function useArchiveProject() {
   return useMutation({
     mutationFn: async (projectId: string) => projectsApi.archiveProject(projectId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.projects.all })
+      await invalidateProjectMutationCaches(queryClient)
     },
   })
 }
@@ -171,7 +179,7 @@ export function useUnarchiveProject() {
   return useMutation({
     mutationFn: async (projectId: string) => projectsApi.unarchiveProject(projectId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.projects.all })
+      await invalidateProjectMutationCaches(queryClient)
     },
   })
 }

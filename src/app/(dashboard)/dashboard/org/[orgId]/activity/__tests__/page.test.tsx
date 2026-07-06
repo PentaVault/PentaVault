@@ -21,6 +21,7 @@ type MockActivityResult = {
     }>
   }
   isError: boolean
+  isFetching: boolean
   isLoading: boolean
   error: Error | null
   hasNextPage: boolean
@@ -121,6 +122,7 @@ const {
       ],
     },
     isError: false,
+    isFetching: false,
     isLoading: false,
     error: null,
     hasNextPage: false,
@@ -245,6 +247,7 @@ describe('OrganizationActivityPage', () => {
         ],
       },
       isError: false,
+      isFetching: false,
       isLoading: false,
       error: null,
       hasNextPage: false,
@@ -269,5 +272,74 @@ describe('OrganizationActivityPage', () => {
       screen.getByText(hasExactText('Updated DATABASE_URL in development of Alpha.'))
     ).toBeInTheDocument()
     expect(screen.getAllByText('DATABASE_URL').length).toBeGreaterThan(0)
+  })
+
+  it('renders project archive and restore transitions with distinct status chips', () => {
+    useInfiniteOrganizationActivityMock.mockReturnValueOnce({
+      data: {
+        pages: [
+          {
+            events: [
+              {
+                id: 'audit_archive_1',
+                eventType: 'projects.updated',
+                outcome: 'success',
+                actorUserId: 'user_123',
+                actorSessionId: 'session_123',
+                projectId: 'project_123',
+                secretId: null,
+                tokenId: null,
+                route: '/api/v1/projects/project_123',
+                sourceIp: null,
+                failureReason: null,
+                metadata: {
+                  changedFields: ['status'],
+                  previousStatus: 'active',
+                  projectName: 'Alpha',
+                  status: 'archived',
+                },
+                occurredAt: '2026-05-11T10:00:00.000Z',
+              },
+              {
+                id: 'audit_restore_1',
+                eventType: 'projects.updated',
+                outcome: 'success',
+                actorUserId: 'user_123',
+                actorSessionId: 'session_123',
+                projectId: 'project_123',
+                secretId: null,
+                tokenId: null,
+                route: '/api/v1/projects/project_123',
+                sourceIp: null,
+                failureReason: null,
+                metadata: {
+                  changedFields: ['status'],
+                  previousStatus: 'archived',
+                  projectName: 'Alpha',
+                  status: 'active',
+                },
+                occurredAt: '2026-05-11T11:00:00.000Z',
+              },
+            ],
+            nextCursor: null,
+          },
+        ],
+      },
+      isError: false,
+      isFetching: false,
+      isLoading: false,
+      error: null,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage,
+      refetch,
+    })
+
+    render(<OrganizationActivityPage />)
+
+    expect(screen.getByText(hasExactText('Archived Alpha.'))).toBeInTheDocument()
+    expect(screen.getByText(hasExactText('Restored Alpha from the archive.'))).toBeInTheDocument()
+    expect(screen.getAllByText('active').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('archived').length).toBeGreaterThan(0)
   })
 })

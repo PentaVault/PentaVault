@@ -1,7 +1,7 @@
 'use client'
 
 import { useQueries } from '@tanstack/react-query'
-import { Activity, Link2, Loader2, XCircle } from 'lucide-react'
+import { Activity, Link2, Loader2, RefreshCw, XCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useRef } from 'react'
@@ -164,14 +164,39 @@ export default function OrganizationActivityPage() {
   return (
     <TooltipProvider>
       <PageWrapper className="px-3 sm:px-4 lg:px-5">
-        <div className="mb-8">
-          <div className="flex items-center gap-3">
-            <Activity className="h-5 w-5 text-accent" />
-            <h1 className="text-3xl font-semibold tracking-normal">Activity</h1>
+        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <Activity className="h-5 w-5 text-accent" />
+              <h1 className="text-3xl font-semibold tracking-normal">Activity</h1>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Significant organisation changes across members, projects, tokens, and secrets.
+            </p>
           </div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Significant organisation changes across members, projects, tokens, and secrets.
-          </p>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span className="rounded-md border border-border bg-background-deep px-2.5 py-1">
+              {events.length} {events.length === 1 ? 'event' : 'events'} loaded
+            </span>
+            {highlightedEventId ? (
+              <span className="rounded-md border border-warning/35 bg-warning-muted px-2.5 py-1 text-warning">
+                Highlighting {highlightedEventId}
+              </span>
+            ) : null}
+            <Button
+              className="h-8 gap-1.5"
+              disabled={activityQuery.isFetching}
+              onClick={() => void activityQuery.refetch()}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <RefreshCw
+                className={cn('h-3.5 w-3.5', activityQuery.isFetching && 'animate-spin')}
+              />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {activityQuery.isError ? (
@@ -362,22 +387,7 @@ function ChangeStrip({
         {change.items.length > 0 ? (
           <>
             {visibleItems.map((item) => (
-              <span
-                className={cn(
-                  'max-w-full truncate rounded-md px-2 py-0.5 font-mono text-sm',
-                  change.tone === 'success'
-                    ? 'bg-accent/18 text-accent'
-                    : change.tone === 'danger'
-                      ? 'bg-danger-muted text-danger'
-                      : change.tone === 'warning'
-                        ? 'bg-warning-muted text-warning'
-                        : 'bg-background-elevated text-foreground-soft'
-                )}
-                key={item}
-                title={item}
-              >
-                {item}
-              </span>
+              <ChangeItem change={change} item={item} key={item} />
             ))}
             {hasMoreItems ? <span className="text-sm text-muted-foreground">...</span> : null}
           </>
@@ -386,6 +396,69 @@ function ChangeStrip({
         )}
       </div>
     </div>
+  )
+}
+
+function ChangeItem({
+  change,
+  item,
+}: {
+  change: { label: string; tone: 'success' | 'warning' | 'danger' | 'neutral'; items: string[] }
+  item: string
+}) {
+  if (change.label === 'Status') {
+    const separator = item.includes('→') ? '→' : item.includes('->') ? '->' : null
+    if (separator) {
+      const [previousStatus, nextStatus] = item.split(separator).map((part) => part.trim())
+      if (previousStatus && nextStatus) {
+        return (
+          <span className="inline-flex max-w-full min-w-0 items-center gap-1.5" title={item}>
+            <StatusChip status={previousStatus} />
+            <span className="text-xs text-muted-foreground">→</span>
+            <StatusChip status={nextStatus} />
+          </span>
+        )
+      }
+    }
+
+    return <StatusChip status={item} />
+  }
+
+  return (
+    <span
+      className={cn(
+        'max-w-full truncate rounded-md px-2 py-0.5 font-mono text-sm',
+        change.tone === 'success'
+          ? 'bg-accent/18 text-accent'
+          : change.tone === 'danger'
+            ? 'bg-danger-muted text-danger'
+            : change.tone === 'warning'
+              ? 'bg-warning-muted text-warning'
+              : 'bg-background-elevated text-foreground-soft'
+      )}
+      title={item}
+    >
+      {item}
+    </span>
+  )
+}
+
+function StatusChip({ status }: { status: string }) {
+  const normalized = status.toLowerCase()
+  return (
+    <span
+      className={cn(
+        'max-w-full truncate rounded-md px-2 py-0.5 font-mono text-sm',
+        normalized === 'active'
+          ? 'bg-accent-muted text-accent'
+          : normalized === 'archived'
+            ? 'bg-warning-muted text-warning'
+            : 'bg-background-elevated text-foreground-soft'
+      )}
+      title={status}
+    >
+      {status}
+    </span>
   )
 }
 

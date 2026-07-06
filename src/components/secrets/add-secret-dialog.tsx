@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogOverlay,
   DialogPortal,
   DialogTitle,
@@ -251,6 +252,9 @@ export function AddSecretDialog({
         <DialogOverlay className="fixed inset-0 bg-black/45" />
         <DialogContent className="fixed top-1/2 left-1/2 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-visible rounded-lg border border-border bg-card p-6">
           <DialogTitle className="text-lg font-medium">Add environment variable</DialogTitle>
+          <DialogDescription className="mt-1 text-sm text-muted-foreground">
+            Add one or more KEY=VALUE pairs, or paste and import a .env file.
+          </DialogDescription>
 
           <form className="mt-3 pt-2" onSubmit={(event) => void handleSubmit(event)}>
             <div className="max-h-[52vh] space-y-3 overflow-y-auto p-1">

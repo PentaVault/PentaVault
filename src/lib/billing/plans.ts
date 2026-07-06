@@ -25,7 +25,7 @@ export type Plan = {
   /** ISO currency code for priceMonthly (INR). */
   currency: string
   priceUnit: string
-  /** Seat band this tier is derived from (Polar graduated per-seat pricing). */
+  /** Seat guidance shown in billing UI; it is not a minimum purchase rule. */
   seatBand: string
   highlighted: boolean
   limits: PlanLimits
@@ -65,7 +65,7 @@ export const PLANS: Plan[] = [
     priceMonthly: 350,
     currency: 'INR',
     priceUnit: 'per member / month',
-    seatBand: '4–15 seats',
+    seatBand: 'Up to 15 seats',
     highlighted: true,
     limits: {
       members: 15,
@@ -74,7 +74,7 @@ export const PLANS: Plan[] = [
       auditRetentionDays: 60,
     },
     features: [
-      '4 to 15 organisation members',
+      'Up to 15 organisation members',
       'Unlimited environments',
       'Role-based access & custom project roles',
       'Change requests & approvals',
@@ -90,7 +90,7 @@ export const PLANS: Plan[] = [
     priceMonthly: 600,
     currency: 'INR',
     priceUnit: 'per member / month',
-    seatBand: '16+ seats',
+    seatBand: 'Unlimited seats',
     highlighted: false,
     limits: {
       members: null,
@@ -99,7 +99,7 @@ export const PLANS: Plan[] = [
       auditRetentionDays: 180,
     },
     features: [
-      '16+ organisation members',
+      'Advanced team features and unlimited members',
       'SSO / SAML sign-in',
       'Advanced security analytics',
       'Change-request policies',
