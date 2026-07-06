@@ -2,8 +2,8 @@
 
 import { ArrowLeft, Check, CreditCard, ShieldCheck, Users } from 'lucide-react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
-import { useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -53,6 +53,7 @@ function getActionError(error: unknown): string {
 
 export default function BillingUpgradePage() {
   const params = useParams<{ planId?: string }>()
+  const router = useRouter()
   const targetPlanId = isPlanId(params.planId) ? params.planId : null
   const targetPlan = targetPlanId ? PLANS.find((plan) => plan.id === targetPlanId) : null
 
@@ -60,12 +61,12 @@ export default function BillingUpgradePage() {
   const organization = auth.activeOrganization?.organization ?? null
   const organizationId = organization?.id ?? null
   const role = auth.activeOrganization?.membership.role
-  const canManageBilling = role === 'owner' || role === 'admin'
   const membersQuery = useOrganizationMembers(organizationId)
   const billingSummary = useBillingSummary(Boolean(organizationId))
   const checkoutMutation = useCreateBillingCheckout()
   const changePlanMutation = useChangeBillingPlan()
   const [actionError, setActionError] = useState<string | null>(null)
+  const [hasMounted, setHasMounted] = useState(false)
 
   const currentPlanId = normalizePlanId(billingSummary.data?.billing.plan ?? organization?.plan)
   const currentPlan = PLANS.find((plan) => plan.id === currentPlanId) ?? PLANS[0]
@@ -74,6 +75,13 @@ export default function BillingUpgradePage() {
   const billableSeats = Math.max(seatsUsed ?? 1, 1)
   const estimatedTotal = targetPlan ? getMonthlySeatTotal(targetPlan, seatsUsed) : null
   const isSubmitting = checkoutMutation.isPending || changePlanMutation.isPending
+  const canManageBilling =
+    billingSummary.data?.billing.canManageBilling ?? (role === 'owner' || role === 'admin')
+  const canSubmit = hasMounted && isAvailableUpgrade && canManageBilling && !isSubmitting
+
+  useEffect(() => {
+    setHasMounted(true)
+  }, [])
 
   async function handleContinueToCheckout() {
     if (!targetPlanId || !isPaidPlan(targetPlanId)) {
@@ -96,6 +104,7 @@ export default function BillingUpgradePage() {
         planId: targetPlanId,
         seats: billableSeats,
       })
+      router.replace(SETTINGS_ORGANIZATION_BILLING_PATH)
     } catch (error) {
       setActionError(getActionError(error))
     }
@@ -315,18 +324,20 @@ export default function BillingUpgradePage() {
               ) : null}
               <Button
                 className="mt-4"
-                disabled={!isAvailableUpgrade || !canManageBilling || isSubmitting}
+                disabled={!canSubmit}
                 onClick={handleContinueToCheckout}
                 size="sm"
                 type="button"
               >
-                {canManageBilling
-                  ? isSubmitting
-                    ? 'Working...'
-                    : isPaidPlan(currentPlanId)
-                      ? 'Upgrade with Polar'
-                      : 'Continue to Polar checkout'
-                  : 'Owner or admin required'}
+                {!hasMounted
+                  ? 'Loading billing...'
+                  : canManageBilling
+                    ? isSubmitting
+                      ? 'Working...'
+                      : isPaidPlan(currentPlanId)
+                        ? 'Upgrade with Polar'
+                        : 'Continue to Polar checkout'
+                    : 'Owner or admin required'}
               </Button>
             </div>
           </CardContent>
