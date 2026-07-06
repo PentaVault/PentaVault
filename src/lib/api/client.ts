@@ -56,6 +56,15 @@ function isAuthOrganizationsRequest(url: string | undefined): boolean {
   )
 }
 
+function isAuthCapabilitiesRequest(url: string | undefined): boolean {
+  if (!url) {
+    return false
+  }
+
+  const normalizedUrl = normalizeUrlPath(url)
+  return normalizedUrl === 'v1/auth/capabilities'
+}
+
 function isProjectAuditRequest(url: string | undefined): boolean {
   if (!url) {
     return false
@@ -200,6 +209,8 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     isAuthOrganizationsRequest(error.config?.url) && error.response?.status === 401
   const isAuthOrganizationsUnavailable =
     isAuthOrganizationsRequest(error.config?.url) && isUpstreamUnavailableResponse(error)
+  const isAuthCapabilitiesUnavailable =
+    isAuthCapabilitiesRequest(error.config?.url) && isUpstreamUnavailableResponse(error)
 
   const authOrganizationsErrorCode = (error.response?.data as { code?: string } | undefined)?.code
   const isAuthSetActiveKnownFailure =
@@ -242,6 +253,7 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     isProjectCreateKnownFailure ||
     isAuthOrganizationsUnauthorized ||
     isAuthOrganizationsUnavailable ||
+    isAuthCapabilitiesUnavailable ||
     isAuthSetActiveKnownFailure ||
     isOrgDeleteGuardedFailure ||
     isProjectAuditReadRateLimited ||
