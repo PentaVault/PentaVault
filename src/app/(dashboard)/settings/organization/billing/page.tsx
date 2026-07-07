@@ -21,8 +21,10 @@ import { useAuth } from '@/lib/hooks/use-auth'
 import {
   isPaidPlan,
   useBillingHistory,
+  useBillingProfile,
   useBillingSummary,
   useOpenBillingPortal,
+  useUpdateBillingProfile,
 } from '@/lib/hooks/use-billing'
 import { useOrganizationMembers } from '@/lib/hooks/use-team'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
@@ -71,6 +73,47 @@ function historyEventLabel(eventType: string): string {
 
 function formatPlanName(planId: PlanId | null): string {
   return PLANS.find((plan) => plan.id === planId)?.name ?? 'Unknown'
+}
+
+type BillingProfileForm = {
+  receiptEmail: string
+  financeEmails: string
+  businessName: string
+  taxId: string
+  line1: string
+  line2: string
+  city: string
+  state: string
+  postalCode: string
+  country: string
+}
+
+const emptyProfileForm: BillingProfileForm = {
+  receiptEmail: '',
+  financeEmails: '',
+  businessName: '',
+  taxId: '',
+  line1: '',
+  line2: '',
+  city: '',
+  state: '',
+  postalCode: '',
+  country: '',
+}
+
+function parseFinanceEmails(value: string): string[] {
+  return [
+    ...new Set(
+      value
+        .split(/[,\n]/)
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean)
+    ),
+  ]
+}
+
+function toNullableString(value: string): string | null {
+  return value.trim() || null
 }
 
 function lifecycleMessage(input: {
@@ -128,6 +171,9 @@ export default function OrgBillingPage() {
   const membersQuery = useOrganizationMembers(organizationId)
   const [hasMounted, setHasMounted] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [profileMessage, setProfileMessage] = useState<string | null>(null)
+  const [profileError, setProfileError] = useState<string | null>(null)
+  const [profileForm, setProfileForm] = useState<BillingProfileForm>(emptyProfileForm)
 
   useEffect(() => {
     setHasMounted(true)
@@ -136,6 +182,8 @@ export default function OrgBillingPage() {
   const canManageBilling =
     hasMounted && (billing?.canManageBilling ?? (role === 'owner' || role === 'admin'))
   const historyQuery = useBillingHistory(organizationId, canManageBilling)
+  const profileQuery = useBillingProfile(organizationId, canManageBilling)
+  const updateProfileMutation = useUpdateBillingProfile(organizationId)
   const storedPlanId = normalizePlanId(billing?.plan ?? organization?.plan)
   const effectivePlanId = normalizePlanId(
     billing?.effectivePlan ?? billing?.plan ?? organization?.plan
@@ -159,6 +207,30 @@ export default function OrgBillingPage() {
     Boolean(billing?.customerId) &&
     (isPaidPlan(storedPlanId) || billing?.status === 'past_due')
 
+  useEffect(() => {
+    const profile = profileQuery.data?.profile
+    if (!profile) {
+      setProfileForm((current) => ({
+        ...current,
+        receiptEmail: current.receiptEmail || auth.session?.user.email || '',
+      }))
+      return
+    }
+
+    setProfileForm({
+      receiptEmail: profile.receiptEmail ?? auth.session?.user.email ?? '',
+      financeEmails: profile.financeEmails.join(', '),
+      businessName: profile.businessName ?? '',
+      taxId: profile.taxId ?? '',
+      line1: profile.address.line1 ?? '',
+      line2: profile.address.line2 ?? '',
+      city: profile.address.city ?? '',
+      state: profile.address.state ?? '',
+      postalCode: profile.address.postalCode ?? '',
+      country: profile.address.country ?? '',
+    })
+  }, [auth.session?.user.email, profileQuery.data?.profile])
+
   async function handleOpenPortal() {
     setActionError(null)
 
@@ -166,6 +238,31 @@ export default function OrgBillingPage() {
       await portalMutation.mutateAsync()
     } catch (error) {
       setActionError(getApiFriendlyMessage(error, 'Unable to open the billing portal right now.'))
+    }
+  }
+
+  async function handleSaveProfile() {
+    setProfileMessage(null)
+    setProfileError(null)
+
+    try {
+      await updateProfileMutation.mutateAsync({
+        receiptEmail: toNullableString(profileForm.receiptEmail),
+        financeEmails: parseFinanceEmails(profileForm.financeEmails),
+        businessName: toNullableString(profileForm.businessName),
+        taxId: toNullableString(profileForm.taxId),
+        address: {
+          line1: toNullableString(profileForm.line1),
+          line2: toNullableString(profileForm.line2),
+          city: toNullableString(profileForm.city),
+          state: toNullableString(profileForm.state),
+          postalCode: toNullableString(profileForm.postalCode),
+          country: toNullableString(profileForm.country),
+        },
+      })
+      setProfileMessage('Billing contact updated.')
+    } catch (error) {
+      setProfileError(getApiFriendlyMessage(error, 'Unable to update billing contact right now.'))
     }
   }
 
@@ -355,21 +452,222 @@ export default function OrgBillingPage() {
               Billing contact
             </CardTitle>
             <CardDescription>
-              Receipts currently go to the Polar checkout customer. Keep finance-copy emails in
-              Polar until local invoice contacts are implemented.
+              Store receipt, finance-copy, and invoice details for this organisation.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="rounded-lg border border-border bg-background-deep p-4">
-              <p className="text-xs text-muted-foreground">Primary receipt email</p>
-              <p className="mt-1 break-all text-sm font-medium">
-                {auth.session?.user.email ?? 'No email on session'}
-              </p>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-muted-foreground">
+                Receipt email
+                <input
+                  className="h-9 rounded-md border border-border bg-background-deep px-3 text-sm text-foreground outline-none focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  disabled={
+                    !canManageBilling || profileQuery.isLoading || updateProfileMutation.isPending
+                  }
+                  onChange={(event) =>
+                    setProfileForm((current) => ({
+                      ...current,
+                      receiptEmail: event.target.value,
+                    }))
+                  }
+                  placeholder={auth.session?.user.email ?? 'billing@example.com'}
+                  type="email"
+                  value={profileForm.receiptEmail}
+                />
+              </label>
+              <label className="grid gap-1 text-xs text-muted-foreground">
+                Business name
+                <input
+                  className="h-9 rounded-md border border-border bg-background-deep px-3 text-sm text-foreground outline-none focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  disabled={
+                    !canManageBilling || profileQuery.isLoading || updateProfileMutation.isPending
+                  }
+                  onChange={(event) =>
+                    setProfileForm((current) => ({
+                      ...current,
+                      businessName: event.target.value,
+                    }))
+                  }
+                  placeholder={organization?.name ?? 'Company name'}
+                  type="text"
+                  value={profileForm.businessName}
+                />
+              </label>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Future provider work should add organisation-level billing contacts, tax address, and
-              finance-copy recipients without changing app-login emails.
-            </p>
+
+            <label className="grid gap-1 text-xs text-muted-foreground">
+              Finance-copy emails
+              <input
+                className="h-9 rounded-md border border-border bg-background-deep px-3 text-sm text-foreground outline-none focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-focus-ring"
+                disabled={
+                  !canManageBilling || profileQuery.isLoading || updateProfileMutation.isPending
+                }
+                onChange={(event) =>
+                  setProfileForm((current) => ({
+                    ...current,
+                    financeEmails: event.target.value,
+                  }))
+                }
+                placeholder="finance@example.com, manager@example.com"
+                type="text"
+                value={profileForm.financeEmails}
+              />
+            </label>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs text-muted-foreground">
+                Tax ID
+                <input
+                  className="h-9 rounded-md border border-border bg-background-deep px-3 text-sm text-foreground outline-none focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  disabled={
+                    !canManageBilling || profileQuery.isLoading || updateProfileMutation.isPending
+                  }
+                  onChange={(event) =>
+                    setProfileForm((current) => ({
+                      ...current,
+                      taxId: event.target.value,
+                    }))
+                  }
+                  placeholder="GSTIN / VAT / Tax ID"
+                  type="text"
+                  value={profileForm.taxId}
+                />
+              </label>
+              <label className="grid gap-1 text-xs text-muted-foreground">
+                Country
+                <input
+                  className="h-9 rounded-md border border-border bg-background-deep px-3 text-sm text-foreground outline-none focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  disabled={
+                    !canManageBilling || profileQuery.isLoading || updateProfileMutation.isPending
+                  }
+                  onChange={(event) =>
+                    setProfileForm((current) => ({
+                      ...current,
+                      country: event.target.value,
+                    }))
+                  }
+                  placeholder="IN"
+                  type="text"
+                  value={profileForm.country}
+                />
+              </label>
+            </div>
+
+            <label className="grid gap-1 text-xs text-muted-foreground">
+              Billing address
+              <input
+                className="h-9 rounded-md border border-border bg-background-deep px-3 text-sm text-foreground outline-none focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-focus-ring"
+                disabled={
+                  !canManageBilling || profileQuery.isLoading || updateProfileMutation.isPending
+                }
+                onChange={(event) =>
+                  setProfileForm((current) => ({
+                    ...current,
+                    line1: event.target.value,
+                  }))
+                }
+                placeholder="Address line 1"
+                type="text"
+                value={profileForm.line1}
+              />
+            </label>
+
+            <input
+              aria-label="Billing address line 2"
+              className="h-9 rounded-md border border-border bg-background-deep px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-focus-ring"
+              disabled={
+                !canManageBilling || profileQuery.isLoading || updateProfileMutation.isPending
+              }
+              onChange={(event) =>
+                setProfileForm((current) => ({
+                  ...current,
+                  line2: event.target.value,
+                }))
+              }
+              placeholder="Address line 2"
+              type="text"
+              value={profileForm.line2}
+            />
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <input
+                aria-label="Billing city"
+                className="h-9 rounded-md border border-border bg-background-deep px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-focus-ring"
+                disabled={
+                  !canManageBilling || profileQuery.isLoading || updateProfileMutation.isPending
+                }
+                onChange={(event) =>
+                  setProfileForm((current) => ({
+                    ...current,
+                    city: event.target.value,
+                  }))
+                }
+                placeholder="City"
+                type="text"
+                value={profileForm.city}
+              />
+              <input
+                aria-label="Billing state"
+                className="h-9 rounded-md border border-border bg-background-deep px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-focus-ring"
+                disabled={
+                  !canManageBilling || profileQuery.isLoading || updateProfileMutation.isPending
+                }
+                onChange={(event) =>
+                  setProfileForm((current) => ({
+                    ...current,
+                    state: event.target.value,
+                  }))
+                }
+                placeholder="State"
+                type="text"
+                value={profileForm.state}
+              />
+              <input
+                aria-label="Billing postal code"
+                className="h-9 rounded-md border border-border bg-background-deep px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-focus-ring"
+                disabled={
+                  !canManageBilling || profileQuery.isLoading || updateProfileMutation.isPending
+                }
+                onChange={(event) =>
+                  setProfileForm((current) => ({
+                    ...current,
+                    postalCode: event.target.value,
+                  }))
+                }
+                placeholder="Postal code"
+                type="text"
+                value={profileForm.postalCode}
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                disabled={
+                  !canManageBilling || profileQuery.isLoading || updateProfileMutation.isPending
+                }
+                onClick={() => void handleSaveProfile()}
+                size="sm"
+                type="button"
+              >
+                {updateProfileMutation.isPending ? 'Saving...' : 'Save billing contact'}
+              </Button>
+              {profileQuery.data?.profile.updatedAt ? (
+                <span className="text-xs text-muted-foreground">
+                  Updated {formatDate(profileQuery.data.profile.updatedAt)}
+                </span>
+              ) : null}
+            </div>
+
+            {profileMessage ? (
+              <p className="rounded-md border border-success/45 bg-success-muted px-3 py-2 text-xs text-success">
+                {profileMessage}
+              </p>
+            ) : null}
+            {profileError ? (
+              <p className="rounded-md border border-destructive/45 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {profileError}
+              </p>
+            ) : null}
           </CardContent>
         </Card>
 

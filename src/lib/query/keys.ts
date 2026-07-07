@@ -26,6 +26,7 @@ export const queryKeys = {
     all: ['billing'] as const,
     summary: () => ['billing', 'summary'] as const,
     history: (organizationId: string | null) => ['billing', 'history', organizationId] as const,
+    profile: (organizationId: string | null) => ['billing', 'profile', organizationId] as const,
   },
   projects: {
     all: ['projects'] as const,

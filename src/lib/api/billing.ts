@@ -65,6 +65,33 @@ export type BillingHistoryEvent = {
   createdAt: string
 }
 
+export type BillingAddress = {
+  line1: string | null
+  line2: string | null
+  city: string | null
+  state: string | null
+  postalCode: string | null
+  country: string | null
+}
+
+export type BillingProfile = {
+  organizationId: string
+  receiptEmail: string | null
+  financeEmails: string[]
+  businessName: string | null
+  taxId: string | null
+  address: BillingAddress
+  updatedAt: string | null
+}
+
+export type BillingProfileInput = {
+  receiptEmail?: string | null
+  financeEmails?: string[]
+  businessName?: string | null
+  taxId?: string | null
+  address?: Partial<BillingAddress>
+}
+
 export const billingApi = {
   async getSummary(): Promise<{ billing: BillingStatus }> {
     const response = await apiClient.get<{ billing: BillingStatus }>('/v1/billing/summary')
@@ -99,6 +126,19 @@ export const billingApi = {
     const response = await apiClient.get<{ history: { events: BillingHistoryEvent[] } }>(
       '/v1/billing/history',
       { params: { limit } }
+    )
+    return response.data
+  },
+
+  async getProfile(): Promise<{ profile: BillingProfile }> {
+    const response = await apiClient.get<{ profile: BillingProfile }>('/v1/billing/profile')
+    return response.data
+  },
+
+  async updateProfile(input: BillingProfileInput): Promise<{ profile: BillingProfile }> {
+    const response = await apiClient.patch<{ profile: BillingProfile }>(
+      '/v1/billing/profile',
+      input
     )
     return response.data
   },

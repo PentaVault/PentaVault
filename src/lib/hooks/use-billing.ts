@@ -1,7 +1,7 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-
+import type { BillingProfileInput } from '@/lib/api/billing'
 import { billingApi } from '@/lib/api/billing'
 import type { PlanId } from '@/lib/billing/plans'
 import { useAuth } from '@/lib/hooks/use-auth'
@@ -22,6 +22,27 @@ export function useBillingHistory(organizationId: string | null, enabled = true)
     queryFn: () => billingApi.getHistory(10),
     enabled: Boolean(organizationId) && enabled,
     retry: false,
+  })
+}
+
+export function useBillingProfile(organizationId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.billing.profile(organizationId),
+    queryFn: billingApi.getProfile,
+    enabled: Boolean(organizationId) && enabled,
+    retry: false,
+  })
+}
+
+export function useUpdateBillingProfile(organizationId: string | null) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: BillingProfileInput) => billingApi.updateProfile(input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.billing.profile(organizationId) })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.billing.history(organizationId) })
+    },
   })
 }
 
