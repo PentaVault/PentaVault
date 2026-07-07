@@ -1,4 +1,5 @@
 import { PLANS, type Plan, type PlanId } from '@/lib/billing/plans'
+import { SETTINGS_ORGANIZATION_BILLING_PLANS_PATH } from '@/lib/constants'
 
 export const PLAN_ORDER: readonly PlanId[] = ['free', 'pro', 'team']
 
@@ -20,6 +21,14 @@ export function isHigherPlan(currentPlanId: PlanId, targetPlanId: PlanId): boole
 
 export function getHigherPlans(currentPlanId: PlanId, plans: readonly Plan[] = PLANS): Plan[] {
   return plans.filter((plan) => isHigherPlan(currentPlanId, plan.id))
+}
+
+export function getSelectablePlans(plans: readonly Plan[] = PLANS): Plan[] {
+  return [...plans]
+}
+
+export function getBillingPlansPath(): string {
+  return SETTINGS_ORGANIZATION_BILLING_PLANS_PATH
 }
 
 export function getBillingUpgradePath(planId: PlanId): string {

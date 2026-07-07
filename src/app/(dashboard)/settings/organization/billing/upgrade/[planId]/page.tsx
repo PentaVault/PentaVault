@@ -15,7 +15,10 @@ import {
   normalizePlanId,
 } from '@/lib/billing/plan-utils'
 import { PLANS, type Plan } from '@/lib/billing/plans'
-import { SETTINGS_ORGANIZATION_BILLING_PATH } from '@/lib/constants'
+import {
+  SETTINGS_ORGANIZATION_BILLING_PATH,
+  SETTINGS_ORGANIZATION_BILLING_PLANS_PATH,
+} from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import {
   isPaidPlan,
@@ -126,7 +129,7 @@ export default function BillingUpgradePage() {
           </CardHeader>
           <CardContent>
             <Button asChild size="sm">
-              <Link href={SETTINGS_ORGANIZATION_BILLING_PATH}>View available upgrades</Link>
+              <Link href={SETTINGS_ORGANIZATION_BILLING_PLANS_PATH}>Choose a plan</Link>
             </Button>
           </CardContent>
         </Card>
@@ -168,7 +171,7 @@ export default function BillingUpgradePage() {
           </CardHeader>
           <CardContent>
             <Button asChild size="sm">
-              <Link href={SETTINGS_ORGANIZATION_BILLING_PATH}>See available upgrades</Link>
+              <Link href={SETTINGS_ORGANIZATION_BILLING_PLANS_PATH}>Choose a plan</Link>
             </Button>
           </CardContent>
         </Card>

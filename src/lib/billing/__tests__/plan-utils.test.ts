@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  getBillingPlansPath,
   getBillingUpgradePath,
   getHigherPlans,
   getMonthlySeatTotal,
+  getSelectablePlans,
   isHigherPlan,
   normalizePlanId,
 } from '@/lib/billing/plan-utils'
@@ -42,6 +44,14 @@ describe('billing plan utilities', () => {
 
   it('builds the billing upgrade route for a plan', () => {
     expect(getBillingUpgradePath('team')).toBe('/settings/organization/billing/upgrade/team')
+  })
+
+  it('builds the all-tier plan picker route', () => {
+    expect(getBillingPlansPath()).toBe('/settings/organization/billing/plans')
+  })
+
+  it('returns every selectable plan for the plan picker', () => {
+    expect(getSelectablePlans().map((plan) => plan.id)).toEqual(['free', 'pro', 'team'])
   })
 
   it('estimates per-seat monthly totals with a minimum of one billable seat', () => {

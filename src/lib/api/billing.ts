@@ -4,12 +4,25 @@ import type { PlanId } from '@/lib/billing/plans'
 export type BillingStatus = {
   organizationId: string
   plan: PlanId
+  effectivePlan: PlanId
+  lifecycleState:
+    | 'active_paid'
+    | 'pending_checkout'
+    | 'pending_upgrade'
+    | 'pending_downgrade'
+    | 'pending_cancel'
+    | 'past_due_grace'
+    | 'past_due_restricted'
+    | 'grant_active'
   status: string | null
   customerId: string | null
   subscriptionId: string | null
   productId: string | null
   billedSeats: number | null
   currentPeriodEnd: string | null
+  graceEndsAt: string | null
+  restricted: boolean
+  recoveryRequired: boolean
   cancelAtPeriodEnd: boolean
   pendingPlan: PlanId | null
   pendingSeats: number | null
