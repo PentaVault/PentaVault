@@ -18,7 +18,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { getBillingPlansPath, getMonthlySeatTotal, normalizePlanId } from '@/lib/billing/plan-utils'
 import { PLANS, type Plan, type PlanId } from '@/lib/billing/plans'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { isPaidPlan, useBillingSummary, useOpenBillingPortal } from '@/lib/hooks/use-billing'
+import {
+  isPaidPlan,
+  useBillingHistory,
+  useBillingSummary,
+  useOpenBillingPortal,
+} from '@/lib/hooks/use-billing'
 import { useOrganizationMembers } from '@/lib/hooks/use-team'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
 
@@ -50,6 +55,22 @@ function billingStatusLabel(status: string | null): string {
   if (status === 'trialing') return 'Trialing'
   if (status === 'active') return 'Active'
   return 'Not connected'
+}
+
+function historyEventLabel(eventType: string): string {
+  if (eventType === 'billing.checkout.created') return 'Checkout created'
+  if (eventType === 'billing.subscription.changed') return 'Subscription changed'
+  if (eventType === 'billing.subscription.change_scheduled') return 'Plan change scheduled'
+  if (eventType === 'billing.subscription.cancel_scheduled') return 'Cancellation scheduled'
+  if (eventType === 'billing.portal.opened') return 'Billing portal opened'
+  if (eventType.startsWith('subscription.')) return `Polar ${eventType.replaceAll('.', ' ')}`
+  if (eventType.startsWith('checkout.')) return `Polar ${eventType.replaceAll('.', ' ')}`
+  if (eventType.startsWith('order.')) return `Polar ${eventType.replaceAll('.', ' ')}`
+  return eventType.replaceAll('.', ' ')
+}
+
+function formatPlanName(planId: PlanId | null): string {
+  return PLANS.find((plan) => plan.id === planId)?.name ?? 'Unknown'
 }
 
 function lifecycleMessage(input: {
@@ -114,6 +135,7 @@ export default function OrgBillingPage() {
 
   const canManageBilling =
     hasMounted && (billing?.canManageBilling ?? (role === 'owner' || role === 'admin'))
+  const historyQuery = useBillingHistory(organizationId, canManageBilling)
   const storedPlanId = normalizePlanId(billing?.plan ?? organization?.plan)
   const effectivePlanId = normalizePlanId(
     billing?.effectivePlan ?? billing?.plan ?? organization?.plan
@@ -362,13 +384,48 @@ export default function OrgBillingPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="rounded-lg border border-border bg-background-deep p-4">
-              <p className="text-sm font-medium">Local billing history is being prepared</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                The backend now has a billing history table. The next API pass should expose
-                provider events, invoices, grants, and plan changes here.
-              </p>
-            </div>
+            {historyQuery.isLoading ? (
+              <div className="rounded-lg border border-border bg-background-deep p-4">
+                <p className="text-sm font-medium">Loading billing history...</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Fetching recent subscription events for this organisation.
+                </p>
+              </div>
+            ) : historyQuery.data?.history.events.length ? (
+              <div className="space-y-2">
+                {historyQuery.data.history.events.map((event) => (
+                  <div
+                    className="rounded-lg border border-border bg-background-deep p-3"
+                    key={event.id}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium">{historyEventLabel(event.eventType)}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {formatPlanName(event.previousPlan)} to {formatPlanName(event.nextPlan)}
+                          {event.nextSeats !== null ? `, ${event.nextSeats} seats` : ''}
+                        </p>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDate(event.createdAt) ?? 'Unknown date'}
+                      </span>
+                    </div>
+                    {event.actorUserId ? (
+                      <p className="mt-2 text-[11px] text-muted-foreground">
+                        Actor: {event.actorUserId}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-border bg-background-deep p-4">
+                <p className="text-sm font-medium">No billing history yet</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Checkout, plan-change, portal, and Polar webhook events will appear here.
+                </p>
+              </div>
+            )}
             {shouldShowPortal ? (
               <Button
                 disabled={portalMutation.isPending}

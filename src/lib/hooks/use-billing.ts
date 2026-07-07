@@ -16,6 +16,15 @@ export function useBillingSummary(enabled = true) {
   })
 }
 
+export function useBillingHistory(organizationId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.billing.history(organizationId),
+    queryFn: () => billingApi.getHistory(10),
+    enabled: Boolean(organizationId) && enabled,
+    retry: false,
+  })
+}
+
 export function useCreateBillingCheckout() {
   const queryClient = useQueryClient()
 

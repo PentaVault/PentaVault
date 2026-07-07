@@ -46,6 +46,25 @@ export type BillingChange = {
   message: string
 }
 
+export type BillingHistoryEvent = {
+  id: string
+  organizationId: string
+  provider: string | null
+  providerEventId: string | null
+  providerCustomerId: string | null
+  providerSubscriptionId: string | null
+  eventType: string
+  outcome: string
+  actorUserId: string | null
+  previousPlan: PlanId | null
+  nextPlan: PlanId | null
+  previousSeats: number | null
+  nextSeats: number | null
+  effectiveAt: string | null
+  metadata: Record<string, unknown>
+  createdAt: string
+}
+
 export const billingApi = {
   async getSummary(): Promise<{ billing: BillingStatus }> {
     const response = await apiClient.get<{ billing: BillingStatus }>('/v1/billing/summary')
@@ -73,6 +92,14 @@ export const billingApi = {
 
   async createPortalSession(): Promise<{ portal: { url: string } }> {
     const response = await apiClient.get<{ portal: { url: string } }>('/v1/billing/portal')
+    return response.data
+  },
+
+  async getHistory(limit = 25): Promise<{ history: { events: BillingHistoryEvent[] } }> {
+    const response = await apiClient.get<{ history: { events: BillingHistoryEvent[] } }>(
+      '/v1/billing/history',
+      { params: { limit } }
+    )
     return response.data
   },
 }
