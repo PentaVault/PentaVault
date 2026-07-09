@@ -7,12 +7,16 @@ import { AuthProvider } from '@/providers/auth-provider'
 import { QueryProvider } from '@/providers/query-provider'
 import { ThemeProvider } from '@/providers/theme-provider'
 
-type AppProvidersProps = PropsWithChildren
+type AppProvidersProps = PropsWithChildren<{
+  nonce?: string
+}>
 
-export function AppProviders({ children }: AppProvidersProps) {
+export function AppProviders({ children, nonce }: AppProvidersProps) {
+  const themeProviderProps = nonce ? { nonce } : {}
+
   return (
     <QueryProvider>
-      <ThemeProvider>
+      <ThemeProvider {...themeProviderProps}>
         <AuthProvider>
           {children}
           <Toaster />

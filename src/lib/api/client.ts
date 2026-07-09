@@ -3,6 +3,7 @@ import axios, { AxiosHeaders } from 'axios'
 import { clearClientAuthHint } from '@/lib/auth/token'
 import { AUTH_SESSION_PATH, DEVICE_PATH, LOGIN_PATH, REGISTER_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
+import { dispatchAuthExpired } from '@/lib/query/cache'
 import { isBrowser } from '@/lib/runtime'
 
 function normalizeUrlPath(url: string): string {
@@ -53,6 +54,51 @@ function isAuthOrganizationsRequest(url: string | undefined): boolean {
     normalizedUrl.startsWith('v1/auth/organizations?') ||
     normalizedUrl === 'v1/auth/organizations/active'
   )
+}
+
+function isAuthCapabilitiesRequest(url: string | undefined): boolean {
+  if (!url) {
+    return false
+  }
+
+  const normalizedUrl = normalizeUrlPath(url)
+  return normalizedUrl === 'v1/auth/capabilities'
+}
+
+function isProjectAuditRequest(url: string | undefined): boolean {
+  if (!url) {
+    return false
+  }
+
+  const normalizedUrl = normalizeUrlPath(url)
+  return /^v1\/projects\/[^/]+\/audit(?:\?|$)/.test(normalizedUrl)
+}
+
+function isOrganizationActivityRequest(url: string | undefined): boolean {
+  if (!url) {
+    return false
+  }
+
+  const normalizedUrl = normalizeUrlPath(url)
+  return /^v1\/organizations\/[^/]+\/activity(?:\?|$)/.test(normalizedUrl)
+}
+
+function isProjectConfigRequest(url: string | undefined): boolean {
+  if (!url) {
+    return false
+  }
+
+  const normalizedUrl = normalizeUrlPath(url)
+  return /^v1\/projects\/[^/]+\/configs(?:\/[^/?]+)?(?:\?|$)/.test(normalizedUrl)
+}
+
+function isProjectMemberEnvironmentAccessRequest(url: string | undefined): boolean {
+  if (!url) {
+    return false
+  }
+
+  const normalizedUrl = normalizeUrlPath(url)
+  return /^v1\/projects\/[^/]+\/members\/[^/]+\/environments(?:\?|$)/.test(normalizedUrl)
 }
 
 function isUpstreamUnavailableResponse(error: unknown): boolean {
@@ -163,6 +209,8 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     isAuthOrganizationsRequest(error.config?.url) && error.response?.status === 401
   const isAuthOrganizationsUnavailable =
     isAuthOrganizationsRequest(error.config?.url) && isUpstreamUnavailableResponse(error)
+  const isAuthCapabilitiesUnavailable =
+    isAuthCapabilitiesRequest(error.config?.url) && isUpstreamUnavailableResponse(error)
 
   const authOrganizationsErrorCode = (error.response?.data as { code?: string } | undefined)?.code
   const isAuthSetActiveKnownFailure =
@@ -177,6 +225,32 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     error.response?.status === 400 &&
     authOrganizationsErrorCode === 'ORG_DELETE_DEFAULT_NOT_ALLOWED'
 
+  const isProjectAuditReadRateLimited =
+    error.config?.method?.toLowerCase() === 'get' &&
+    isProjectAuditRequest(error.config?.url) &&
+    error.response?.status === 429 &&
+    errorCode === 'RATE_LIMITED'
+  const isOrganizationActivityRouteMissing =
+    error.config?.method?.toLowerCase() === 'get' &&
+    isOrganizationActivityRequest(error.config?.url) &&
+    error.response?.status === 404 &&
+    errorCode === 'ROUTE_NOT_FOUND'
+  const isProjectConfigRouteMissing =
+    error.config?.method?.toLowerCase() === 'get' &&
+    isProjectConfigRequest(error.config?.url) &&
+    error.response?.status === 404 &&
+    errorCode === 'ROUTE_NOT_FOUND'
+  const isProjectMemberEnvironmentAccessRouteMissing =
+    error.config?.method?.toLowerCase() === 'get' &&
+    isProjectMemberEnvironmentAccessRequest(error.config?.url) &&
+    error.response?.status === 404 &&
+    errorCode === 'ROUTE_NOT_FOUND'
+  const isBillingPortalSetupFailure =
+    error.config?.method?.toLowerCase() === 'get' &&
+    normalizeUrlPath(error.config?.url ?? '') === 'v1/billing/portal' &&
+    error.response?.status === 409 &&
+    errorCode === 'BILLING_STATE_INVALID'
+
   return (
     isProjectDeleteNotFound ||
     isProjectCreateSlugConflict ||
@@ -184,8 +258,14 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     isProjectCreateKnownFailure ||
     isAuthOrganizationsUnauthorized ||
     isAuthOrganizationsUnavailable ||
+    isAuthCapabilitiesUnavailable ||
     isAuthSetActiveKnownFailure ||
     isOrgDeleteGuardedFailure ||
+    isProjectAuditReadRateLimited ||
+    isOrganizationActivityRouteMissing ||
+    isProjectConfigRouteMissing ||
+    isProjectMemberEnvironmentAccessRouteMissing ||
+    isBillingPortalSetupFailure ||
     isExpectedEmailNotVerified
   )
 }
@@ -204,7 +284,7 @@ apiClient.interceptors.request.use((config) => {
   config.headers = AxiosHeaders.from(config.headers)
   config.headers.set('X-Request-ID', crypto.randomUUID())
 
-  if (config.url && config.url.startsWith('/') && !config.url.startsWith('//')) {
+  if (config.url?.startsWith('/') && !config.url.startsWith('//')) {
     config.url = config.url.slice(1)
   }
 
@@ -235,6 +315,7 @@ apiClient.interceptors.response.use(
     if (error.response.status === 401 && isBrowser) {
       if (!shouldSkipUnauthorizedRedirect(error.config?.url)) {
         clearClientAuthHint()
+        dispatchAuthExpired()
         const redirectUrl =
           window.location.pathname !== LOGIN_PATH
             ? `${LOGIN_PATH}?expired=1&next=${encodeURIComponent(window.location.pathname)}`

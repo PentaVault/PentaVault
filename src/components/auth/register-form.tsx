@@ -3,9 +3,10 @@
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { FormEvent } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { PasswordRequirements } from '@/components/auth/password-requirements'
+import { TurnstileWidget, type TurnstileWidgetHandle } from '@/components/auth/turnstile-widget'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
@@ -14,6 +15,7 @@ import { isPasswordPolicySatisfied } from '@/lib/auth/password-policy'
 import { DASHBOARD_HOME_PATH, LOGIN_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useAuthCapabilities } from '@/lib/hooks/use-auth-capabilities'
 import { useEmailCooldown } from '@/lib/hooks/use-email-cooldown'
 import { useToast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils/cn'
@@ -27,11 +29,17 @@ export function RegisterForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const auth = useAuth()
+  const {
+    capabilities,
+    error: capabilitiesError,
+    isLoading: isCapabilitiesLoading,
+  } = useAuthCapabilities()
   const { toast } = useToast()
   const invitationToken = searchParams.get('invitation')
   const invitationEmail = searchParams.get('email') ?? ''
 
   const [name, setName] = useState('')
+  const [username, setUsername] = useState('')
   const [email, setEmail] = useState(invitationEmail)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -43,7 +51,20 @@ export function RegisterForm() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [isPasswordFocused, setIsPasswordFocused] = useState(false)
   const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const captchaWidgetRef = useRef<TurnstileWidgetHandle | null>(null)
   const emailCooldown = useEmailCooldown()
+  const isAuthSecurityUnavailable = isCapabilitiesLoading || Boolean(capabilitiesError)
+
+  function ensureAuthSecurityAvailable(): boolean {
+    if (!isAuthSecurityUnavailable) {
+      return true
+    }
+
+    toast.error('Cannot verify auth security settings right now. Please refresh and try again.')
+    return false
+  }
+
   useEffect(() => {
     if (auth.status === 'authenticated') {
       router.replace(
@@ -58,12 +79,25 @@ export function RegisterForm() {
     event.preventDefault()
     setFieldErrors({})
 
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
+
     const normalizedName = name.trim()
+    const normalizedUsername = username.trim().toLowerCase()
     const normalizedEmail = email.trim().toLowerCase()
     const nextFieldErrors: Record<string, string> = {}
 
     if (!normalizedName) {
       nextFieldErrors.name = 'Please enter your full name.'
+    }
+
+    if (!normalizedUsername) {
+      nextFieldErrors.username = 'Please choose a username.'
+    } else if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(normalizedUsername)) {
+      nextFieldErrors.username = 'Use lowercase letters, numbers, and single dashes.'
+    } else if (normalizedUsername.length < 3 || normalizedUsername.length > 32) {
+      nextFieldErrors.username = 'Username must be 3 to 32 characters.'
     }
 
     if (!normalizedEmail) {
@@ -92,8 +126,10 @@ export function RegisterForm() {
       setIsPending(true)
       await authApi.startRegistration({
         name: normalizedName,
+        username: normalizedUsername,
         email: normalizedEmail,
         password,
+        captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
       })
 
       setVerificationEmail(normalizedEmail)
@@ -116,8 +152,18 @@ export function RegisterForm() {
             )
       toast.error(message)
     } finally {
+      resetCaptchaToken()
       setIsPending(false)
     }
+  }
+
+  function resetCaptchaToken(): void {
+    if (!capabilities.captcha.enabled) {
+      return
+    }
+
+    setCaptchaToken('')
+    captchaWidgetRef.current?.reset()
   }
 
   async function handleVerifySubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -169,9 +215,16 @@ export function RegisterForm() {
       return
     }
 
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
+
     try {
       setIsResending(true)
-      await authApi.resendRegistrationCode({ email: verificationEmail })
+      await authApi.resendRegistrationCode({
+        email: verificationEmail,
+        captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
+      })
       emailCooldown.startCooldown(60)
       toast.success('Code sent.')
     } catch (resendError) {
@@ -184,6 +237,7 @@ export function RegisterForm() {
         getApiFriendlyMessageWithRef(resendError, 'Unable to send a verification code right now.')
       )
     } finally {
+      resetCaptchaToken()
       setIsResending(false)
     }
   }
@@ -221,14 +275,26 @@ export function RegisterForm() {
           {fieldErrors.otp ? <p className="text-sm text-danger">{fieldErrors.otp}</p> : null}
         </div>
 
+        {capabilities.captcha.enabled ? (
+          <TurnstileWidget
+            ref={captchaWidgetRef}
+            siteKey={capabilities.captcha.siteKey}
+            onToken={setCaptchaToken}
+          />
+        ) : null}
+
         <div className="space-y-3">
-          <Button className="w-full" disabled={isPending} type="submit">
+          <Button
+            className="w-full"
+            disabled={isPending || isAuthSecurityUnavailable}
+            type="submit"
+          >
             {isPending ? 'Verifying...' : 'Verify'}
           </Button>
 
           <Button
             className="w-full"
-            disabled={isResending || emailCooldown.isOnCooldown}
+            disabled={isResending || emailCooldown.isOnCooldown || isAuthSecurityUnavailable}
             onClick={() => void handleResend()}
             type="button"
             variant="outline"
@@ -277,6 +343,33 @@ export function RegisterForm() {
           value={name}
         />
         {fieldErrors.name ? <p className="text-sm text-danger">{fieldErrors.name}</p> : null}
+      </div>
+
+      <div className="space-y-1">
+        <label
+          className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+          htmlFor="register-username"
+        >
+          Username
+        </label>
+        <Input
+          autoComplete="username"
+          className={cn(fieldErrors.username && 'border-danger focus-visible:ring-danger')}
+          id="register-username"
+          onChange={(event) => {
+            setUsername(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
+            setFieldErrors((current) => ({ ...current, username: '' }))
+          }}
+          placeholder="alex-rivera"
+          value={username}
+        />
+        {fieldErrors.username ? (
+          <p className="text-sm text-danger">{fieldErrors.username}</p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Lowercase letters, numbers, and dashes. This is your unique handle.
+          </p>
+        )}
       </div>
 
       <div className="space-y-1">
@@ -363,17 +456,29 @@ export function RegisterForm() {
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-        <Button className="w-full sm:w-auto sm:min-w-[9.25rem]" disabled={isPending} type="submit">
+        <Button
+          className="w-full sm:w-auto sm:min-w-[9.25rem]"
+          disabled={isPending || isAuthSecurityUnavailable}
+          type="submit"
+        >
           {isPending ? 'Creating...' : 'Create'}
         </Button>
 
         <Link
-          className="text-sm whitespace-normal text-[#00c573] underline decoration-[#00c573]/55 underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out hover:text-[#3ecf8e] hover:decoration-[#3ecf8e]"
+          className="text-sm whitespace-normal text-accent underline decoration-accent/55 underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out hover:text-accent-strong hover:decoration-accent-strong"
           href={LOGIN_PATH}
         >
           Already registered? Sign in
         </Link>
       </div>
+
+      {capabilities.captcha.enabled ? (
+        <TurnstileWidget
+          ref={captchaWidgetRef}
+          siteKey={capabilities.captcha.siteKey}
+          onToken={setCaptchaToken}
+        />
+      ) : null}
 
       {env.mockAuthEnabled ? (
         <p className="text-xs text-muted-foreground">

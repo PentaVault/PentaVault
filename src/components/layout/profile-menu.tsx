@@ -14,16 +14,16 @@ import {
 import { authApi } from '@/lib/api/auth'
 import {
   DASHBOARD_HOME_PATH,
-  LOGIN_PATH,
-  PROJECTS_PATH,
-  SETTINGS_API_KEYS_PATH,
-  SETTINGS_ORGANIZATION_PATH,
-  SETTINGS_SESSIONS_PATH,
   getOrgDashboardPath,
   getOrgProjectsPath,
   getOrgSettingsApiKeysPath,
   getOrgSettingsPath,
   getOrgSettingsSessionsPath,
+  LOGIN_PATH,
+  PROJECTS_PATH,
+  SETTINGS_API_KEYS_PATH,
+  SETTINGS_ORGANIZATION_PATH,
+  SETTINGS_SESSIONS_PATH,
 } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useToast } from '@/lib/hooks/use-toast'
@@ -37,6 +37,9 @@ export function ProfileMenu() {
   const userName = auth.session?.user.name ?? 'Unknown user'
   const userEmail = auth.session?.user.email ?? 'No email'
   const activeOrgId = auth.activeOrganization?.organization.id ?? null
+  // Cosmetic tier badge only — never gate any action on this client value.
+  const plan = auth.activeOrganization?.organization.plan
+  const tierLabel = plan === 'team' ? 'Team' : plan === 'pro' ? 'Pro' : null
 
   async function handleLogout(): Promise<void> {
     try {
@@ -55,10 +58,15 @@ export function ProfileMenu() {
       <DropdownMenuTrigger asChild>
         <Button
           aria-label="Open profile menu"
-          className="h-9 w-9 overflow-hidden rounded-full border-border p-0"
+          className="relative h-10 w-10 overflow-hidden rounded-full border-border p-0"
           variant="ghost"
         >
-          <span className="block h-full w-full rounded-full bg-[radial-gradient(circle_at_30%_25%,#7fffd4_0%,#00c573_42%,#0f3d2e_100%)]" />
+          <span className="block h-full w-full overflow-hidden rounded-full bg-[radial-gradient(circle_at_30%_25%,#34d399_0%,#10b981_45%,#0f3d2e_100%)]" />
+          {tierLabel ? (
+            <span className="pointer-events-none absolute inset-x-1 bottom-1 rounded-full border border-background/70 bg-background/95 py-[3px] text-center text-[8px] font-bold leading-none text-accent uppercase shadow-sm backdrop-blur">
+              {tierLabel.toLowerCase()}
+            </span>
+          ) : null}
         </Button>
       </DropdownMenuTrigger>
 
@@ -69,7 +77,14 @@ export function ProfileMenu() {
         sideOffset={8}
       >
         <div className="px-2 py-1.5">
-          <p className="truncate text-sm font-medium text-foreground">{userName}</p>
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-medium text-foreground">{userName}</p>
+            {tierLabel ? (
+              <span className="shrink-0 rounded-md border border-accent-border bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-accent">
+                {tierLabel}
+              </span>
+            ) : null}
+          </div>
           <p className="truncate text-xs text-muted-foreground">{userEmail}</p>
         </div>
 
@@ -114,7 +129,7 @@ export function ProfileMenu() {
           <Link
             href={activeOrgId ? getOrgSettingsApiKeysPath(activeOrgId) : SETTINGS_API_KEYS_PATH}
           >
-            API Keys
+            Tokens
           </Link>
         </DropdownMenuItem>
 

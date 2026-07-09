@@ -1,5 +1,6 @@
-import SettingsApiKeysPage from '@/app/(dashboard)/settings/api-keys/page'
+import { redirect } from 'next/navigation'
+import { SETTINGS_ACCOUNT_TOKENS_PATH } from '@/lib/constants'
 
 export default function OrgSettingsApiKeysPage() {
-  return <SettingsApiKeysPage />
+  redirect(SETTINGS_ACCOUNT_TOKENS_PATH)
 }

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { projectsApi } from '@/lib/api/projects'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { queryKeys } from '@/lib/query/keys'
 import type {
   CreateAccessRequestInput,
   CreateProjectInput,
@@ -11,12 +12,20 @@ import type {
   UpdateProjectInput,
 } from '@/lib/types/api'
 
+async function invalidateProjectMutationCaches(queryClient: ReturnType<typeof useQueryClient>) {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.projects.all }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.organizationActivity.all }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.projectAudit.all }),
+  ])
+}
+
 export function useProjectsQuery() {
   const auth = useAuth()
   const activeOrgId = auth.activeOrganization?.organization.id ?? null
 
   return useQuery({
-    queryKey: ['projects', activeOrgId],
+    queryKey: queryKeys.projects.list(activeOrgId),
     queryFn: () => projectsApi.listProjects(),
     enabled: auth.status === 'authenticated' && Boolean(activeOrgId),
   })
@@ -28,7 +37,7 @@ export function useCreateProject() {
   return useMutation({
     mutationFn: (input: CreateProjectInput) => projectsApi.createProject(input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['projects'] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.projects.all })
     },
   })
 }
@@ -41,8 +50,10 @@ export function useUpdateProject() {
       projectsApi.updateProject(payload.projectId, payload.input),
     onSuccess: async (updatedProject) => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['projects'] }),
-        queryClient.invalidateQueries({ queryKey: ['project', updatedProject.project.id] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projects.all }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projects.detail(updatedProject.project.id),
+        }),
       ])
     },
   })
@@ -54,7 +65,7 @@ export function useDeleteProject() {
   return useMutation({
     mutationFn: async (projectId: string) => projectsApi.deleteProject(projectId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['projects'] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.projects.all })
     },
   })
 }
@@ -67,8 +78,8 @@ export function useCreateProjectAccessRequest() {
       projectsApi.createAccessRequest(payload.projectId, payload.input),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['projects'] }),
-        queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projects.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all }),
       ])
     },
   })
@@ -80,7 +91,7 @@ export function useProjectAccessRequests(
   enabled = true
 ) {
   return useQuery({
-    queryKey: ['project-access-requests', projectId, status ?? 'all'],
+    queryKey: queryKeys.projectAccessRequests.list(projectId, status ?? 'all'),
     queryFn: async () => {
       if (!projectId) {
         throw new Error('projectId is required to list access requests')
@@ -92,6 +103,24 @@ export function useProjectAccessRequests(
   })
 }
 
+export function useOrganizationAccessRequests(
+  organizationId: string | null,
+  status?: 'pending' | 'approved' | 'denied' | 'rejected' | 'cancelled',
+  enabled = true
+) {
+  return useQuery({
+    queryKey: queryKeys.projectAccessRequests.organization(organizationId, status ?? 'all'),
+    queryFn: async () => {
+      if (!organizationId) {
+        throw new Error('organizationId is required to list access requests')
+      }
+
+      return projectsApi.listOrganizationAccessRequests(organizationId, status)
+    },
+    enabled: Boolean(organizationId) && enabled,
+  })
+}
+
 export function useReviewProjectAccessRequest(projectId?: string | null) {
   const queryClient = useQueryClient()
 
@@ -100,10 +129,12 @@ export function useReviewProjectAccessRequest(projectId?: string | null) {
       projectsApi.reviewAccessRequest(payload.requestId, payload.input),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['project-access-requests'] }),
-        queryClient.invalidateQueries({ queryKey: ['project-members', projectId] }),
-        queryClient.invalidateQueries({ queryKey: ['projects'] }),
-        queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectAccessRequests.all }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectMembers.list(projectId ?? null),
+        }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projects.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all }),
       ])
     },
   })
@@ -121,7 +152,12 @@ export function useCreateSecretAccessRequest(projectId?: string | null) {
       return projectsApi.createSecretAccessRequest(projectId, payload.secretId)
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.accessRequests(projectId ?? null),
+        }),
+      ])
     },
   })
 }
@@ -132,7 +168,7 @@ export function useArchiveProject() {
   return useMutation({
     mutationFn: async (projectId: string) => projectsApi.archiveProject(projectId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['projects'] })
+      await invalidateProjectMutationCaches(queryClient)
     },
   })
 }
@@ -143,14 +179,14 @@ export function useUnarchiveProject() {
   return useMutation({
     mutationFn: async (projectId: string) => projectsApi.unarchiveProject(projectId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['projects'] })
+      await invalidateProjectMutationCaches(queryClient)
     },
   })
 }
 
 export function useProject(projectId: string | null) {
   return useQuery({
-    queryKey: ['project', projectId],
+    queryKey: queryKeys.projects.detail(projectId),
     queryFn: async () => {
       if (!projectId) {
         throw new Error('projectId is required to load project details')

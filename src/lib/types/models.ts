@@ -6,13 +6,23 @@ import type {
   SECRET_STATUSES,
 } from '@/lib/constants'
 
-export type ProjectRole = (typeof PROJECT_ROLES)[number]
+export type ProjectRole = (typeof PROJECT_ROLES)[number] | 'owner'
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number]
 export type ProjectVisibility = 'open' | 'private'
 export type AccessRequestStatus = 'pending' | 'approved' | 'denied' | 'rejected' | 'cancelled'
 export type ProjectMembershipGrantSource = 'manual' | 'org_owner' | 'access_request'
 export type SecretMode = (typeof SECRET_MODES)[number]
 export type SecretStatus = (typeof SECRET_STATUSES)[number]
+export type SecretEncryptionMode = 'encrypted' | 'plaintext'
+export type SecretScope = 'project' | 'personal'
+export type ProjectSettingsAccessMode = 'proxy' | 'direct' | 'both'
+export type ProjectConfigType = 'root' | 'branch'
+export type ProjectConfigVisibility = 'protected' | 'private' | 'shared'
+export type SecretAccessMode = 'direct' | 'proxy'
+export type UserSecretAccessLevel = 'read'
+export type UserSecretAccessStatus = 'active' | 'revoked'
+export type PersonalSecretPromotionRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
+export type SecretAccessRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
 
 export type SecretVersionState = 'active' | 'superseded' | 'compromised' | 'destroyed'
 export type TokenHashAlgorithm = 'sha256'
@@ -97,7 +107,7 @@ export interface AccessRequest {
   projectId: string
   organizationId: string
   requesterId: string
-  requestedRole: Extract<ProjectRole, 'developer' | 'readonly'>
+  requestedRole: Extract<ProjectRole, 'member'>
   message: string | null
   status: AccessRequestStatus
   reviewedBy: string | null
@@ -123,11 +133,21 @@ export interface AccessRequest {
 export interface Secret {
   id: string
   projectId: string
+  organizationId?: string | null
   environment: string
+  environmentId?: string | null
+  configId?: string | null
   name: string
   mode: SecretMode
+  encryptionMode?: SecretEncryptionMode
+  isSensitive?: boolean
+  scope?: SecretScope
   status: SecretStatus
   currentVersionId: string
+  createdByUserId?: string | null
+  promotedFromSecretId?: string | null
+  version?: number
+  plaintextValue?: string
   createdAt: string
   updatedAt: string
 }
@@ -137,6 +157,18 @@ export interface SecretVersion {
   secretId: string
   versionNumber: number
   state: SecretVersionState
+  createdByUserId?: string | null
+  createdFrom?: string
+  restoredFromVersionId?: string | null
+  supersededAt?: string | null
+  supersededByVersionId?: string | null
+  compromisedAt?: string | null
+  compromiseReason?: string | null
+  envelopeVersion?: number
+  envelopeAlgorithm?: string
+  wrappedKeyProvider?: string
+  wrappedKeyRef?: string
+  wrappedKeyAlgorithm?: string
   createdAt: string
 }
 
@@ -148,16 +180,196 @@ export interface ProxyToken {
   tokenStart: string
   mode: TokenMode
   secretId: string
+  environmentId?: string | null
   userId: string | null
   issuedByUserId: string | null
   expiresAt: string
   revokedAt: string | null
   activeSessionId: string | null
+  maxRequestsPerSecond?: number | null
+  maxRequestsTotal?: number | null
+  requestCount?: number
+  deviceFingerprint?: string | null
+  allowedIps?: string[] | null
+  ttlSeconds?: number | null
+  lastUsedAt?: string | null
+  lastUsedIp?: string | null
+  lastUsedDevice?: string | null
   rateLimitMax: number | null
   rateLimitRemaining: number | null
   rateLimitResetAt: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface ProjectEnvironment {
+  id: string
+  projectId: string
+  name: string
+  slug: string
+  color: string | null
+  isDefault: boolean
+  createdAt: string
+}
+
+export interface ProjectConfig {
+  id: string
+  projectId: string
+  environmentId: string
+  parentConfigId: string | null
+  type: ProjectConfigType
+  name: string
+  slug: string
+  isProtected: boolean
+  isPersonalDefault?: boolean
+  visibility?: ProjectConfigVisibility
+  canEdit?: boolean
+  canShare?: boolean
+  sharedWith?: ProjectConfigShare[]
+  createdByUserId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ProjectConfigShare {
+  configId: string
+  userId: string
+  sharedByUserId: string | null
+  permission: 'read'
+  createdAt: string
+}
+
+export interface ConfigChangeRequestItem {
+  id: string
+  changeRequestId: string
+  operation: 'create' | 'update' | 'delete'
+  secretName: string
+  currentSecretId: string | null
+  proposedSecretId: string | null
+  createdAt: string
+}
+
+export interface ConfigChangeRequestApproval {
+  id: string
+  changeRequestId: string
+  reviewerUserId: string
+  status: 'approved' | 'rescinded'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ConfigChangeRequest {
+  id: string
+  organizationId: string
+  projectId: string
+  sourceConfigId: string | null
+  targetConfigId: string
+  title: string
+  description: string | null
+  status: 'draft' | 'in_review' | 'approved' | 'merged' | 'cancelled' | 'closed'
+  requestedByUserId: string
+  mergedByUserId: string | null
+  mergedAt: string | null
+  createdAt: string
+  updatedAt: string
+  items: ConfigChangeRequestItem[]
+  approvals: ConfigChangeRequestApproval[]
+}
+
+export interface ProjectMemberEnvironmentAccess {
+  id: string
+  projectId: string
+  userId: string
+  environmentId: string
+  grantedBy: string
+  grantedAt: string
+}
+
+export interface ProjectSettings {
+  projectId: string
+  accessMode: ProjectSettingsAccessMode
+  defaultTtlSeconds: number
+  requireDeviceBinding: boolean
+  maxRequestsPerTokenPerDay: number
+  allowPersonalSecrets: boolean
+  requireMemberApprovalForSecretAccess: boolean
+  updatedAt: string
+}
+
+export interface UserSecretAccess {
+  id: string
+  projectId: string
+  userId: string
+  secretId: string
+  environmentId: string | null
+  accessLevel: UserSecretAccessLevel
+  status: UserSecretAccessStatus
+  grantedBy: string
+  revokedBy: string | null
+  expiresAt: string | null
+  grantedAt: string
+  revokedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PersonalSecretPromotionRequest {
+  id: string
+  projectId: string
+  personalSecretId: string
+  requestedByUserId: string
+  status: PersonalSecretPromotionRequestStatus
+  targetEnvironmentId: string | null
+  targetEnvironment: string
+  targetName: string
+  promotedSecretId: string | null
+  reviewedByUserId: string | null
+  reviewerNote: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SecretAccessRequest {
+  id: string
+  projectId: string
+  secretId: string
+  requesterId: string
+  status: SecretAccessRequestStatus
+  reviewedByUserId: string | null
+  reviewerNote: string | null
+  reviewedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SecretAccessEvent {
+  id: string
+  organizationId: string
+  projectId: string
+  environmentId: string | null
+  secretId: string
+  userId: string | null
+  proxyTokenId: string | null
+  accessMode: SecretAccessMode
+  eventType: string
+  deviceFingerprint: string | null
+  ipAddress: string | null
+  userAgent: string | null
+  countryCode: string | null
+  responseTimeMs: number | null
+  upstreamStatus: number | null
+  errorCode: string | null
+  occurredAt: string
+}
+
+export interface ProjectAnalyticsSummary {
+  totalAccesses: number
+  uniqueUsers: number
+  uniqueDevices: number
+  accessByMode: Record<SecretAccessMode, number>
+  errorRate: number
+  avgResponseTimeMs: number | null
+  recentEvents: SecretAccessEvent[]
 }
 
 export interface AuditEvent {

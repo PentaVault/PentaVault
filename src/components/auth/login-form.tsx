@@ -1,22 +1,24 @@
 'use client'
 
+import { Copy, KeyRound, QrCode } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import QRCode from 'qrcode'
 import type { FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
-
-import { Copy, QrCode } from 'lucide-react'
-import QRCode from 'qrcode'
-
+import { TurnstileWidget, type TurnstileWidgetHandle } from '@/components/auth/turnstile-widget'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { authApi } from '@/lib/api/auth'
+import { betterAuthClient } from '@/lib/auth/better-auth-client'
+import { getLastUsedLoginMethodLabel, isLastUsedLoginMethod } from '@/lib/auth/last-login-method'
 import { normalizeNextPath } from '@/lib/auth/paths'
 import { DASHBOARD_HOME_PATH, FORGOT_PASSWORD_PATH, REGISTER_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useAuthCapabilities } from '@/lib/hooks/use-auth-capabilities'
 import { useEmailCooldown } from '@/lib/hooks/use-email-cooldown'
 import { useToast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils/cn'
@@ -31,10 +33,20 @@ type LoginFormProps = {
   nextPath: string | null
 }
 
+const RECOVERY_CODE_INPUT_KEYS = Array.from(
+  { length: 10 },
+  (_, index) => `login-recovery-code-character-${index}`
+)
+
 export function LoginForm({ nextPath }: LoginFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { refresh } = useAuth()
+  const {
+    capabilities,
+    error: capabilitiesError,
+    isLoading: isCapabilitiesLoading,
+  } = useAuthCapabilities()
   const { toast } = useToast()
   const invitationToken = searchParams.get('invitation')
   const invitationEmail = searchParams.get('email') ?? ''
@@ -58,9 +70,30 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   const [isPending, setIsPending] = useState(false)
   const [isResendingVerification, setIsResendingVerification] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [lastEmailLoginMethodLabel, setLastEmailLoginMethodLabel] = useState<string | null>(null)
   const [retryAfter, setRetryAfter] = useState<number | null>(null)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const [isPasskeyPending, setIsPasskeyPending] = useState(false)
   const verificationCooldown = useEmailCooldown()
   const recoveryCodeInputsRef = useRef<Array<HTMLInputElement | null>>([])
+  const captchaWidgetRef = useRef<TurnstileWidgetHandle | null>(null)
+  const isAuthSecurityUnavailable = isCapabilitiesLoading || Boolean(capabilitiesError)
+
+  function ensureAuthSecurityAvailable(): boolean {
+    if (!isAuthSecurityUnavailable) {
+      return true
+    }
+
+    toast.error('Cannot verify auth security settings right now. Please refresh and try again.')
+    return false
+  }
+
+  useEffect(() => {
+    setLastEmailLoginMethodLabel(
+      isLastUsedLoginMethod('email') ? getLastUsedLoginMethodLabel('email') : null
+    )
+  }, [])
+
   useEffect(() => {
     if (searchParams.get('expired') === '1') {
       toast.warning('Your session has expired. Please sign in again.')
@@ -142,24 +175,63 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     normalizedEmail: string,
     currentPassword: string
   ): Promise<void> {
-    const signInResult = await authApi.signInWithEmail({
-      email: normalizedEmail,
-      password: currentPassword,
-    })
-
-    if (signInResult.twoFactorRedirect) {
-      setMfaRequired(true)
-      setEmailVerificationRequired(false)
-      toast.info('Enter your authenticator code to finish signing in.')
+    if (!ensureAuthSecurityAvailable()) {
       return
     }
 
-    await completeSignIn()
+    try {
+      const signInResult = await authApi.signInWithEmail({
+        email: normalizedEmail,
+        password: currentPassword,
+        captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
+      })
+
+      if (signInResult.twoFactorRedirect) {
+        setMfaRequired(true)
+        setEmailVerificationRequired(false)
+        toast.info('Enter your authenticator code to finish signing in.')
+        return
+      }
+
+      await completeSignIn()
+    } finally {
+      resetCaptchaToken()
+    }
+  }
+
+  function resetCaptchaToken(): void {
+    if (!capabilities.captcha.enabled) {
+      return
+    }
+
+    setCaptchaToken('')
+    captchaWidgetRef.current?.reset()
+  }
+
+  async function handlePasskeySignIn(): Promise<void> {
+    try {
+      setIsPasskeyPending(true)
+      const result = await betterAuthClient.signIn.passkey()
+      if (result.error) {
+        toast.error(result.error.message ?? 'Passkey sign-in failed.')
+        return
+      }
+
+      await completeSignIn()
+    } catch (error) {
+      toast.error(getApiFriendlyMessageWithRef(error, 'Passkey sign-in failed.'))
+    } finally {
+      setIsPasskeyPending(false)
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
     setFieldErrors({})
+
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
 
     const normalizedEmail = email.trim().toLowerCase()
     const nextFieldErrors: Record<string, string> = {}
@@ -468,7 +540,19 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         </div>
 
         <div className="space-y-3">
-          <Button className="w-full" disabled={isPending} type="submit">
+          {capabilities.captcha.enabled ? (
+            <TurnstileWidget
+              ref={captchaWidgetRef}
+              siteKey={capabilities.captcha.siteKey}
+              onToken={setCaptchaToken}
+            />
+          ) : null}
+
+          <Button
+            className="w-full"
+            disabled={isPending || isAuthSecurityUnavailable}
+            type="submit"
+          >
             {isPending ? 'Verifying...' : 'Verify'}
           </Button>
 
@@ -536,10 +620,10 @@ export function LoginForm({ nextPath }: LoginFormProps) {
           <div className="space-y-2">
             <p className="text-sm font-medium">Backup codes</p>
             <div className="grid grid-cols-2 gap-2 rounded-md border border-border bg-background p-3 font-mono text-[11px] sm:grid-cols-5">
-              {recoverySetup.backupCodes.map((backupCode, index) => (
+              {recoverySetup.backupCodes.map((backupCode) => (
                 <span
                   className="min-w-0 overflow-hidden rounded border border-border bg-background-secondary px-1.5 py-1 text-center leading-tight break-all"
-                  key={`${backupCode}-${index}`}
+                  key={backupCode}
                 >
                   {backupCode}
                 </span>
@@ -635,9 +719,9 @@ export function LoginForm({ nextPath }: LoginFormProps) {
               Recovery code
             </label>
             <div className="grid grid-cols-10 gap-1">
-              {Array.from({ length: 10 }, (_, index) => (
+              {RECOVERY_CODE_INPUT_KEYS.map((key, index) => (
                 <Input
-                  key={index}
+                  key={key}
                   autoComplete={index === 0 ? 'one-time-code' : 'off'}
                   className={cn(
                     'h-11 px-0 text-center font-mono text-sm',
@@ -668,7 +752,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <input
             checked={trustDevice}
-            className="h-4 w-4 accent-[#00c573]"
+            className="h-4 w-4 accent-[color:var(--accent)]"
             onChange={(event) => setTrustDevice(event.target.checked)}
             type="checkbox"
           />
@@ -723,6 +807,11 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         >
           Email
         </label>
+        {lastEmailLoginMethodLabel ? (
+          <p className="text-xs text-accent" data-testid="last-login-method-email">
+            {lastEmailLoginMethodLabel}
+          </p>
+        ) : null}
         <Input
           autoComplete="email"
           className={cn(fieldErrors.email && 'border-danger focus-visible:ring-danger')}
@@ -748,7 +837,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
             Password
           </label>
           <Link
-            className="text-xs text-[#00c573] underline decoration-[#00c573]/55 underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out hover:text-[#3ecf8e] hover:decoration-[#3ecf8e]"
+            className="text-xs text-accent underline decoration-accent/55 underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out hover:text-accent-strong hover:decoration-accent-strong"
             href={FORGOT_PASSWORD_PATH}
           >
             Forgot password?
@@ -777,18 +866,43 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         </p>
       ) : null}
 
+      {capabilities.captcha.enabled ? (
+        <TurnstileWidget
+          ref={captchaWidgetRef}
+          siteKey={capabilities.captcha.siteKey}
+          onToken={setCaptchaToken}
+        />
+      ) : null}
+
       <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
-        <Button className="w-full" disabled={isPending || Boolean(retryAfter)} type="submit">
+        <Button
+          className="w-full"
+          disabled={isPending || Boolean(retryAfter) || isAuthSecurityUnavailable}
+          type="submit"
+        >
           {isPending ? 'Signing in...' : 'Sign in'}
         </Button>
 
         <Link
-          className="text-sm whitespace-normal text-[#00c573] underline decoration-[#00c573]/55 underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out hover:text-[#3ecf8e] hover:decoration-[#3ecf8e]"
+          className="text-sm whitespace-normal text-accent underline decoration-accent/55 underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out hover:text-accent-strong hover:decoration-accent-strong"
           href={REGISTER_PATH}
         >
           Need an account? Create one
         </Link>
       </div>
+
+      {capabilities.passkey.enabled ? (
+        <Button
+          className="w-full gap-2"
+          disabled={isPasskeyPending}
+          onClick={() => void handlePasskeySignIn()}
+          type="button"
+          variant="outline"
+        >
+          <KeyRound className="h-4 w-4" />
+          {isPasskeyPending ? 'Checking passkey...' : 'Sign in with passkey'}
+        </Button>
+      ) : null}
 
       {env.mockAuthEnabled ? (
         <p className="text-xs text-muted-foreground">

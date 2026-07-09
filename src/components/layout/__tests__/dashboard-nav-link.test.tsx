@@ -2,9 +2,9 @@ import { render, screen } from '@testing-library/react'
 
 import { DashboardNavLink } from '../dashboard-nav-link'
 
-const usePathname = jest.fn()
+const usePathname = vi.fn()
 
-jest.mock('next/navigation', () => ({
+vi.mock('next/navigation', () => ({
   usePathname: () => usePathname(),
 }))
 

@@ -168,7 +168,7 @@ export function SecretsImportForm({ projectId }: SecretsImportFormProps) {
             setRawInput(event.target.value)
             setFieldErrors((current) => ({ ...current, rawInput: '', secrets: '' }))
           }}
-          placeholder={'DATABASE_URL=postgres://...\nOPENAI_API_KEY=sk-...'}
+          placeholder={'DATABASE_URL=postgres://...\nOPENAI_API_KEY=provider-key-placeholder'}
           className={cn(
             'min-h-36 w-full rounded-md border border-border bg-background-elevated px-3 py-2 text-sm',
             (fieldErrors.rawInput || fieldErrors.secrets) && 'border-danger'
@@ -184,7 +184,7 @@ export function SecretsImportForm({ projectId }: SecretsImportFormProps) {
       </p>
 
       <p className="text-xs text-muted-foreground">
-        Imported secrets can optionally issue tokens immediately for runtime onboarding.
+        Imported secrets can optionally issue tokens immediately for runtime setup.
       </p>
 
       <Button disabled={secrets.importSecrets.isPending} type="submit" variant="outline">

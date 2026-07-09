@@ -1,15 +1,14 @@
 'use client'
 
-import Link from 'next/link'
-
 import { FolderOpen, Plus, UserPlus } from 'lucide-react'
+import Link from 'next/link'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  SETTINGS_ORGANIZATION_MEMBERS_PATH,
   getOrgProjectPath,
   getOrgProjectsPath,
+  SETTINGS_ORGANIZATION_MEMBERS_PATH,
 } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useProjectsQuery } from '@/lib/hooks/use-projects'
@@ -35,7 +34,11 @@ function StatCard({
   value: number
 }) {
   const content = (
-    <Card className={href ? 'transition-colors hover:border-border-strong hover:bg-card-elevated' : undefined}>
+    <Card
+      className={
+        href ? 'transition-colors hover:border-border-strong hover:bg-card-elevated' : undefined
+      }
+    >
       <CardHeader>
         <CardTitle>{label}</CardTitle>
         <CardDescription>{description}</CardDescription>

@@ -1,255 +1,186 @@
-# Design System Inspired by Supabase
+# PentaVault Design System — Vivid Emerald + Jewel Tones
 
-## 1. Visual Theme & Atmosphere
+## Overview
 
-Supabase's website is a dark-mode-native developer platform that channels the aesthetic of a premium code editor — deep black backgrounds (`#0f0f0f`, `#171717`) with emerald green accents (`#3ecf8e`, `#00c573`) that reference the brand's open-source, PostgreSQL-green identity. The design system feels like it was born in a terminal window and evolved into a sophisticated marketing surface without losing its developer soul.
+PentaVault is a dark-mode-native developer security platform. Its visual language
+is **colorful but tasteful**: a deep green-black canvas lit by a vivid emerald
+brand signal, with sapphire, violet, and coral jewel tones used as functional
+secondary accents (section identity, charts, interactive hovers). The feel is
+alive and confident — poppy without being loud — closer to a premium, energetic
+developer tool than to a flat grayscale console. Color carries meaning here:
+emerald says "PentaVault / active / go", and each jewel tone gives a section or
+data series its own identity. Depth still comes from border hierarchy and surface
+elevation, now warmed by soft accent glows.
 
-The typography is built on "Circular" — a geometric sans-serif with rounded terminals that softens the technical edge. At 72px with a 1.00 line-height, the hero text is compressed to its absolute minimum vertical space, creating dense, impactful statements that waste nothing. The monospace companion (Source Code Pro) appears sparingly for uppercase technical labels with 1.2px letter-spacing, creating the "developer console" markers that connect the marketing site to the product experience.
+The guiding instinct: color is a signal, not noise. Lead with emerald as the
+brand throughline, assign a jewel tone when a region or dataset needs its own
+identity, and let hovers bloom with a spotlight glow in that region's accent —
+but keep large surfaces calm and green-black so the color reads as intentional.
 
-What makes Supabase distinctive is its sophisticated HSL-based color token system. Rather than flat hex values, Supabase uses HSL with alpha channels for nearly every color (`--colors-crimson4`, `--colors-purple5`, `--colors-slateA12`), enabling a nuanced layering system where colors interact through transparency. This creates depth through translucency — borders at `rgba(46, 46, 46)`, surfaces at `rgba(41, 41, 41, 0.84)`, and accents at partial opacity all blend with the dark background to create a rich, dimensional palette from minimal color ingredients.
+## Core principles
 
-The green accent (`#3ecf8e`) appears selectively — in the Supabase logo, in link colors (`#00c573`), and in border highlights (`rgba(62, 207, 142, 0.3)`) — always as a signal of "this is Supabase" rather than as a decorative element. Pill-shaped buttons (9999px radius) for primary CTAs contrast with standard 6px radius for secondary elements, creating a clear visual hierarchy of importance.
+- **Dark-mode-native**: deep green-black backgrounds — never pure black. The
+  darkness is structural; do not lighten primary surfaces to lift content.
+- **Emerald is the brand**: `--accent` (emerald) is the primary signal — active
+  state, focus, selection, wordmark, primary CTA. Everything reads as "emerald
+  PentaVault."
+- **Jewel tones as functional accents**: sapphire / violet / coral give sections,
+  charts, and interactive spotlights their own identity. Use them to distinguish,
+  not to decorate at random — a color should always mean something.
+- **Border-defined space, glow-warmed**: separation comes from thin borders on
+  dark surfaces; hover and active states add a soft accent glow rather than a
+  heavy shadow.
+- **Poppy but tasteful**: saturated accents on calm surfaces. Keep big fills
+  green-black; let the color live in accents, edges, hovers, and data.
 
-**Key Characteristics:**
-- Dark-mode-native: near-black backgrounds (`#0f0f0f`, `#171717`) — never pure black
-- Emerald green brand accent (`#3ecf8e`, `#00c573`) used sparingly as identity marker
-- Circular font — geometric sans-serif with rounded terminals
-- Source Code Pro for uppercase technical labels (1.2px letter-spacing)
-- HSL-based color token system with alpha channels for translucent layering
-- Pill buttons (9999px) for primary CTAs, 6px radius for secondary
-- Neutral gray scale from `#171717` through `#898989` to `#fafafa`
-- Border system using dark grays (`#2e2e2e`, `#363636`, `#393939`)
-- Minimal shadows — depth through border contrast and transparency
-- Radix color primitives (crimson, purple, violet, indigo, yellow, tomato, orange, slate)
+## Color tokens (source of truth: `src/styles/globals.css`)
 
-## 2. Color Palette & Roles
+All colors are CSS variables surfaced as Tailwind theme tokens. **Never hardcode
+hex values in components** — use the token classes (`bg-background`,
+`text-foreground`, `border-border`, `text-accent`, `text-sapphire`, etc.). If a
+needed shade is missing, add a token, don't inline a hex.
 
-### Brand
-- **Supabase Green** (`#3ecf8e`): Primary brand color, logo, accent borders
-- **Green Link** (`#00c573`): Interactive green for links and actions
-- **Green Border** (`rgba(62, 207, 142, 0.3)`): Subtle green border accent
+### Surfaces (darkest → lightest)
+- **`--background-deep` `#060a08`**: deepest surface (insets, page-bottom fade)
+- **`--background` `#0a0f0d`**: page canvas (deep green-black)
+- **`--card` `#0f1512`**: card / panel background
+- **`--card-elevated` `#16211c`**: elevated / hover surface, active nav
+- **`--background-elevated` `rgba(22,33,28,0.84)`**: translucent elevated fills
+- **`--surface-frost` `rgba(16,185,129,0.07)`**: faint emerald frost wash
 
-### Neutral Scale (Dark Mode)
-- **Near Black** (`#0f0f0f`): Primary button background, deepest surface
-- **Dark** (`#171717`): Page background, primary canvas
-- **Dark Border** (`#242424`): Horizontal rule, section dividers
-- **Border Dark** (`#2e2e2e`): Card borders, tab borders
-- **Mid Border** (`#363636`): Button borders, dividers
-- **Border Light** (`#393939`): Secondary borders
-- **Charcoal** (`#434343`): Tertiary borders, dark accents
-- **Dark Gray** (`#4d4d4d`): Heavy secondary text
-- **Mid Gray** (`#898989`): Muted text, link color
-- **Light Gray** (`#b4b4b4`): Secondary link text
-- **Near White** (`#efefef`): Light border, subtle surface
-- **Off White** (`#fafafa`): Primary text, button text
+### Text
+- **`--foreground` `#f2fbf6`**: primary text (soft mint-white)
+- **`--foreground-soft` `#b3c6bd`**: secondary headings / softer body
+- **`--muted-foreground` `#7d9488`**: metadata, captions, placeholder
 
-### Radix Color Tokens (HSL-based)
-- **Slate Scale**: `--colors-slate5` through `--colors-slateA12` — neutral progression
-- **Purple**: `--colors-purple4`, `--colors-purple5`, `--colors-purpleA7` — accent spectrum
-- **Violet**: `--colors-violet10` (`hsl(251, 63.2%, 63.2%)`) — vibrant accent
-- **Crimson**: `--colors-crimson4`, `--colors-crimsonA9` — warm accent / alert
-- **Indigo**: `--colors-indigoA2` — subtle blue wash
-- **Yellow**: `--colors-yellowA7` — attention/warning
-- **Tomato**: `--colors-tomatoA4` — error accent
-- **Orange**: `--colors-orange6` — warm accent
+### Borders (faint → prominent)
+- **`--border-subtle` `#182119`**: barely-visible dividers
+- **`--border` `#21302a`**: standard border
+- **`--border-strong` `#2f453c`**: prominent / hover border
 
-### Surface & Overlay
-- **Glass Dark** (`rgba(41, 41, 41, 0.84)`): Translucent dark overlay
-- **Slate Alpha** (`hsla(210, 87.8%, 16.1%, 0.031)`): Ultra-subtle blue wash
-- **Fixed Scale Alpha** (`hsla(200, 90.3%, 93.4%, 0.109)`): Light frost overlay
+### Primary accent — emerald (the brand signal)
+- **`--accent` `#10b981`**: emerald signal — active nav, selected state, primary
+  CTA fill, key icons, links
+- **`--accent-strong` `#34d399`**: brighter emerald for strongest emphasis
+  (wordmark, hover-lit accent, gradient highlights)
+- **`--accent-muted` `rgba(16,185,129,0.14)`**: soft emerald wash for selected
+  rows, chips, subtle fills
+- **`--focus-ring` `rgba(16,185,129,0.45)`**: emerald focus outline
+- **`--accent-border` `rgba(16,185,129,0.4)`**: emerald border for elevated/active
 
-### Shadows
-- Supabase uses **almost no shadows** in its dark theme. Depth is created through border contrast and surface color differences rather than box-shadows. Focus states use `rgba(0, 0, 0, 0.1) 0px 4px 12px` — minimal, functional.
+### Secondary accents — jewel tones (functional: section identity, charts, hovers)
+- **`--sapphire` `#3b82f6`** + **`--sapphire-muted` `rgba(59,130,246,0.14)`**
+- **`--violet` `#a855f7`** + **`--violet-muted` `rgba(168,85,247,0.14)`**
+- **`--coral` `#fb7185`** + **`--coral-muted` `rgba(251,113,133,0.14)`**
 
-## 3. Typography Rules
+Use these to give a section, panel, or chart series its own identity, and as the
+color of a hover spotlight. Emerald stays the default/brand; jewel tones are
+assigned deliberately, not sprinkled.
 
-### Font Families
-- **Primary**: `Circular`, with fallbacks: `custom-font, Helvetica Neue, Helvetica, Arial`
-- **Monospace**: `Source Code Pro`, with fallbacks: `Office Code Pro, Menlo`
+### Status
+- **`--danger` `#f43f5e`** + `--danger-muted`: destructive actions, errors
+- **`--warning` `#fbbf24`** + `--warning-muted`: warnings, at-risk states
 
-### Hierarchy
+### Other
+- **`--radius` `0.625rem` (10px)**: standard corner radius. Do not use pill
+  (9999px) radii for primary CTAs — the system favors consistent ~10px corners.
 
-| Role | Font | Size | Weight | Line Height | Letter Spacing | Notes |
-|------|------|------|--------|-------------|----------------|-------|
-| Display Hero | Circular | 72px (4.50rem) | 400 | 1.00 (tight) | normal | Maximum density, zero waste |
-| Section Heading | Circular | 36px (2.25rem) | 400 | 1.25 (tight) | normal | Feature section titles |
-| Card Title | Circular | 24px (1.50rem) | 400 | 1.33 | -0.16px | Slight negative tracking |
-| Sub-heading | Circular | 18px (1.13rem) | 400 | 1.56 | normal | Secondary headings |
-| Body | Circular | 16px (1.00rem) | 400 | 1.50 | normal | Standard body text |
-| Nav Link | Circular | 14px (0.88rem) | 500 | 1.00–1.43 | normal | Navigation items |
-| Button | Circular | 14px (0.88rem) | 500 | 1.14 (tight) | normal | Button labels |
-| Caption | Circular | 14px (0.88rem) | 400–500 | 1.43 | normal | Metadata, tags |
-| Small | Circular | 12px (0.75rem) | 400 | 1.33 | normal | Fine print, footer links |
-| Code Label | Source Code Pro | 12px (0.75rem) | 400 | 1.33 | 1.2px | `text-transform: uppercase` |
+## Depth & shadows
 
-### Principles
-- **Weight restraint**: Nearly all text uses weight 400 (regular/book). Weight 500 appears only for navigation links and button labels. There is no bold (700) in the detected system — hierarchy is created through size, not weight.
-- **1.00 hero line-height**: The hero text is compressed to absolute zero leading. This is the defining typographic gesture — text that feels like a terminal command: dense, efficient, no wasted vertical space.
-- **Negative tracking on cards**: Card titles use -0.16px letter-spacing, a subtle tightening that differentiates them from body text without being obvious.
-- **Monospace as ritual**: Source Code Pro in uppercase with 1.2px letter-spacing is the "developer console" voice — used sparingly for technical labels that connect to the product experience.
-- **Geometric personality**: Circular's rounded terminals create warmth in what could otherwise be a cold, technical interface. The font is the humanizing element.
+Depth is communicated through the border hierarchy (`--border-subtle` →
+`--border` → `--border-strong`) and surface elevation (`--card` →
+`--card-elevated`), now warmed by color. The active/elevated state is signalled by
+the emerald accent border (`--accent-border`) and, on interactive surfaces, a soft
+glow in the section's accent color. Where a shadow is needed (floating bars,
+modals over content), a low-opacity black shadow is fine; a subtle emerald or
+jewel-tone tint on the glow is on-brand — keep it soft and purposeful, never a
+harsh neon halo. The page canvas itself carries faint emerald/sapphire radial
+glows at the top (see `body` in `globals.css`) — lean into that lit-from-above
+feel rather than flattening it.
 
-## 4. Component Stylings
+## Typography
 
-### Buttons
+- Sans: `--font-brand-sans`; Mono: `--font-brand-mono` (used for slugs, tokens,
+  code, and small uppercase labels).
+- Small labels use the mono uppercase treatment:
+  `text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground`.
+- Prefer weight 400–500; reserve 600 for genuine emphasis. Accent-colored text
+  (emerald or a jewel tone) is a legitimate way to add emphasis without reaching
+  for heavier weights.
 
-**Primary Pill (Dark)**
-- Background: `#0f0f0f`
-- Text: `#fafafa`
-- Padding: 8px 32px
-- Radius: 9999px (full pill)
-- Border: `1px solid #fafafa` (white border on dark)
-- Focus shadow: `rgba(0, 0, 0, 0.1) 0px 4px 12px`
-- Use: Primary CTA ("Start your project")
+## Motion
 
-**Secondary Pill (Dark, Muted)**
-- Background: `#0f0f0f`
-- Text: `#fafafa`
-- Padding: 8px 32px
-- Radius: 9999px
-- Border: `1px solid #2e2e2e` (dark border)
-- Opacity: 0.8
-- Use: Secondary CTA alongside primary
+Micro-transitions are encouraged but must be subtle and fast. Two mechanisms:
 
-**Ghost Button**
-- Background: transparent
-- Text: `#fafafa`
-- Padding: 8px
-- Radius: 6px
-- Border: `1px solid transparent`
-- Use: Tertiary actions, icon buttons
+1. **Tailwind/CSS transitions + keyframes** for hover/press/focus, tab-slide,
+   spotlight-glow follow, and Radix `data-[state]`-driven dialog/dropdown
+   enter-exit (defined in `globals.css`). This is the default — no dependency.
+2. **`motion` library** (installed) for interactive/stateful surfaces where CSS is
+   awkward: the floating action bar, sidebar collapse, and SVG marks (e.g.
+   `src/components/shared/brand-mark.tsx`, which draws its outline in on mount).
 
-### Cards & Containers
-- Background: dark surfaces (`#171717` or slightly lighter)
-- Border: `1px solid #2e2e2e` or `#363636`
-- Radius: 8px–16px
-- No visible shadows — borders define edges
-- Internal padding: 16px–24px
+Rules: durations ~140–220ms for UI transitions; ease-out for enters, ease-in for
+exits. **Always** honor `prefers-reduced-motion` (guard keyframes with the media
+query; use `useReducedMotion()` with `motion`; disable the spotlight follow when
+reduced). Motion should feel like the UI settling and lighting up, never like it
+performing.
 
-### Tabs
-- Border: `1px solid #2e2e2e`
-- Radius: 9999px (pill tabs)
-- Active: green accent or lighter surface
-- Inactive: dark, muted
+## Component conventions
 
-### Links
-- **Green**: `#00c573` — Supabase-branded links
-- **Primary Light**: `#fafafa` — standard links on dark
-- **Secondary**: `#b4b4b4` — muted links
-- **Muted**: `#898989` — tertiary links, footer
+- **Buttons**: primary = emerald fill (`bg-accent` + `--background-deep`/dark text
+  for contrast), ~10px radius, hover brightens toward `--accent-strong` with a
+  soft emerald glow. Secondary = `outline`. Danger = `--danger` tokens.
+- **Cards**: `bg-card`, `border-border`, `--radius` corners; hover lifts to
+  `bg-card-elevated` / `border-border-strong` and blooms a spotlight glow in the
+  card's assigned accent (emerald by default, or its section's jewel tone).
+- **Active nav**: `bg-card-elevated` + `text-foreground` with an emerald accent
+  edge; inactive is `text-muted-foreground` hovering to `text-foreground`.
+- **Focus**: `box-shadow: 0 0 0 2px var(--focus-ring)` (emerald; already global on
+  inputs, buttons, links).
+- **Selected / highlighted**: an emerald wash (`bg-accent-muted`) + accent border
+  (`border-accent/50`). For section-scoped highlights, swap in the section's jewel
+  tone (`bg-sapphire-muted`, `bg-violet-muted`, `bg-coral-muted`).
+- **Hover spotlight**: interactive cards and panels use a **mouse-following
+  spotlight border glow** in the section's accent color — a radial highlight that
+  tracks the cursor along the card's edge. Emerald by default; sapphire / violet /
+  coral where a section owns that tone. Disable the follow under reduced motion.
 
-### Navigation
-- Dark background matching page (`#171717`)
-- Supabase logo with green icon
-- Circular 14px weight 500 for nav links
-- Clean horizontal layout with product dropdown
-- Green "Start your project" CTA pill button
-- Sticky header behavior
+## Do / Don't
 
-## 5. Layout Principles
+**Do**
+- Keep big surfaces green-black (`--background`/`--card`); create depth with
+  borders and soft accent glows.
+- Use emerald as the brand throughline (active/focus/selection, primary CTA,
+  wordmark), and assign a jewel tone when a section or chart series needs identity.
+- Add mouse-following spotlight glows in the section's accent on interactive cards.
+- Keep motion subtle, fast, and reduced-motion-aware. Consistent ~10px radius.
 
-### Spacing System
-- Base unit: 8px
-- Scale: 1px, 4px, 6px, 8px, 12px, 16px, 20px, 24px, 32px, 40px, 48px, 90px, 96px, 128px
-- Notable large jumps: 48px → 90px → 96px → 128px for major section spacing
+**Don't**
+- Don't hardcode hex colors in components — use tokens (`text-accent`,
+  `text-sapphire`, `bg-accent-muted`, …).
+- Don't go back to monochrome/near-white accents — emerald is the brand now.
+- Don't scatter jewel tones meaninglessly; every color should signal something
+  (section, series, state). Don't flood a whole surface with saturated fill.
+- Don't use pill-radius primary CTAs or harsh neon halos.
+- Don't lighten the primary background to separate content — use borders, glow,
+  and elevation.
 
-### Grid & Container
-- Centered content with generous max-width
-- Full-width dark sections with constrained inner content
-- Feature grids: icon-based grids with consistent card sizes
-- Logo grids for "Trusted by" sections
-- Footer: multi-column on dark background
+## Prompt snippets (for generating on-brand UI)
 
-### Breakpoints
-| Name | Width | Key Changes |
-|------|-------|-------------|
-| Mobile | <600px | Single column, stacked layout |
-| Desktop | >600px | Multi-column grids, expanded layout |
-
-*Note: Supabase uses a notably minimal breakpoint system — primarily a single 600px breakpoint, suggesting a mobile-first approach with progressive enhancement.*
-
-### Whitespace Philosophy
-- **Dramatic section spacing**: 90px–128px between major sections creates a cinematic pacing — each section is its own scene in the dark void.
-- **Dense content blocks**: Within sections, spacing is tight (16px–24px), creating concentrated information clusters.
-- **Border-defined space**: Instead of whitespace + shadows for separation, Supabase uses thin borders on dark backgrounds — separation through line, not gap.
-
-### Border Radius Scale
-- Standard (6px): Ghost buttons, small elements
-- Comfortable (8px): Cards, containers
-- Medium (11px–12px): Mid-size panels
-- Large (16px): Feature cards, major containers
-- Pill (9999px): Primary buttons, tab indicators
-
-## 6. Depth & Elevation
-
-| Level | Treatment | Use |
-|-------|-----------|-----|
-| Flat (Level 0) | No shadow, border `#2e2e2e` | Default state, most surfaces |
-| Subtle Border (Level 1) | Border `#363636` or `#393939` | Interactive elements, hover |
-| Focus (Level 2) | `rgba(0, 0, 0, 0.1) 0px 4px 12px` | Focus states only |
-| Green Accent (Level 3) | Border `rgba(62, 207, 142, 0.3)` | Brand-highlighted elements |
-
-**Shadow Philosophy**: Supabase deliberately avoids shadows. In a dark-mode-native design, shadows are nearly invisible and serve no purpose. Instead, depth is communicated through a sophisticated border hierarchy — from `#242424` (barely visible) through `#2e2e2e` (standard) to `#393939` (prominent). The green accent border (`rgba(62, 207, 142, 0.3)`) at 30% opacity is the "elevated" state — the brand color itself becomes the depth signal.
-
-## 7. Do's and Don'ts
-
-### Do
-- Use near-black backgrounds (`#0f0f0f`, `#171717`) — depth comes from the gray border hierarchy
-- Apply Supabase green (`#3ecf8e`, `#00c573`) sparingly — it's an identity marker, not a decoration
-- Use Circular at weight 400 for nearly everything — 500 only for buttons and nav
-- Set hero text to 1.00 line-height — the zero-leading is the typographic signature
-- Create depth through border color differences (`#242424` → `#2e2e2e` → `#363636`)
-- Use pill shape (9999px) exclusively for primary CTAs and tabs
-- Employ HSL-based colors with alpha for translucent layering effects
-- Use Source Code Pro uppercase labels for developer-context markers
-
-### Don't
-- Don't add box-shadows — they're invisible on dark backgrounds and break the border-defined depth system
-- Don't use bold (700) text weight — the system uses 400 and 500 only
-- Don't apply green to backgrounds or large surfaces — it's for borders, links, and small accents
-- Don't use warm colors (crimson, orange) as primary design elements — they exist as semantic tokens for states
-- Don't increase hero line-height above 1.00 — the density is intentional
-- Don't use large border radius (16px+) on buttons — pills (9999px) or standard (6px), nothing in between
-- Don't lighten the background above `#171717` for primary surfaces — the darkness is structural
-- Don't forget the translucent borders — `rgba` border colors are the layering mechanism
-
-## 8. Responsive Behavior
-
-### Breakpoints
-| Name | Width | Key Changes |
-|------|-------|-------------|
-| Mobile | <600px | Single column, stacked features, condensed nav |
-| Desktop | >600px | Multi-column grids, full nav, expanded sections |
-
-### Collapsing Strategy
-- Hero: 72px → scales down proportionally
-- Feature grids: multi-column → single column stacked
-- Logo row: horizontal → wrapped grid
-- Navigation: full → hamburger
-- Section spacing: 90–128px → 48–64px
-- Buttons: inline → full-width stacked
-
-## 9. Agent Prompt Guide
-
-### Quick Color Reference
-- Background: `#0f0f0f` (button), `#171717` (page)
-- Text: `#fafafa` (primary), `#b4b4b4` (secondary), `#898989` (muted)
-- Brand green: `#3ecf8e` (brand), `#00c573` (links)
-- Borders: `#242424` (subtle), `#2e2e2e` (standard), `#363636` (prominent)
-- Green border: `rgba(62, 207, 142, 0.3)` (accent)
-
-### Example Component Prompts
-- "Create a hero section on #171717 background. Headline at 72px Circular weight 400, line-height 1.00, #fafafa text. Sub-text at 16px Circular weight 400, line-height 1.50, #b4b4b4. Pill CTA button (#0f0f0f bg, #fafafa text, 9999px radius, 8px 32px padding, 1px solid #fafafa border)."
-- "Design a feature card: #171717 background, 1px solid #2e2e2e border, 16px radius. Title at 24px Circular weight 400, letter-spacing -0.16px. Body at 14px weight 400, #898989 text."
-- "Build navigation bar: #171717 background. Circular 14px weight 500 for links, #fafafa text. Supabase logo with green icon left-aligned. Green pill CTA 'Start your project' right-aligned."
-- "Create a technical label: Source Code Pro 12px, uppercase, letter-spacing 1.2px, #898989 text."
-- "Design a framework logo grid: 6-column layout on dark, grayscale logos at 60% opacity, 1px solid #2e2e2e border between sections."
-
-### Iteration Guide
-1. Start with #171717 background — everything is dark-mode-native
-2. Green is the brand identity marker — use it for links, logo, and accent borders only
-3. Depth comes from borders (#242424 → #2e2e2e → #363636), not shadows
-4. Weight 400 is the default for everything — 500 only for interactive elements
-5. Hero line-height of 1.00 is the signature typographic move
-6. Pill (9999px) for primary actions, 6px for secondary, 8-16px for cards
-7. HSL with alpha channels creates the sophisticated translucent layering
+- "Hero on a deep green-black `#0a0f0d` canvas with a faint emerald radial glow
+  top-left. Headline `#f2fbf6`, weight 500, tight line-height. Sub-text `#b3c6bd`.
+  Primary CTA: emerald `#10b981` fill, dark `#060a08` text, 10px radius, soft
+  emerald glow on hover."
+- "Feature card: `#0f1512` bg, 1px `#21302a` border, 10px radius; hover lifts to
+  `#16211c` bg + `#2f453c` border with a mouse-following emerald `#10b981`
+  spotlight glow along the edge. Title 20px weight 500 `#f2fbf6`; body 14px
+  `#7d9488`. Icon tinted emerald `#34d399`."
+- "Three feature sections, each with its own jewel-tone identity: emerald
+  `#10b981`, sapphire `#3b82f6`, violet `#a855f7`. Section icon + heading accent
+  and hover spotlight use that section's color; body text stays `#b3c6bd` on
+  `#0f1512` cards."
+- "Nav bar: `#0a0f0d` bg. 14px links, inactive `#7d9488`, active `#f2fbf6` on a
+  `#16211c` pill with an emerald `#10b981` accent edge. Emerald wordmark left,
+  emerald-fill CTA right."
+- "Analytics chart on `#0f1512`: series in emerald `#10b981`, sapphire `#3b82f6`,
+  violet `#a855f7`, coral `#fb7185`; gridlines `#21302a`; labels `#7d9488`."

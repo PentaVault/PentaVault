@@ -1,34 +1,96 @@
 'use client'
 
 import type { FormEvent } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { CopyButton } from '@/components/shared/copy-button'
 import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { authApi } from '@/lib/api/auth'
+import { useAuth } from '@/lib/hooks/use-auth'
 import { useToast } from '@/lib/hooks/use-toast'
+import type {
+  AuthApiKeyPermissionAction,
+  AuthApiKeyPermissionResource,
+  AuthApiKeyPermissions,
+  AuthApiKeyTokenType,
+  AuthCreateApiKeyResponse,
+} from '@/lib/types/api'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
 
-type ApiKeyResult = {
-  key: string
-  headerName?: string
-  apiKey?: {
-    id?: string | null
-    name?: string | null
-    start?: string | null
-    expiresAt?: string | null
+type ApiKeyCreateFormProps = {
+  onCreated?: (apiKey: AuthCreateApiKeyResponse) => void
+  tokenType?: AuthApiKeyTokenType
+}
+
+const permissionRows: Array<{
+  resource: AuthApiKeyPermissionResource
+  label: string
+  defaultActions: AuthApiKeyPermissionAction[]
+  actions: AuthApiKeyPermissionAction[]
+}> = [
+  {
+    resource: 'proxy',
+    label: 'Proxy tokens',
+    defaultActions: ['read', 'write', 'create', 'delete'],
+    actions: ['read', 'write', 'create', 'delete'],
+  },
+]
+
+const defaultPermissions = permissionRows.reduce<AuthApiKeyPermissions>((permissions, row) => {
+  permissions[row.resource] = row.defaultActions
+  return permissions
+}, {})
+
+function togglePermission(
+  permissions: AuthApiKeyPermissions,
+  resource: AuthApiKeyPermissionResource,
+  action: AuthApiKeyPermissionAction,
+  checked: boolean
+): AuthApiKeyPermissions {
+  const current = permissions[resource] ?? []
+  const nextActions = checked
+    ? Array.from(new Set([...current, action]))
+    : current.filter((item) => item !== action)
+  return {
+    ...permissions,
+    [resource]: nextActions,
   }
 }
 
-export function ApiKeyCreateForm() {
+export function ApiKeyCreateForm({ onCreated, tokenType = 'personal' }: ApiKeyCreateFormProps) {
   const { toast } = useToast()
+  const auth = useAuth()
+  const defaultOrganizationId =
+    auth.activeOrganization?.organization.id ?? auth.organizations[0]?.organization.id ?? ''
 
   const [name, setName] = useState('')
+  const [organizationId, setOrganizationId] = useState<string>(defaultOrganizationId)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [permissions, setPermissions] = useState<AuthApiKeyPermissions>(defaultPermissions)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<ApiKeyResult | null>(null)
+  const [result, setResult] = useState<AuthCreateApiKeyResponse | null>(null)
+
+  useEffect(() => {
+    if (
+      defaultOrganizationId &&
+      (!organizationId ||
+        !auth.organizations.some((entry) => entry.organization.id === organizationId))
+    ) {
+      setOrganizationId(defaultOrganizationId)
+    }
+  }, [auth.organizations, defaultOrganizationId, organizationId])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
@@ -36,15 +98,23 @@ export function ApiKeyCreateForm() {
     setError(null)
 
     try {
+      if (!organizationId) {
+        throw new Error('Choose an organisation scope for this token.')
+      }
+
       const trimmedName = name.trim()
-      const response = (await authApi.createApiKey(
-        trimmedName ? { name: trimmedName } : {}
-      )) as ApiKeyResult
+      const response = await authApi.createApiKey({
+        ...(trimmedName ? { name: trimmedName } : {}),
+        tokenType,
+        organizationId,
+        permissions,
+      })
       setResult(response)
-      toast.success('Fallback API key created. Copy it now; this is your only chance to see it.')
+      onCreated?.(response)
+      toast.success('Token created. Copy it now; this is your only chance to see it.')
       setName('')
     } catch (submitError) {
-      const message = getApiFriendlyMessage(submitError, 'Unable to create API key right now.')
+      const message = getApiFriendlyMessage(submitError, 'Unable to create token right now.')
       setError(message)
       toast.error(message)
     } finally {
@@ -65,19 +135,90 @@ export function ApiKeyCreateForm() {
           <Input
             id="api-key-name"
             onChange={(event) => setName(event.target.value)}
-            placeholder="work-laptop-fallback"
+            placeholder="work-laptop"
             value={name}
           />
         </div>
 
+        <div className="space-y-1">
+          <label
+            className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+            htmlFor="api-key-organization"
+          >
+            Organisation scope
+          </label>
+          <Select onValueChange={setOrganizationId} value={organizationId}>
+            <SelectTrigger id="api-key-organization">
+              <SelectValue placeholder="Choose an organisation" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {auth.organizations.map((entry) => (
+                  <SelectItem key={entry.organization.id} value={entry.organization.id}>
+                    {entry.organization.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Tokens are restricted to this organisation and cannot switch to another one.
+          </p>
+        </div>
+
+        <div className="rounded-md border border-border p-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium">Recommended permissions</p>
+              <p className="text-xs text-muted-foreground">
+                Restrict this key to proxy token actions. Backend role checks still decide what the
+                user is allowed to do.
+              </p>
+            </div>
+            <Button
+              onClick={() => setAdvancedOpen((current) => !current)}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {advancedOpen ? 'Hide controls' : 'Fine-grained controls'}
+            </Button>
+          </div>
+
+          {advancedOpen ? (
+            <div className="mt-3 divide-y divide-border">
+              {permissionRows.map((row) => (
+                <div className="flex items-center justify-between gap-3 py-3" key={row.resource}>
+                  <p className="text-sm">{row.label}</p>
+                  <div className="flex items-center gap-4">
+                    {row.actions.map((action) => (
+                      <div className="flex items-center gap-2 text-xs capitalize" key={action}>
+                        <Checkbox
+                          checked={permissions[row.resource]?.includes(action) ?? false}
+                          onCheckedChange={(checked) =>
+                            setPermissions((current) =>
+                              togglePermission(current, row.resource, action, checked)
+                            )
+                          }
+                        />
+                        <span>{action}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
         {error ? <p className="text-sm text-danger">{error}</p> : null}
 
-        <Button disabled={loading} type="submit">
-          {loading ? 'Creating...' : 'Create fallback API key'}
+        <Button disabled={loading || !organizationId} type="submit">
+          {loading ? 'Creating...' : 'Create token'}
         </Button>
 
         <p className="text-xs text-muted-foreground">
-          API keys are shown once. Save securely before leaving this page.
+          Tokens are shown once. Save securely before leaving this page.
         </p>
       </form>
 

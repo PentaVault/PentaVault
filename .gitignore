@@ -3,12 +3,11 @@
 # ============================================================
 
 # Backend — private repo, managed separately, not public yet
-PentaVault-Backend/
-
 # Next.js
 .next/
 out/
 build/
+dist/
 next-env.d.ts
 *.tsbuildinfo
 
@@ -43,6 +42,12 @@ Thumbs.db
 # Testing
 coverage/
 .nyc_output/
+playwright-report/
+test-results/
+
+# Rust
+target/
+packages/*/target/
 
 # Misc
 *.log

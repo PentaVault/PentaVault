@@ -1,34 +1,37 @@
-import type { ReactNode } from 'react'
-
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import type { ReactNode } from 'react'
 
 import { NotificationPanel } from '../notification-panel'
 
-const markReadMutate = jest.fn()
-const markAllReadMutate = jest.fn()
-const deleteNotificationMutate = jest.fn()
-const acceptInvitationMutateAsync = jest.fn()
-const rejectInvitationMutateAsync = jest.fn()
-const reviewAccessRequestMutateAsync = jest.fn()
-const routerPush = jest.fn()
+const markReadMutate = vi.fn()
+const markAllReadMutate = vi.fn()
+const deleteNotificationMutate = vi.fn()
+const acceptInvitationMutateAsync = vi.fn()
+const rejectInvitationMutateAsync = vi.fn()
+const reviewAccessRequestMutateAsync = vi.fn()
+const grantSecretAccessMutateAsync = vi.fn()
+const rejectSecretAccessMutateAsync = vi.fn()
+const approvePromotionMutateAsync = vi.fn()
+const rejectPromotionMutateAsync = vi.fn()
+const routerPush = vi.fn()
 let notificationsData: unknown
-const setActiveOrganization = jest.fn()
-const refreshAuth = jest.fn()
+const setActiveOrganization = vi.fn()
+const refreshAuth = vi.fn()
 
-jest.mock('next/navigation', () => ({
+vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: routerPush,
   }),
 }))
 
-jest.mock('@/lib/hooks/use-auth', () => ({
+vi.mock('@/lib/hooks/use-auth', () => ({
   useAuth: () => ({
     setActiveOrganization,
     refresh: refreshAuth,
   }),
 }))
 
-jest.mock('@/lib/hooks/use-notifications', () => ({
+vi.mock('@/lib/hooks/use-notifications', () => ({
   useNotifications: () => ({
     data: notificationsData,
     isLoading: false,
@@ -44,7 +47,7 @@ jest.mock('@/lib/hooks/use-notifications', () => ({
   }),
 }))
 
-jest.mock('@/lib/hooks/use-invitations', () => ({
+vi.mock('@/lib/hooks/use-invitations', () => ({
   useAcceptInvitationById: () => ({
     mutateAsync: acceptInvitationMutateAsync,
     isPending: false,
@@ -55,28 +58,47 @@ jest.mock('@/lib/hooks/use-invitations', () => ({
   }),
 }))
 
-jest.mock('@/lib/hooks/use-projects', () => ({
+vi.mock('@/lib/hooks/use-projects', () => ({
   useReviewProjectAccessRequest: () => ({
     mutateAsync: reviewAccessRequestMutateAsync,
     isPending: false,
   }),
 }))
 
-jest.mock('@/lib/hooks/use-toast', () => ({
+vi.mock('@/lib/hooks/use-secrets', () => ({
+  useGrantSecretAccess: () => ({
+    mutateAsync: grantSecretAccessMutateAsync,
+    isPending: false,
+  }),
+  useRejectSecretAccessRequest: () => ({
+    mutateAsync: rejectSecretAccessMutateAsync,
+    isPending: false,
+  }),
+  useApprovePromotionRequest: () => ({
+    mutateAsync: approvePromotionMutateAsync,
+    isPending: false,
+  }),
+  useRejectPromotionRequest: () => ({
+    mutateAsync: rejectPromotionMutateAsync,
+    isPending: false,
+  }),
+}))
+
+vi.mock('@/lib/hooks/use-toast', () => ({
   useToast: () => ({
     toast: {
-      success: jest.fn(),
-      error: jest.fn(),
+      success: vi.fn(),
+      error: vi.fn(),
     },
   }),
 }))
 
-jest.mock('@/components/invitations/invitation-dialog', () => ({
+vi.mock('@/components/invitations/invitation-dialog', () => ({
   InvitationDialog: ({ open }: { open: boolean }) =>
     open ? <div role="dialog">Invitation dialog</div> : null,
 }))
 
-jest.mock('@/components/ui/dropdown', () => ({
+vi.mock('@/components/ui/dropdown', () => ({
   DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -97,6 +119,14 @@ describe('NotificationPanel', () => {
     rejectInvitationMutateAsync.mockClear()
     reviewAccessRequestMutateAsync.mockResolvedValue({})
     reviewAccessRequestMutateAsync.mockClear()
+    grantSecretAccessMutateAsync.mockResolvedValue({})
+    grantSecretAccessMutateAsync.mockClear()
+    rejectSecretAccessMutateAsync.mockResolvedValue({})
+    rejectSecretAccessMutateAsync.mockClear()
+    approvePromotionMutateAsync.mockResolvedValue({})
+    approvePromotionMutateAsync.mockClear()
+    rejectPromotionMutateAsync.mockResolvedValue({})
+    rejectPromotionMutateAsync.mockClear()
     routerPush.mockClear()
     notificationsData = {
       unreadCount: 1,
@@ -306,7 +336,7 @@ describe('NotificationPanel', () => {
     expect(markReadMutate).toHaveBeenCalledWith('notification_access')
     await waitFor(() => {
       expect(setActiveOrganization).toHaveBeenCalledWith({ organizationId: 'org_1' })
-      expect(routerPush).toHaveBeenCalledWith('/dashboard/org/org_1/projects/project_1/team')
+      expect(routerPush).toHaveBeenCalledWith('/projects/project_1/team')
     })
   })
 
@@ -340,7 +370,7 @@ describe('NotificationPanel', () => {
 
     await waitFor(() => {
       expect(setActiveOrganization).toHaveBeenCalledWith({ organizationId: 'org_1' })
-      expect(routerPush).toHaveBeenCalledWith('/dashboard/org/org_1/projects/project_1')
+      expect(routerPush).toHaveBeenCalledWith('/projects/project_1')
     })
   })
 
@@ -374,7 +404,7 @@ describe('NotificationPanel', () => {
 
     await waitFor(() => {
       expect(setActiveOrganization).toHaveBeenCalledWith({ organizationId: 'org_1' })
-      expect(routerPush).toHaveBeenCalledWith('/dashboard/org/org_1/projects/project_1/secrets')
+      expect(routerPush).toHaveBeenCalledWith('/projects/project_1/secrets')
     })
   })
 
@@ -413,7 +443,7 @@ describe('NotificationPanel', () => {
         requestId: 'access_request_1',
         input: {
           status: 'approved',
-          grantedRole: 'developer',
+          grantedRole: 'member',
         },
       })
     })

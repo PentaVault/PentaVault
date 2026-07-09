@@ -15,9 +15,38 @@ on:
     branches: [main]
 
 jobs:
+  main-pr-source:
+    name: Main PR source
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Allow only staging or patch PRs into main
+        env:
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$BASE_BRANCH" != "main" ]]; then
+            echo "This check only applies to PRs targeting main."
+            exit 0
+          fi
+
+          if [[ "$HEAD_BRANCH" == "staging" || "$HEAD_BRANCH" == patch/* || "$HEAD_BRANCH" == patch-* ]]; then
+            echo "PR source branch is allowed for main."
+            exit 0
+          fi
+
+          echo "PRs targeting main must come from staging, except patch PRs." >&2
+          echo "Allowed source branches: staging, patch/*, patch-*" >&2
+          echo "Got: $HEAD_BRANCH" >&2
+          exit 1
+
   quality:
     name: Type check, lint, format
     runs-on: ubuntu-latest
+    needs: main-pr-source
+    if: always() && (github.event_name != 'pull_request' || needs.main-pr-source.result == 'success')
     steps:
       - uses: actions/checkout@v4
 
@@ -41,10 +70,31 @@ jobs:
       - name: Format check
         run: pnpm run format:check
 
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests
+        run: pnpm run test
+
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: quality
+    needs: test
     env:
       NEXT_PUBLIC_API_URL: http://localhost:3001/api
       NEXT_PUBLIC_APP_URL: http://localhost:3000

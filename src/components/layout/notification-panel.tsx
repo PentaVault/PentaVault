@@ -1,10 +1,9 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
-
 import { formatDistanceToNow } from 'date-fns'
 import { Bell, Check, Trash2, X } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useMemo, useState } from 'react'
 
 import { InvitationDialog } from '@/components/invitations/invitation-dialog'
 import { StatusBadge } from '@/components/ui/badge'
@@ -27,6 +26,12 @@ import {
   useNotifications,
 } from '@/lib/hooks/use-notifications'
 import { useReviewProjectAccessRequest } from '@/lib/hooks/use-projects'
+import {
+  useApprovePromotionRequest,
+  useGrantSecretAccess,
+  useRejectPromotionRequest,
+  useRejectSecretAccessRequest,
+} from '@/lib/hooks/use-secrets'
 import { useToast } from '@/lib/hooks/use-toast'
 import type { NotificationRecord, VerifyInvitationResponse } from '@/lib/types/api'
 import { cn } from '@/lib/utils/cn'
@@ -53,6 +58,11 @@ type ProjectAccessRequestNotificationAction =
 type LocalProjectAccessRequestAction = {
   notificationId: string
   action: ProjectAccessRequestNotificationAction
+}
+type SecretWorkflowAction = 'approved' | 'rejected' | 'pending' | null
+type LocalSecretWorkflowAction = {
+  notificationId: string
+  action: SecretWorkflowAction
 }
 
 const EXPIRED_INVITATION_STATUSES = new Set(['expired', 'revoked', 'cancelled', 'canceled'])
@@ -92,10 +102,10 @@ function isActionableInvitationNotification(notification: NotificationRecord): b
 
   return Boolean(
     getString(notification.data, 'organizationName') &&
-    getString(notification.data, 'invitedByName') &&
-    getString(notification.data, 'role') &&
-    getString(notification.data, 'email') &&
-    getString(notification.data, 'expiresAt')
+      getString(notification.data, 'invitedByName') &&
+      getString(notification.data, 'role') &&
+      getString(notification.data, 'email') &&
+      getString(notification.data, 'expiresAt')
   )
 }
 
@@ -217,7 +227,10 @@ function NotificationIconAction({
           : 'border-danger/35 text-danger hover:border-danger'
       )}
       disabled={disabled}
-      onClick={onClick}
+      onClick={(event) => {
+        event.stopPropagation()
+        onClick()
+      }}
       size="sm"
       type="button"
       variant="outline"
@@ -278,7 +291,11 @@ function getProjectNotificationHref(notification: NotificationRecord): string | 
 
   if (
     notification.type === 'secret_access_request' ||
-    notificationAction === 'review_secret_access'
+    notification.type === 'personal_secret_promotion_request' ||
+    notificationAction === 'review_secret_access' ||
+    notificationAction === 'review_personal_secret_promotion' ||
+    notificationAction === 'personal_secret_promotion_status' ||
+    notificationAction === 'secret_access_status'
   ) {
     return organizationId
       ? getOrgProjectSecretsPath(organizationId, projectId)
@@ -314,6 +331,22 @@ function ProjectAccessRequestStatusIcon({
   return null
 }
 
+function SecretWorkflowStatusBadge({ action }: { action: SecretWorkflowAction }) {
+  if (action === 'approved') {
+    return <NotificationStateBadge tone="success">Approved</NotificationStateBadge>
+  }
+
+  if (action === 'rejected') {
+    return <NotificationStateBadge tone="danger">Declined</NotificationStateBadge>
+  }
+
+  if (action === 'pending') {
+    return <NotificationStateBadge tone="warning">Pending</NotificationStateBadge>
+  }
+
+  return null
+}
+
 function NotificationRow({
   notification,
   onRead,
@@ -328,10 +361,15 @@ function NotificationRow({
   const [localAction, setLocalAction] = useState<LocalInvitationAction | null>(null)
   const [localProjectAction, setLocalProjectAction] =
     useState<LocalProjectAccessRequestAction | null>(null)
+  const [localSecretAction, setLocalSecretAction] = useState<LocalSecretWorkflowAction | null>(null)
   const acceptInvitation = useAcceptInvitationById()
   const rejectInvitation = useRejectInvitationById()
   const projectId = getString(notification.data, 'projectId')
   const reviewProjectAccessRequest = useReviewProjectAccessRequest(projectId)
+  const grantSecretAccess = useGrantSecretAccess()
+  const rejectSecretAccessRequest = useRejectSecretAccessRequest()
+  const approvePromotionRequest = useApprovePromotionRequest()
+  const rejectPromotionRequest = useRejectPromotionRequest()
   const auth = useAuth()
   const { toast } = useToast()
   const invitation = getInvitationPayload(notification)
@@ -360,8 +398,40 @@ function NotificationRow({
     notification.type === 'project_access_request' &&
     Boolean(requestId && projectId) &&
     !projectRequestAction
+  const notificationAction = getString(notification.data, 'notificationAction')
+  const secretId = getString(notification.data, 'secretId')
+  const requesterId = getString(notification.data, 'requesterId')
+  const promotionRequestId = requestId
+  const secretLocalAction =
+    localSecretAction?.notificationId === notification.id ? localSecretAction.action : null
+  const secretWorkflowAction =
+    secretLocalAction ??
+    (notification.actionTaken === 'approved' ||
+    notification.actionTaken === 'rejected' ||
+    notification.actionTaken === 'pending'
+      ? notification.actionTaken
+      : getString(notification.data, 'requestStatus') === 'approved' ||
+          getString(notification.data, 'requestStatus') === 'rejected' ||
+          getString(notification.data, 'requestStatus') === 'pending'
+        ? (getString(notification.data, 'requestStatus') as SecretWorkflowAction)
+        : null)
+  const canReviewSecretRequest =
+    notification.type === 'secret_access_request' &&
+    notificationAction === 'review_secret_access' &&
+    Boolean(projectId && secretId && requesterId) &&
+    secretWorkflowAction !== 'approved' &&
+    secretWorkflowAction !== 'rejected'
+  const canReviewPromotionRequest =
+    notification.type === 'personal_secret_promotion_request' &&
+    notificationAction === 'review_personal_secret_promotion' &&
+    Boolean(projectId && promotionRequestId) &&
+    secretWorkflowAction !== 'approved' &&
+    secretWorkflowAction !== 'rejected'
   const invitationIsActing = acceptInvitation.isPending || rejectInvitation.isPending
   const projectRequestIsActing = reviewProjectAccessRequest.isPending
+  const secretRequestIsActing = grantSecretAccess.isPending || rejectSecretAccessRequest.isPending
+  const promotionRequestIsActing =
+    approvePromotionRequest.isPending || rejectPromotionRequest.isPending
 
   function setNotificationLocalAction(action: Exclude<InvitationNotificationAction, null>) {
     setLocalAction({ notificationId: notification.id, action })
@@ -371,6 +441,10 @@ function NotificationRow({
     action: Exclude<ProjectAccessRequestNotificationAction, null>
   ) {
     setLocalProjectAction({ notificationId: notification.id, action })
+  }
+
+  function setSecretWorkflowLocalAction(action: Exclude<SecretWorkflowAction, null>) {
+    setLocalSecretAction({ notificationId: notification.id, action })
   }
 
   async function accept() {
@@ -426,7 +500,7 @@ function NotificationRow({
         input: {
           status,
           ...(status === 'approved'
-            ? { grantedRole: 'developer' }
+            ? { grantedRole: 'member' }
             : { reviewerNote: 'Declined from notification review.' }),
         },
       })
@@ -434,6 +508,46 @@ function NotificationRow({
       toast.success(status === 'approved' ? 'Access request approved.' : 'Access request declined.')
     } catch (error) {
       toast.error(getApiFriendlyMessage(error, 'Unable to review this access request.'))
+    }
+  }
+
+  async function reviewSecretRequest(status: 'approved' | 'rejected'): Promise<void> {
+    if (!projectId || !secretId || !requesterId) return
+
+    try {
+      await activateNotificationOrganization()
+      if (status === 'approved') {
+        await grantSecretAccess.mutateAsync({ projectId, secretId, userId: requesterId })
+      } else {
+        await rejectSecretAccessRequest.mutateAsync({ projectId, secretId, userId: requesterId })
+      }
+      setSecretWorkflowLocalAction(status)
+      toast.success(
+        status === 'approved' ? 'Variable access approved.' : 'Variable access declined.'
+      )
+    } catch (error) {
+      toast.error(getApiFriendlyMessage(error, 'Unable to review this variable access request.'))
+    }
+  }
+
+  async function reviewPromotionRequest(status: 'approved' | 'rejected'): Promise<void> {
+    if (!projectId || !promotionRequestId) return
+
+    try {
+      await activateNotificationOrganization()
+      if (status === 'approved') {
+        await approvePromotionRequest.mutateAsync({ projectId, requestId: promotionRequestId })
+      } else {
+        await rejectPromotionRequest.mutateAsync({
+          projectId,
+          requestId: promotionRequestId,
+          reviewerNote: 'Declined from notification review.',
+        })
+      }
+      setSecretWorkflowLocalAction(status)
+      toast.success(status === 'approved' ? 'Promotion approved.' : 'Promotion declined.')
+    } catch (error) {
+      toast.error(getApiFriendlyMessage(error, 'Unable to review this promotion request.'))
     }
   }
 
@@ -479,7 +593,7 @@ function NotificationRow({
             void openNotificationTarget()
           }
         }}
-        role="button"
+        role="link"
         tabIndex={0}
       >
         <div className="pr-28 pb-10">
@@ -503,10 +617,7 @@ function NotificationRow({
           </div>
         </div>
 
-        <div
-          className="absolute top-4 right-5 flex min-h-8 min-w-[6.5rem] items-start justify-end"
-          onClick={(event) => event.stopPropagation()}
-        >
+        <div className="absolute top-4 right-5 flex min-h-8 min-w-[6.5rem] items-start justify-end">
           {canActOnInvitation ? (
             <span className="flex items-center gap-1">
               <NotificationIconAction
@@ -541,18 +652,60 @@ function NotificationRow({
                 tone="success"
               />
             </span>
+          ) : canReviewSecretRequest ? (
+            <span className="flex items-center gap-1">
+              <NotificationIconAction
+                ariaLabel="Decline variable access request"
+                disabled={secretRequestIsActing}
+                icon="reject"
+                onClick={() => void reviewSecretRequest('rejected')}
+                tone="danger"
+              />
+              <NotificationIconAction
+                ariaLabel="Approve variable access request"
+                disabled={secretRequestIsActing}
+                icon="approve"
+                onClick={() => void reviewSecretRequest('approved')}
+                tone="success"
+              />
+            </span>
+          ) : canReviewPromotionRequest ? (
+            <span className="flex items-center gap-1">
+              <NotificationIconAction
+                ariaLabel="Decline promotion request"
+                disabled={promotionRequestIsActing}
+                icon="reject"
+                onClick={() => void reviewPromotionRequest('rejected')}
+                tone="danger"
+              />
+              <NotificationIconAction
+                ariaLabel="Approve promotion request"
+                disabled={promotionRequestIsActing}
+                icon="approve"
+                onClick={() => void reviewPromotionRequest('approved')}
+                tone="success"
+              />
+            </span>
           ) : notification.type === 'project_access_request' ? (
             <ProjectAccessRequestStatusIcon action={projectRequestAction} />
+          ) : notification.type === 'secret_access_status' ||
+            notification.type === 'personal_secret_promotion_status' ||
+            notification.type === 'secret_access_request' ||
+            notification.type === 'personal_secret_promotion_request' ? (
+            <SecretWorkflowStatusBadge action={secretWorkflowAction} />
           ) : (
             <InvitationStatusBadge action={effectiveAction} expired={invitationExpired} />
           )}
         </div>
 
-        <div className="absolute right-5 bottom-4" onClick={(event) => event.stopPropagation()}>
+        <div className="absolute right-5 bottom-4">
           <Button
             aria-label={`Delete notification: ${notification.title}`}
             className="h-8 w-8 rounded-md px-0 opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
-            onClick={onDelete}
+            onClick={(event) => {
+              event.stopPropagation()
+              onDelete()
+            }}
             size="sm"
             type="button"
             variant="ghost"

@@ -1,10 +1,9 @@
 'use client'
 
-import Image from 'next/image'
-import { useEffect, useMemo, useRef, useState } from 'react'
-
 import { Check, Copy, KeyRound, QrCode, RefreshCcw, ShieldCheck, ShieldOff } from 'lucide-react'
+import Image from 'next/image'
 import QRCode from 'qrcode'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { CopyButton } from '@/components/shared/copy-button'
 import { Button } from '@/components/ui/button'
@@ -34,6 +33,10 @@ type SetupState = {
 
 type EnabledAction = 'disable' | 'change' | null
 type VerificationMethod = 'totp' | 'recovery'
+const RECOVERY_CODE_INPUT_KEYS = Array.from(
+  { length: 10 },
+  (_, index) => `recovery-code-character-${index}`
+)
 
 function RecoveryCodeInputs({
   value,
@@ -65,13 +68,16 @@ function RecoveryCodeInputs({
 
   return (
     <div className="space-y-1">
-      <label className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground">
+      <label
+        className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+        htmlFor={`${idPrefix}-0`}
+      >
         Recovery code
       </label>
       <div className="grid grid-cols-10 gap-1">
-        {Array.from({ length: 10 }, (_, index) => (
+        {RECOVERY_CODE_INPUT_KEYS.map((key, index) => (
           <Input
-            key={`${idPrefix}-${index}`}
+            key={`${idPrefix}-${key}`}
             id={`${idPrefix}-${index}`}
             ref={(element) => {
               refs.current[index] = element
@@ -401,10 +407,10 @@ export function MfaSettingsCard({ user, onChanged }: MfaSettingsCardProps) {
                   />
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 rounded-md bg-background-deep p-3 font-mono text-[11px] text-foreground sm:grid-cols-5">
-                  {setup.backupCodes.map((backupCode, index) => (
+                  {setup.backupCodes.map((backupCode) => (
                     <span
                       className="min-w-0 overflow-hidden rounded border border-border bg-background px-1.5 py-1 text-center leading-tight break-all"
-                      key={`${backupCode}-${index}`}
+                      key={backupCode}
                     >
                       {backupCode}
                     </span>

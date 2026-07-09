@@ -1,19 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { AlertTriangle, Eye, EyeOff, Plus, Upload, X } from 'lucide-react'
 import type { ChangeEvent, ClipboardEvent, FormEvent } from 'react'
-
-import { Eye, EyeOff, Plus, Upload, X } from 'lucide-react'
-
+import { useState } from 'react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogOverlay,
   DialogPortal,
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Switch, SwitchThumb } from '@/components/ui/switch'
 import { useCreateSecrets } from '@/lib/hooks/use-secrets'
 import { useToast } from '@/lib/hooks/use-toast'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
@@ -23,6 +32,8 @@ type SecretRowInput = {
   value: string
   id: string
 }
+
+const SECRET_NAME_PATTERN = /^[A-Z0-9_]+$/
 
 function createEmptyRow(): SecretRowInput {
   return { key: '', value: '', id: crypto.randomUUID() }
@@ -56,18 +67,28 @@ function parseEnvText(text: string): SecretRowInput[] {
 }
 
 export function AddSecretDialog({
+  configId,
+  environmentId,
+  environmentSlug,
   projectId,
   open,
   onOpenChange,
 }: {
+  configId?: string | null
+  environmentId?: string | null
+  environmentSlug?: string
   projectId: string
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
   const [rows, setRows] = useState<SecretRowInput[]>([createEmptyRow()])
   const [showValues, setShowValues] = useState<Record<string, boolean>>({})
+  const [encryptionMode, setEncryptionMode] = useState<'encrypted' | 'plaintext'>('encrypted')
+  const [formError, setFormError] = useState<string | null>(null)
+  const [pendingPlaintextRows, setPendingPlaintextRows] = useState<SecretRowInput[] | null>(null)
   const createSecrets = useCreateSecrets()
   const { toast } = useToast()
+  const isSaving = createSecrets.isPending
 
   function handleKeyPaste(event: ClipboardEvent<HTMLInputElement>) {
     const text = event.clipboardData.getData('text')
@@ -89,6 +110,7 @@ export function AddSecretDialog({
   }
 
   function updateRow(id: string, field: 'key' | 'value', value: string) {
+    setFormError(null)
     setRows((current) =>
       current.map((row) =>
         row.id === id ? { ...row, [field]: field === 'key' ? value.toUpperCase() : value } : row
@@ -99,21 +121,25 @@ export function AddSecretDialog({
   function resetRows() {
     setRows([createEmptyRow()])
     setShowValues({})
+    setEncryptionMode('encrypted')
+    setFormError(null)
+    setPendingPlaintextRows(null)
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault()
-
-    const validRows = rows
-      .map((row) => ({ ...row, key: row.key.trim(), value: row.value.trim() }))
-      .filter((row) => row.key && row.value)
-
+  async function saveRows(validRows: SecretRowInput[]): Promise<void> {
     if (validRows.length === 0) {
       return
     }
 
     try {
-      const result = await createSecrets.mutateAsync({ projectId, secrets: validRows })
+      const result = await createSecrets.mutateAsync({
+        projectId,
+        environment: environmentSlug ?? 'development',
+        encryptionMode,
+        secrets: validRows,
+        ...(environmentId ? { environmentId } : {}),
+        ...(configId ? { configId } : {}),
+      })
       const addedCount = result.imported.length
       const updatedCount = result.updated?.length ?? 0
       const failedCount = result.failed?.length ?? 0
@@ -140,6 +166,52 @@ export function AddSecretDialog({
     } catch (error) {
       toast.error(getApiFriendlyMessage(error, 'Unable to save these variables right now.'))
     }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault()
+
+    const validRows = rows
+      .map((row) => ({ ...row, key: row.key.trim(), value: row.value.trim() }))
+      .filter((row) => row.key && row.value)
+
+    if (validRows.length === 0) {
+      setFormError('Add at least one KEY=VALUE pair before saving.')
+      return
+    }
+
+    const invalidName = validRows.find((row) => !SECRET_NAME_PATTERN.test(row.key))
+    if (invalidName) {
+      setFormError(
+        `${invalidName.key} is not a valid variable name. Use uppercase letters, numbers, and underscores only.`
+      )
+      return
+    }
+
+    const seen = new Set<string>()
+    const duplicate = validRows.find((row) => {
+      if (seen.has(row.key)) {
+        return true
+      }
+      seen.add(row.key)
+      return false
+    })
+    if (duplicate) {
+      setFormError(`${duplicate.key} appears more than once. Remove duplicates before saving.`)
+      return
+    }
+
+    if (validRows.length > 100) {
+      setFormError('No more than 100 variables can be saved at once.')
+      return
+    }
+
+    if (encryptionMode === 'plaintext') {
+      setPendingPlaintextRows(validRows)
+      return
+    }
+
+    await saveRows(validRows)
   }
 
   function handleFileImport(event: ChangeEvent<HTMLInputElement>) {
@@ -180,6 +252,9 @@ export function AddSecretDialog({
         <DialogOverlay className="fixed inset-0 bg-black/45" />
         <DialogContent className="fixed top-1/2 left-1/2 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-visible rounded-lg border border-border bg-card p-6">
           <DialogTitle className="text-lg font-medium">Add environment variable</DialogTitle>
+          <DialogDescription className="mt-1 text-sm text-muted-foreground">
+            Add one or more KEY=VALUE pairs, or paste and import a .env file.
+          </DialogDescription>
 
           <form className="mt-3 pt-2" onSubmit={(event) => void handleSubmit(event)}>
             <div className="max-h-[52vh] space-y-3 overflow-y-auto p-1">
@@ -243,10 +318,31 @@ export function AddSecretDialog({
               Add another
             </button>
 
-            <p className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">
-              Tip: Paste the contents of your <code>.env</code> file into the Key field above.
-              Multiple variables will be detected automatically.
-            </p>
+            {formError ? (
+              <p className="mt-3 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
+                {formError}
+              </p>
+            ) : null}
+
+            <div className="mt-4 flex items-start justify-between gap-4 border-t border-border pt-3">
+              <p className="min-w-0 text-xs text-muted-foreground">
+                Tip: Paste the contents of your <code>.env</code> file into the Key field above.
+                Multiple variables will be detected automatically.
+              </p>
+              <div className="flex flex-shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                <span>Encrypted</span>
+                <Switch
+                  aria-label="Toggle encrypted storage"
+                  checked={encryptionMode === 'encrypted'}
+                  className="relative h-5 w-9 rounded-full border border-border bg-background-elevated transition-colors data-[state=checked]:border-accent data-[state=checked]:bg-accent/35"
+                  onCheckedChange={(checked) =>
+                    setEncryptionMode(checked ? 'encrypted' : 'plaintext')
+                  }
+                >
+                  <SwitchThumb className="block h-4 w-4 translate-x-0.5 rounded-full bg-foreground transition-transform data-[state=checked]:translate-x-4" />
+                </Switch>
+              </div>
+            </div>
 
             <div className="mt-4 flex items-center justify-between gap-3">
               <label className="cursor-pointer">
@@ -264,7 +360,7 @@ export function AddSecretDialog({
                 </Button>
               </label>
 
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <Button
                   onClick={() => onOpenChange(false)}
                   size="sm"
@@ -273,12 +369,8 @@ export function AddSecretDialog({
                 >
                   Cancel
                 </Button>
-                <Button
-                  disabled={validCount === 0 || createSecrets.isPending}
-                  size="sm"
-                  type="submit"
-                >
-                  {createSecrets.isPending
+                <Button disabled={validCount === 0 || isSaving} size="sm" type="submit">
+                  {isSaving
                     ? 'Saving...'
                     : `Save ${validCount > 1 ? `${validCount} variables` : 'variable'}`}
                 </Button>
@@ -287,6 +379,38 @@ export function AddSecretDialog({
           </form>
         </DialogContent>
       </DialogPortal>
+      <AlertDialog
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setPendingPlaintextRows(null)
+          }
+        }}
+        open={Boolean(pendingPlaintextRows)}
+      >
+        <AlertDialogContent>
+          <AlertDialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning" />
+            Saving without encryption
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            This secret will be stored in a recoverable format. You&apos;ll be able to view and edit
+            the value later. This is not recommended for production API keys.
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isSaving}
+              onClick={() => {
+                const pendingRows = pendingPlaintextRows ?? []
+                setPendingPlaintextRows(null)
+                void saveRows(pendingRows)
+              }}
+            >
+              Save anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }

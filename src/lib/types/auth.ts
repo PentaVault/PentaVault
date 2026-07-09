@@ -27,6 +27,8 @@ export interface AuthOrganization {
   privateProjectDiscoverability: string | null
   membersCanSeeAllProjects?: boolean
   membersCanRequestProjectAccess?: boolean
+  /** Normalized billing plan (free|pro|team); absent falls back to free. */
+  plan?: string
 }
 
 export interface AuthOrganizationMembership {
@@ -66,7 +68,7 @@ export interface AuthOrganizationMembersResponse {
   invitations?: OrgInvitation[]
 }
 
-export type OrgRole = 'owner' | 'admin' | 'developer' | 'readonly' | 'auditor'
+export type OrgRole = 'owner' | 'admin' | 'developer' | 'auditor'
 
 export interface OrgInvitation {
   id: string
@@ -126,6 +128,8 @@ export interface AuthSessionListItem {
   os?: string | null
   device?: string | null
   location?: string | null
+  clientType?: 'browser' | 'cli' | 'api-key'
+  clientLabel?: string | null
 }
 
 export interface AuthSessionListResponse {

@@ -1,18 +1,35 @@
-import type { AuthSession, AuthSessionListResponse, RevokeSessionRequest } from '@/lib/types/auth'
-import type { OrgInvitation, OrgRole } from '@/lib/types/auth'
+import type {
+  AuthSession,
+  AuthSessionListResponse,
+  OrgInvitation,
+  OrgRole,
+  RevokeSessionRequest,
+} from '@/lib/types/auth'
 import type {
   AccessRequest,
   AuditEvent,
+  ConfigChangeRequest,
+  PersonalSecretPromotionRequest,
   Project,
+  ProjectAnalyticsSummary,
+  ProjectConfig,
+  ProjectConfigShare,
+  ProjectEnvironment,
+  ProjectMemberEnvironmentAccess,
   ProjectMembership,
   ProjectRole,
+  ProjectSettings,
   ProxyToken,
   RotationRecommendation,
   Secret,
+  SecretAccessEvent,
+  SecretAccessRequest,
   SecretMode,
+  SecretVersion,
   SecurityAlert,
   SecurityAlertStatus,
   UserProject,
+  UserSecretAccess,
 } from '@/lib/types/models'
 
 export interface ApiErrorResponse {
@@ -56,8 +73,189 @@ export interface ProjectTokensResponse {
   tokens: ProxyToken[]
 }
 
+export interface ProjectEnvironmentsResponse {
+  environments: ProjectEnvironment[]
+}
+
+export interface ProjectConfigsResponse {
+  configs: ProjectConfig[]
+}
+
+export interface ProjectConfigResponse {
+  config: ProjectConfig
+}
+
+export interface CreateProjectConfigInput {
+  environmentId: string
+  name: string
+  slug: string
+  parentConfigId?: string | null
+}
+
+export interface DeleteProjectConfigResponse {
+  deleted: boolean
+  configId: string
+}
+
+export interface ProjectConfigShareResponse {
+  share: ProjectConfigShare
+}
+
+export interface ConfigChangeRequestsResponse {
+  requests: ConfigChangeRequest[]
+}
+
+export interface ConfigChangeRequestResponse {
+  request: ConfigChangeRequest | null
+}
+
+export interface CreateConfigChangeRequestInput {
+  sourceConfigId: string
+  targetConfigId?: string | null
+  title: string
+  description?: string | null
+  allKeys?: boolean
+  secretNames?: string[]
+}
+
+export interface ProjectMemberEnvironmentAccessResponse {
+  access: ProjectMemberEnvironmentAccess[]
+  unavailable?: boolean
+}
+
+export interface ReplaceProjectMemberEnvironmentAccessInput {
+  environmentIds: string[]
+}
+
+export interface CreateProjectEnvironmentInput {
+  name: string
+  slug: string
+  color?: string | null
+  isDefault?: boolean
+}
+
+export interface ProjectEnvironmentResponse {
+  environment: ProjectEnvironment
+}
+
+export interface ProjectSettingsResponse {
+  settings: ProjectSettings
+}
+
+export interface ProjectSecretAccessResponse {
+  access: UserSecretAccess[]
+}
+
+export interface SecretAccessResponse {
+  access: UserSecretAccess
+}
+
+export interface RevokeSecretAccessResponse {
+  revoked: boolean
+  access: UserSecretAccess | null
+  revokedTokenCount?: number
+}
+
+export interface RejectSecretAccessRequestResponse {
+  rejected: boolean
+}
+
+export interface SecretAccessRequestsResponse {
+  requests: SecretAccessRequest[]
+}
+
+export interface CreateSecretAccessRequestResponse {
+  requested: true
+  request: SecretAccessRequest | null
+}
+
+export interface CancelSecretAccessRequestResponse {
+  cancelled: boolean
+  request: SecretAccessRequest | null
+}
+
+export interface GrantSecretAccessInput {
+  projectId: string
+  secretId: string
+  userId: string
+  environmentId?: string | null
+}
+
+export interface PersonalSecretsResponse {
+  secrets: Secret[]
+}
+
+export interface CreatePersonalSecretInput {
+  projectId: string
+  environment?: string
+  environmentId?: string
+  configId?: string
+  name: string
+  plaintext: string
+  mode: SecretMode
+  encryptionMode?: Secret['encryptionMode']
+  isSensitive?: boolean
+}
+
+export interface PromotionRequestsResponse {
+  requests: PersonalSecretPromotionRequest[]
+}
+
+export interface PromotionRequestResponse {
+  request: PersonalSecretPromotionRequest
+}
+
+export interface ApprovePromotionRequestResponse {
+  request: PersonalSecretPromotionRequest | null
+  secret: Secret
+}
+
+export interface PromotePersonalSecretInput {
+  projectId: string
+  secretId: string
+  targetName?: string
+  targetEnvironment?: string
+  targetEnvironmentId?: string | null
+}
+
+export interface UpdateProjectSettingsInput {
+  accessMode?: ProjectSettings['accessMode']
+  defaultTtlSeconds?: number
+  requireDeviceBinding?: boolean
+  maxRequestsPerTokenPerDay?: number
+  allowPersonalSecrets?: boolean
+  requireMemberApprovalForSecretAccess?: boolean
+}
+
+export interface ProjectAnalyticsQuery {
+  from?: string
+  to?: string
+  granularity?: 'hour' | 'day' | 'week'
+  limit?: number
+}
+
+export interface ProjectAnalyticsResponse {
+  summary: ProjectAnalyticsSummary
+  events: SecretAccessEvent[]
+  scope?: {
+    projectId: string
+    effectiveRole: ProjectRole
+    granularity: 'hour' | 'day' | 'week'
+    from: string | null
+    to: string | null
+  }
+}
+
+export interface ScopedProjectAnalyticsResponse {
+  summary: ProjectAnalyticsSummary
+  events: SecretAccessEvent[]
+  secretId?: string
+  userId?: string
+  tokenId?: string
+}
+
 export interface CreateAccessRequestInput {
-  requestedRole: 'developer' | 'readonly'
+  requestedRole: 'member'
   message?: string
 }
 
@@ -71,7 +269,7 @@ export interface ListAccessRequestsResponse {
 
 export interface ReviewAccessRequestInput {
   status: 'approved' | 'rejected'
-  grantedRole?: 'developer' | 'readonly'
+  grantedRole?: 'member'
   reviewerNote?: string
 }
 
@@ -159,9 +357,14 @@ export interface CreateSecretInput {
   id?: string
   projectId: string
   environment?: string
+  environmentId?: string
+  configId?: string
   name: string
   plaintext: string
   mode: SecretMode
+  encryptionMode?: Secret['encryptionMode']
+  isSensitive?: boolean
+  scope?: Secret['scope']
 }
 
 export interface CreateSecretResponse {
@@ -180,10 +383,25 @@ export interface UpdateSecretResponse {
   secret: Secret
 }
 
+export interface SecretVersionsResponse {
+  versions: SecretVersion[]
+  retentionMonths: number
+}
+
+export interface RestoreSecretVersionResponse {
+  secret: Secret
+  currentVersion: SecretVersion
+}
+
 export interface ImportSecretsInput {
   projectId: string
   environment?: string
+  environmentId?: string
+  configId?: string
   mode: SecretMode
+  encryptionMode?: Secret['encryptionMode']
+  isSensitive?: boolean
+  scope?: Secret['scope']
   issueTokens?: boolean
   secrets: Record<string, string>
 }
@@ -210,10 +428,16 @@ export interface ImportSecretsResponse {
 
 export interface IssueTokenInput {
   secretId: string
+  environmentId?: string
   userId?: string
   mode: SecretMode
   expiresAt?: string
   activeSessionId?: string
+  maxRequestsPerSecond?: number
+  maxRequestsTotal?: number
+  deviceFingerprint?: string
+  allowedIps?: string[]
+  ttlSeconds?: number
   rateLimitMax?: number
   rateLimitRemaining?: number
   rateLimitResetAt?: string
@@ -286,6 +510,50 @@ export type AuthSessionRevokeRequest = RevokeSessionRequest
 
 export interface AuthCreateApiKeyRequest {
   name?: string
+  permissions?: AuthApiKeyPermissions
+  organizationId: string
+  tokenType?: AuthApiKeyTokenType
+}
+
+export type AuthApiKeyTokenType = 'command-line' | 'service-account' | 'personal' | 'scim' | 'audit'
+
+export type AuthApiKeyPermissionResource = 'proxy'
+
+export type AuthApiKeyPermissionAction = 'read' | 'write' | 'create' | 'delete'
+
+export type AuthApiKeyPermissions = Partial<
+  Record<AuthApiKeyPermissionResource, AuthApiKeyPermissionAction[]>
+>
+
+export interface AuthApiKeyListItem {
+  id: string
+  name: string | null
+  start: string | null
+  prefix: string | null
+  enabled: boolean
+  expiresAt: string | Date | null
+  createdAt: string | Date
+  updatedAt: string | Date
+  lastRequest: string | Date | null
+  requestCount: number
+  rateLimitEnabled: boolean
+  rateLimitMax: number | null
+  rateLimitTimeWindow: number | null
+  permissions: AuthApiKeyPermissions
+  source: 'user' | 'cli' | 'application'
+  tokenType: AuthApiKeyTokenType
+  organizationId: string | null
+  organizationName: string | null
+  isCli?: boolean
+}
+
+export interface AuthApiKeyListResponse {
+  apiKeys: AuthApiKeyListItem[]
+}
+
+export interface AuthApiKeyRevokeResponse {
+  revoked: boolean
+  apiKeyId: string
 }
 
 export interface AuthCreateApiKeyResponse {
@@ -298,15 +566,38 @@ export interface AuthCreateApiKeyResponse {
     prefix: string | null
     expiresAt: string | null
     metadata: unknown
+    permissions: AuthApiKeyPermissions | null
     rateLimitEnabled: boolean | null
     rateLimitMax: number | null
     rateLimitTimeWindow: number | null
   }
 }
 
+export interface AuthCapabilitiesResponse {
+  captcha: {
+    enabled: boolean
+    provider: 'cloudflare-turnstile'
+    siteKey: string | null
+  }
+  passkey: {
+    enabled: boolean
+  }
+  admin: {
+    enabled: boolean
+  }
+  jwt: {
+    enabled: boolean
+  }
+}
+
+export interface AuthCaptchaInput {
+  captchaToken?: string | undefined
+}
+
 export interface AuthSignInWithEmailInput {
   email: string
   password: string
+  captchaToken?: string | undefined
 }
 
 export interface AuthSignUpWithEmailInput {
@@ -318,7 +609,9 @@ export interface AuthSignUpWithEmailInput {
 export interface AuthStartRegistrationInput {
   name: string
   email: string
+  username: string
   password: string
+  captchaToken?: string | undefined
 }
 
 export interface AuthCompleteRegistrationInput {
@@ -338,6 +631,7 @@ export interface AuthVerifyEmailOtpInput {
 
 export interface AuthRequestPasswordResetOtpInput {
   email: string
+  captchaToken?: string | undefined
 }
 
 export interface AuthResetPasswordWithOtpInput {
@@ -345,6 +639,16 @@ export interface AuthResetPasswordWithOtpInput {
   otp: string
   password: string
   totpCode?: string
+  captchaToken?: string | undefined
+}
+
+export interface AuthPasskey {
+  id: string
+  name?: string | null
+  credentialID?: string
+  deviceType?: string
+  backedUp?: boolean
+  createdAt?: string | Date | null
 }
 
 export interface AuthResetPasswordWithOtpResponse {

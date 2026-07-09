@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-
 import { Check, ChevronsUpDown, Plus } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 import {
   DropdownMenu,
@@ -83,7 +82,7 @@ export function OrgSwitcher({ onCreateOrganization }: OrgSwitcherProps) {
               <span
                 className={cn('flex h-4 w-4 items-center justify-center', !isActive && 'opacity-0')}
               >
-                <Check className="h-4 w-4 text-[#00c573]" />
+                <Check className="h-4 w-4 text-accent" />
               </span>
             </DropdownMenuItem>
           )

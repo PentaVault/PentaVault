@@ -3,29 +3,47 @@ import userEvent from '@testing-library/user-event'
 
 import { LoginForm } from '../login-form'
 
-const routerReplace = jest.fn()
-const routerRefresh = jest.fn()
-const authRefresh = jest.fn()
-const toastSuccess = jest.fn()
-const toastInfo = jest.fn()
-const toastError = jest.fn()
-const toastWarning = jest.fn()
-const signInWithEmail = jest.fn()
-const verifyTotp = jest.fn()
-const verifyBackupCode = jest.fn()
-const startRecoveryMfaSetup = jest.fn()
-const completeMfaSetup = jest.fn()
-const sendEmailVerificationOtp = jest.fn()
-const verifyEmailOtp = jest.fn()
+const routerReplace = vi.fn()
+const routerRefresh = vi.fn()
+const authRefresh = vi.fn()
+const toastSuccess = vi.fn()
+const toastInfo = vi.fn()
+const toastError = vi.fn()
+const toastWarning = vi.fn()
+const signInWithEmail = vi.fn()
+const verifyTotp = vi.fn()
+const verifyBackupCode = vi.fn()
+const startRecoveryMfaSetup = vi.fn()
+const completeMfaSetup = vi.fn()
+const sendEmailVerificationOtp = vi.fn()
+const verifyEmailOtp = vi.fn()
+const passkeySignIn = vi.fn()
+let mockCapabilities = {
+  captcha: {
+    enabled: false,
+    provider: 'cloudflare-turnstile' as const,
+    siteKey: null,
+  },
+  passkey: {
+    enabled: false,
+  },
+  admin: {
+    enabled: false,
+  },
+  jwt: {
+    enabled: false,
+  },
+}
+let mockCookie = ''
 
-jest.mock('@/lib/env', () => ({
+vi.mock('@/lib/env', () => ({
   env: {
     isDev: false,
     mockAuthEnabled: false,
   },
 }))
 
-jest.mock('next/navigation', () => ({
+vi.mock('next/navigation', () => ({
   useRouter: () => ({
     replace: routerReplace,
     refresh: routerRefresh,
@@ -33,13 +51,20 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }))
 
-jest.mock('@/lib/hooks/use-auth', () => ({
+vi.mock('@/lib/hooks/use-auth', () => ({
   useAuth: () => ({
     refresh: authRefresh,
   }),
 }))
 
-jest.mock('@/lib/hooks/use-toast', () => ({
+vi.mock('@/lib/hooks/use-auth-capabilities', () => ({
+  useAuthCapabilities: () => ({
+    capabilities: mockCapabilities,
+    isLoading: false,
+  }),
+}))
+
+vi.mock('@/lib/hooks/use-toast', () => ({
   useToast: () => ({
     toast: {
       success: toastSuccess,
@@ -50,7 +75,7 @@ jest.mock('@/lib/hooks/use-toast', () => ({
   }),
 }))
 
-jest.mock('@/lib/api/auth', () => ({
+vi.mock('@/lib/api/auth', () => ({
   authApi: {
     signInWithEmail: (...args: unknown[]) => signInWithEmail(...args),
     verifyTotp: (...args: unknown[]) => verifyTotp(...args),
@@ -62,8 +87,18 @@ jest.mock('@/lib/api/auth', () => ({
   },
 }))
 
+vi.mock('@/lib/auth/better-auth-client', () => ({
+  betterAuthClient: {
+    signIn: {
+      passkey: (...args: unknown[]) => passkeySignIn(...args),
+    },
+  },
+}))
+
 describe('LoginForm', () => {
   beforeEach(() => {
+    mockCookie = ''
+    vi.spyOn(document, 'cookie', 'get').mockImplementation(() => mockCookie)
     routerReplace.mockReset()
     routerRefresh.mockReset()
     authRefresh.mockReset()
@@ -78,6 +113,27 @@ describe('LoginForm', () => {
     completeMfaSetup.mockReset()
     sendEmailVerificationOtp.mockReset()
     verifyEmailOtp.mockReset()
+    passkeySignIn.mockReset()
+    mockCapabilities = {
+      captcha: {
+        enabled: false,
+        provider: 'cloudflare-turnstile',
+        siteKey: null,
+      },
+      passkey: {
+        enabled: false,
+      },
+      admin: {
+        enabled: false,
+      },
+      jwt: {
+        enabled: false,
+      },
+    }
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it('starts fresh MFA setup before finishing sign-in with a recovery code', async () => {
@@ -130,5 +186,34 @@ describe('LoginForm', () => {
     expect(toastSuccess).toHaveBeenCalledWith(
       'Recovery code accepted. Set up your new authenticator to finish.'
     )
+  })
+
+  it('shows a hint when email was the last used login method', () => {
+    mockCookie = 'better-auth.last_used_login_method=email'
+
+    render(<LoginForm nextPath={null} />)
+
+    expect(screen.getByTestId('last-login-method-email')).toHaveTextContent('Email was last used')
+  })
+
+  it('shows passkey sign-in only when the capability is enabled', async () => {
+    const user = userEvent.setup()
+    mockCapabilities = {
+      ...mockCapabilities,
+      passkey: {
+        enabled: true,
+      },
+    }
+    passkeySignIn.mockResolvedValue({ data: { session: {}, user: {} }, error: null })
+    authRefresh.mockResolvedValue(undefined)
+
+    render(<LoginForm nextPath={null} />)
+
+    await user.click(screen.getByRole('button', { name: 'Sign in with passkey' }))
+
+    await waitFor(() => {
+      expect(passkeySignIn).toHaveBeenCalledOnce()
+    })
+    expect(routerReplace).toHaveBeenCalled()
   })
 })

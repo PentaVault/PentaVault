@@ -3,15 +3,17 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { FormEvent } from 'react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { PasswordRequirements } from '@/components/auth/password-requirements'
+import { TurnstileWidget, type TurnstileWidgetHandle } from '@/components/auth/turnstile-widget'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { authApi } from '@/lib/api/auth'
 import { isPasswordPolicySatisfied } from '@/lib/auth/password-policy'
 import { LOGIN_PATH } from '@/lib/constants'
+import { useAuthCapabilities } from '@/lib/hooks/use-auth-capabilities'
 import { useEmailCooldown } from '@/lib/hooks/use-email-cooldown'
 import { useToast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils/cn'
@@ -24,6 +26,11 @@ import {
 export function ForgotPasswordForm() {
   const router = useRouter()
   const { toast } = useToast()
+  const {
+    capabilities,
+    error: capabilitiesError,
+    isLoading: isCapabilitiesLoading,
+  } = useAuthCapabilities()
 
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
@@ -36,11 +43,36 @@ export function ForgotPasswordForm() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [isPasswordFocused, setIsPasswordFocused] = useState(false)
   const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const captchaWidgetRef = useRef<TurnstileWidgetHandle | null>(null)
   const emailCooldown = useEmailCooldown()
+  const isAuthSecurityUnavailable = isCapabilitiesLoading || Boolean(capabilitiesError)
+
+  function ensureAuthSecurityAvailable(): boolean {
+    if (!isAuthSecurityUnavailable) {
+      return true
+    }
+
+    toast.error('Cannot verify auth security settings right now. Please refresh and try again.')
+    return false
+  }
+
+  function resetCaptchaToken(): void {
+    if (!capabilities.captcha.enabled) {
+      return
+    }
+
+    setCaptchaToken('')
+    captchaWidgetRef.current?.reset()
+  }
 
   async function handleRequestSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
     setFieldErrors({})
+
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
 
     const normalizedEmail = email.trim().toLowerCase()
     if (!normalizedEmail) {
@@ -50,7 +82,10 @@ export function ForgotPasswordForm() {
 
     try {
       setIsPending(true)
-      await authApi.requestPasswordResetOtp({ email: normalizedEmail })
+      await authApi.requestPasswordResetOtp({
+        email: normalizedEmail,
+        captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
+      })
       setEmail(normalizedEmail)
       setIsResetStep(true)
       emailCooldown.startCooldown(60)
@@ -71,6 +106,7 @@ export function ForgotPasswordForm() {
         getApiFriendlyMessageWithRef(error, 'Unable to send a password reset code right now.')
       )
     } finally {
+      resetCaptchaToken()
       setIsPending(false)
     }
   }
@@ -78,6 +114,10 @@ export function ForgotPasswordForm() {
   async function handleResetSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
     setFieldErrors({})
+
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
 
     const nextFieldErrors: Record<string, string> = {}
     const normalizedOtp = otp.trim()
@@ -113,6 +153,7 @@ export function ForgotPasswordForm() {
         otp: normalizedOtp,
         password,
         ...(requiresMfa ? { totpCode: mfaCode.trim() } : {}),
+        captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
       })
 
       if (resetResult.requiresMfa) {
@@ -137,6 +178,7 @@ export function ForgotPasswordForm() {
 
       toast.error(getApiFriendlyMessageWithRef(error, 'Unable to reset this password right now.'))
     } finally {
+      resetCaptchaToken()
       setIsPending(false)
     }
   }
@@ -146,9 +188,16 @@ export function ForgotPasswordForm() {
       return
     }
 
+    if (!ensureAuthSecurityAvailable()) {
+      return
+    }
+
     try {
       setIsPending(true)
-      await authApi.requestPasswordResetOtp({ email })
+      await authApi.requestPasswordResetOtp({
+        email,
+        captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
+      })
       emailCooldown.startCooldown(60)
       toast.success('Reset code sent.')
     } catch (error) {
@@ -159,6 +208,7 @@ export function ForgotPasswordForm() {
 
       toast.error(getApiFriendlyMessageWithRef(error, 'Unable to resend the reset code.'))
     } finally {
+      resetCaptchaToken()
       setIsPending(false)
     }
   }
@@ -188,10 +238,18 @@ export function ForgotPasswordForm() {
           {fieldErrors.email ? <p className="text-sm text-danger">{fieldErrors.email}</p> : null}
         </div>
 
+        {capabilities.captcha.enabled ? (
+          <TurnstileWidget
+            ref={captchaWidgetRef}
+            siteKey={capabilities.captcha.siteKey}
+            onToken={setCaptchaToken}
+          />
+        ) : null}
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <Button
             className="w-full sm:w-auto sm:min-w-[9.25rem]"
-            disabled={isPending || emailCooldown.isOnCooldown}
+            disabled={isPending || emailCooldown.isOnCooldown || isAuthSecurityUnavailable}
             type="submit"
           >
             {emailCooldown.isOnCooldown
@@ -201,7 +259,7 @@ export function ForgotPasswordForm() {
                 : 'Send code'}
           </Button>
           <Link
-            className="text-sm text-[#00c573] underline decoration-[#00c573]/55 underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out hover:text-[#3ecf8e] hover:decoration-[#3ecf8e]"
+            className="text-sm text-accent underline decoration-accent/55 underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out hover:text-accent-strong hover:decoration-accent-strong"
             href={LOGIN_PATH}
           >
             Back to sign in
@@ -333,13 +391,21 @@ export function ForgotPasswordForm() {
         </div>
       ) : null}
 
+      {capabilities.captcha.enabled ? (
+        <TurnstileWidget
+          ref={captchaWidgetRef}
+          siteKey={capabilities.captcha.siteKey}
+          onToken={setCaptchaToken}
+        />
+      ) : null}
+
       <div className="space-y-3">
-        <Button className="w-full" disabled={isPending} type="submit">
+        <Button className="w-full" disabled={isPending || isAuthSecurityUnavailable} type="submit">
           {isPending ? 'Resetting...' : 'Reset password'}
         </Button>
         <button
           className="w-full text-center text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={isPending || emailCooldown.isOnCooldown}
+          disabled={isPending || emailCooldown.isOnCooldown || isAuthSecurityUnavailable}
           onClick={() => void handleResendCode()}
           type="button"
         >

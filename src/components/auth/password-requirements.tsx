@@ -31,7 +31,7 @@ export function PasswordRequirements({
     <div className="space-y-2 rounded-lg border border-border bg-background-secondary px-3 py-2">
       {showPasswordRules ? (
         allValid ? (
-          <div className="flex items-center gap-2 text-sm text-[#3ecf8e]">
+          <div className="flex items-center gap-2 text-sm text-accent">
             <Check className="h-4 w-4" />
             Password requirements met
           </div>
@@ -40,7 +40,7 @@ export function PasswordRequirements({
             {requirements.map((requirement) => (
               <li
                 key={requirement.id}
-                className={cn('flex items-center gap-2', requirement.valid && 'text-[#3ecf8e]')}
+                className={cn('flex items-center gap-2', requirement.valid && 'text-accent')}
               >
                 {requirement.valid ? (
                   <Check className="h-3.5 w-3.5" />
@@ -58,7 +58,7 @@ export function PasswordRequirements({
         <div
           className={cn(
             'flex items-center gap-2 text-sm',
-            passwordsMatch ? 'text-[#3ecf8e]' : 'text-muted-foreground'
+            passwordsMatch ? 'text-accent' : 'text-muted-foreground'
           )}
         >
           {passwordsMatch ? <Check className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}

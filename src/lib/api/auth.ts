@@ -1,11 +1,21 @@
 import axios from 'axios'
+import { z } from 'zod'
 
 import { apiClient } from '@/lib/api/client'
+import {
+  authOrganizationMembersResponseSchema,
+  authOrganizationsResponseSchema,
+  authSessionSchema,
+  parseApiResponse,
+} from '@/lib/api/schemas'
 import { createMockSession, isMockAuthEnabled, isMockCredential } from '@/lib/auth/mock-auth'
 import { clearClientAuthHint, hasAuthCookieHint, setClientAuthHint } from '@/lib/auth/token'
-import { AUTH_REVOKE_SESSION_PATH, AUTH_SESSIONS_PATH, AUTH_SESSION_PATH } from '@/lib/constants'
+import { AUTH_REVOKE_SESSION_PATH, AUTH_SESSION_PATH, AUTH_SESSIONS_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
 import type {
+  AuthApiKeyListResponse,
+  AuthApiKeyRevokeResponse,
+  AuthCapabilitiesResponse,
   AuthChangePasswordInput,
   AuthCompleteMfaSetupInput,
   AuthCompleteRegistrationInput,
@@ -14,6 +24,7 @@ import type {
   AuthDisableMfaInput,
   AuthEnableMfaInput,
   AuthEnableMfaResponse,
+  AuthPasskey,
   AuthRequestPasswordResetOtpInput,
   AuthResetPasswordWithOtpInput,
   AuthResetPasswordWithOtpResponse,
@@ -41,6 +52,161 @@ import type {
 } from '@/lib/types/auth'
 import { getApiErrorCode, getApiErrorStatus } from '@/lib/utils/errors'
 
+const sessionListResponseSchema = z.object({
+  sessions: z.array(
+    z.object({
+      id: z.string(),
+      current: z.boolean(),
+      expiresAt: z.string().nullable(),
+      ipAddress: z.string().nullable(),
+      userAgent: z.string().nullable(),
+      browser: z.string().nullable().optional(),
+      os: z.string().nullable().optional(),
+      device: z.string().nullable().optional(),
+      location: z.string().nullable().optional(),
+      clientType: z.enum(['browser', 'cli', 'api-key']).optional(),
+      clientLabel: z.string().nullable().optional(),
+    })
+  ),
+})
+
+const activeOrganizationResponseSchema = z.object({
+  activeOrganizationId: z.string().nullable(),
+  activeOrganizationSlug: z.string().nullable(),
+})
+
+const createOrganizationResponseSchema = z.object({
+  id: z.string().optional(),
+  slug: z.string().optional(),
+})
+
+const organizationAccessControlResponseSchema = z.object({
+  organization: z.object({
+    membersCanSeeAllProjects: z.boolean(),
+    membersCanRequestProjectAccess: z.boolean(),
+  }),
+})
+
+const deleteAccountResponseSchema = z.object({
+  deleted: z.literal(true),
+  softDeleted: z.literal(true).optional(),
+  purgeAfter: z.string().optional(),
+})
+
+const revokeSessionResponseSchema = z.object({
+  revoked: z.boolean(),
+  sessionId: z.string(),
+})
+
+const apiKeyPermissionActionSchema = z.enum(['read', 'write', 'create', 'delete'])
+
+const apiKeyPermissionsSchema = z
+  .object({
+    proxy: z.array(apiKeyPermissionActionSchema).optional(),
+  })
+  .default({})
+
+const apiKeyTokenTypeSchema = z.enum([
+  'command-line',
+  'service-account',
+  'personal',
+  'scim',
+  'audit',
+])
+
+const apiKeyListItemSchema = z.object({
+  id: z.string(),
+  name: z.string().nullable(),
+  start: z.string().nullable(),
+  prefix: z.string().nullable(),
+  enabled: z.boolean(),
+  expiresAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  lastRequest: z.string().nullable(),
+  requestCount: z.number(),
+  rateLimitEnabled: z.boolean(),
+  rateLimitMax: z.number().nullable(),
+  rateLimitTimeWindow: z.number().nullable(),
+  permissions: apiKeyPermissionsSchema,
+  source: z.enum(['user', 'cli', 'application']),
+  tokenType: apiKeyTokenTypeSchema.default('personal'),
+  organizationId: z.string().nullable().default(null),
+  organizationName: z.string().nullable().default(null),
+  isCli: z.boolean().optional(),
+})
+
+const apiKeyListResponseSchema = z.object({
+  apiKeys: z.array(apiKeyListItemSchema),
+})
+
+const apiKeyRevokeResponseSchema = z.object({
+  revoked: z.boolean(),
+  apiKeyId: z.string(),
+})
+
+const createApiKeyResponseSchema = z.object({
+  headerName: z.string(),
+  key: z.string(),
+  apiKey: z.object({
+    id: z.string().nullable(),
+    name: z.string().nullable(),
+    start: z.string().nullable(),
+    prefix: z.string().nullable(),
+    expiresAt: z.string().nullable(),
+    metadata: z.unknown(),
+    permissions: apiKeyPermissionsSchema.nullable(),
+    rateLimitEnabled: z.boolean().nullable(),
+    rateLimitMax: z.number().nullable(),
+    rateLimitTimeWindow: z.number().nullable(),
+  }),
+})
+
+const authCapabilitiesResponseSchema = z.object({
+  captcha: z.object({
+    enabled: z.boolean(),
+    provider: z.literal('cloudflare-turnstile'),
+    siteKey: z.string().nullable(),
+  }),
+  passkey: z.object({
+    enabled: z.boolean(),
+  }),
+  admin: z.object({
+    enabled: z.boolean(),
+  }),
+  jwt: z.object({
+    enabled: z.boolean(),
+  }),
+})
+
+const emailSignInResponseSchema = z
+  .object({
+    twoFactorRedirect: z.boolean().optional(),
+    twoFactorMethods: z.array(z.string()).optional(),
+  })
+  .default({})
+
+const resetPasswordResponseSchema = z.object({
+  success: z.boolean().optional(),
+  requiresMfa: z.boolean().optional(),
+})
+
+const mfaEnableResponseSchema = z.object({
+  totpURI: z.string(),
+  backupCodes: z.array(z.string()),
+})
+
+const passkeyListResponseSchema = z.array(
+  z.object({
+    id: z.string(),
+    name: z.string().nullable().optional(),
+    credentialID: z.string().optional(),
+    deviceType: z.string().optional(),
+    backedUp: z.boolean().optional(),
+    createdAt: z.union([z.string(), z.date()]).nullable().optional(),
+  })
+)
+
 function isNetworkError(error: unknown): boolean {
   return axios.isAxiosError(error) && !error.response
 }
@@ -49,7 +215,52 @@ function isUpstreamUnavailableError(error: unknown): boolean {
   return getApiErrorStatus(error) === 503 && getApiErrorCode(error) === 'API_UPSTREAM_UNAVAILABLE'
 }
 
+function captchaHeaders(captchaToken?: string): { headers?: Record<string, string> } {
+  return captchaToken ? { headers: { 'x-captcha-response': captchaToken } } : {}
+}
+
+function parseOptionalJsonPayload(data: unknown): unknown {
+  if (typeof data !== 'string') {
+    return data
+  }
+
+  const trimmedData = data.trim()
+  if (!trimmedData) {
+    return null
+  }
+
+  try {
+    return JSON.parse(trimmedData)
+  } catch {
+    return data
+  }
+}
+
 export const authApi = {
+  async getCapabilities(): Promise<AuthCapabilitiesResponse> {
+    if (isMockAuthEnabled()) {
+      return {
+        captcha: {
+          enabled: false,
+          provider: 'cloudflare-turnstile',
+          siteKey: null,
+        },
+        passkey: {
+          enabled: false,
+        },
+        admin: {
+          enabled: false,
+        },
+        jwt: {
+          enabled: false,
+        },
+      }
+    }
+
+    const response = await apiClient.get<AuthCapabilitiesResponse>('/v1/auth/capabilities')
+    return parseApiResponse(authCapabilitiesResponseSchema, response.data)
+  },
+
   async getSession(): Promise<AuthSessionResponse | null> {
     if (isMockAuthEnabled()) {
       return hasAuthCookieHint() ? createMockSession() : null
@@ -57,7 +268,13 @@ export const authApi = {
 
     try {
       const response = await apiClient.get<AuthSessionResponse>(AUTH_SESSION_PATH)
-      return response.data
+      const data = parseOptionalJsonPayload(response.data)
+
+      if (data === null) {
+        return null
+      }
+
+      return parseApiResponse(authSessionSchema, data)
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         return null
@@ -97,7 +314,7 @@ export const authApi = {
     }
 
     const response = await apiClient.get<AuthSessionListApiResponse>(AUTH_SESSIONS_PATH)
-    return response.data
+    return parseApiResponse(sessionListResponseSchema, response.data)
   },
 
   async listOrganizations(): Promise<AuthOrganizationsResponse> {
@@ -132,7 +349,15 @@ export const authApi = {
 
     try {
       const response = await apiClient.get<AuthOrganizationsResponse>('/v1/auth/organizations')
-      return response.data
+      const data = parseOptionalJsonPayload(response.data)
+
+      if (data === null) {
+        return {
+          organizations: [],
+        }
+      }
+
+      return parseApiResponse(authOrganizationsResponseSchema, data)
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         return {
@@ -183,7 +408,7 @@ export const authApi = {
     const response = await apiClient.get<AuthOrganizationMembersResponse>(
       `/v1/organizations/${organizationId}/members`
     )
-    return response.data
+    return parseApiResponse(authOrganizationMembersResponseSchema, response.data)
   },
 
   async setActiveOrganization(
@@ -205,7 +430,7 @@ export const authApi = {
       '/v1/auth/organizations/active',
       payload
     )
-    return response.data
+    return parseApiResponse(activeOrganizationResponseSchema, response.data)
   },
 
   async createOrganization(
@@ -225,7 +450,7 @@ export const authApi = {
         keepCurrentActiveOrganization: input.keepCurrentActiveOrganization ?? false,
       }
     )
-    return response.data
+    return parseApiResponse(createOrganizationResponseSchema, response.data)
   },
 
   async updateOrganization(input: AuthUpdateOrganizationInput): Promise<void> {
@@ -263,7 +488,7 @@ export const authApi = {
         membersCanRequestProjectAccess: boolean
       }
     }>(`/v1/organizations/${organizationId}/access-control`, input)
-    return response.data
+    return parseApiResponse(organizationAccessControlResponseSchema, response.data)
   },
 
   async deleteOrganization(input: AuthDeleteOrganizationInput): Promise<void> {
@@ -282,16 +507,24 @@ export const authApi = {
     await apiClient.post('/auth/update-user', input)
   },
 
-  async deleteAccount(input: { email: string; totpCode?: string }): Promise<{ deleted: true }> {
+  async deleteAccount(input: { email: string; totpCode?: string }): Promise<{
+    deleted: true
+    softDeleted?: true
+    purgeAfter?: string
+  }> {
     if (isMockAuthEnabled()) {
       clearClientAuthHint()
-      return { deleted: true }
+      return { deleted: true, softDeleted: true }
     }
 
-    const response = await apiClient.delete<{ deleted: true }>('/v1/auth/account', {
+    const response = await apiClient.delete<{
+      deleted: true
+      softDeleted?: true
+      purgeAfter?: string
+    }>('/v1/auth/account', {
       data: input,
     })
-    return response.data
+    return parseApiResponse(deleteAccountResponseSchema, response.data)
   },
 
   async revokeSession(input: AuthSessionRevokeRequest): Promise<AuthSessionRevokeResponse> {
@@ -306,7 +539,7 @@ export const authApi = {
       AUTH_REVOKE_SESSION_PATH,
       input
     )
-    return response.data
+    return parseApiResponse(revokeSessionResponseSchema, response.data)
   },
 
   async createApiKey(input: AuthCreateApiKeyRequest): Promise<AuthCreateApiKeyResponse> {
@@ -323,6 +556,9 @@ export const authApi = {
           metadata: {
             mode: 'mock',
           },
+          permissions: input.permissions ?? {
+            proxy: ['read', 'write', 'create', 'delete'],
+          },
           rateLimitEnabled: false,
           rateLimitMax: null,
           rateLimitTimeWindow: null,
@@ -331,7 +567,56 @@ export const authApi = {
     }
 
     const response = await apiClient.post<AuthCreateApiKeyResponse>('/v1/auth/api-keys', input)
-    return response.data
+    return parseApiResponse(createApiKeyResponseSchema, response.data)
+  },
+
+  async listApiKeys(): Promise<AuthApiKeyListResponse> {
+    if (isMockAuthEnabled()) {
+      return {
+        apiKeys: [
+          {
+            id: 'mock-api-key-1',
+            name: 'demo-mock-key',
+            start: 'pv_mock',
+            prefix: 'pv_mock',
+            enabled: true,
+            expiresAt: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            lastRequest: null,
+            requestCount: 0,
+            rateLimitEnabled: false,
+            rateLimitMax: null,
+            rateLimitTimeWindow: null,
+            permissions: {
+              proxy: ['read', 'write', 'create', 'delete'],
+            },
+            source: 'user',
+            tokenType: 'personal',
+            organizationId: null,
+            organizationName: null,
+            isCli: false,
+          },
+        ],
+      }
+    }
+
+    const response = await apiClient.get<AuthApiKeyListResponse>('/v1/auth/api-keys')
+    return parseApiResponse(apiKeyListResponseSchema, response.data)
+  },
+
+  async revokeApiKey(apiKeyId: string): Promise<AuthApiKeyRevokeResponse> {
+    if (isMockAuthEnabled()) {
+      return {
+        revoked: true,
+        apiKeyId,
+      }
+    }
+
+    const response = await apiClient.post<AuthApiKeyRevokeResponse>(
+      `/v1/auth/api-keys/${encodeURIComponent(apiKeyId)}/revoke`
+    )
+    return parseApiResponse(apiKeyRevokeResponseSchema, response.data)
   },
 
   async signInWithEmail(input: AuthSignInWithEmailInput): Promise<AuthSignInWithEmailResponse> {
@@ -344,13 +629,17 @@ export const authApi = {
       return {}
     }
 
-    const response = await apiClient.post<AuthSignInWithEmailResponse>('/auth/sign-in/email', {
-      email: input.email,
-      password: input.password,
-      rememberMe: true,
-    })
+    const response = await apiClient.post<AuthSignInWithEmailResponse>(
+      '/auth/sign-in/email',
+      {
+        email: input.email,
+        password: input.password,
+        rememberMe: true,
+      },
+      captchaHeaders(input.captchaToken)
+    )
 
-    return response.data ?? {}
+    return parseApiResponse(emailSignInResponseSchema, response.data ?? {})
   },
 
   async signOut(): Promise<void> {
@@ -373,21 +662,33 @@ export const authApi = {
       return
     }
 
-    await apiClient.post('/v1/auth/register/start', {
-      name: input.name,
-      email: input.email,
-      password: input.password,
-    })
+    await apiClient.post(
+      '/v1/auth/register/start',
+      {
+        name: input.name,
+        email: input.email,
+        username: input.username,
+        password: input.password,
+      },
+      captchaHeaders(input.captchaToken)
+    )
   },
 
-  async resendRegistrationCode(input: { email: string }): Promise<void> {
+  async resendRegistrationCode(input: {
+    email: string
+    captchaToken?: string | undefined
+  }): Promise<void> {
     if (isMockAuthEnabled()) {
       return
     }
 
-    await apiClient.post('/v1/auth/register/resend', {
-      email: input.email,
-    })
+    await apiClient.post(
+      '/v1/auth/register/resend',
+      {
+        email: input.email,
+      },
+      captchaHeaders(input.captchaToken)
+    )
   },
 
   async completeRegistration(input: AuthCompleteRegistrationInput): Promise<void> {
@@ -422,7 +723,11 @@ export const authApi = {
       return
     }
 
-    await apiClient.post('/auth/email-otp/request-password-reset', input)
+    await apiClient.post(
+      '/auth/email-otp/request-password-reset',
+      input,
+      captchaHeaders(input.captchaToken)
+    )
   },
 
   async resetPasswordWithOtp(
@@ -434,9 +739,10 @@ export const authApi = {
 
     const response = await apiClient.post<AuthResetPasswordWithOtpResponse>(
       '/auth/email-otp/reset-password',
-      input
+      input,
+      captchaHeaders(input.captchaToken)
     )
-    return response.data ?? { success: true }
+    return parseApiResponse(resetPasswordResponseSchema, response.data ?? { success: true })
   },
 
   async enableMfa(input: AuthEnableMfaInput): Promise<AuthEnableMfaResponse> {
@@ -449,7 +755,7 @@ export const authApi = {
     }
 
     const response = await apiClient.post<AuthEnableMfaResponse>('/auth/two-factor/enable', input)
-    return response.data
+    return parseApiResponse(mfaEnableResponseSchema, response.data)
   },
 
   async verifyTotp(input: AuthVerifyTotpInput): Promise<void> {
@@ -486,7 +792,7 @@ export const authApi = {
     }
 
     const response = await apiClient.post<AuthEnableMfaResponse>('/v1/auth/mfa/change/start', input)
-    return response.data
+    return parseApiResponse(mfaEnableResponseSchema, response.data)
   },
 
   async startRecoveryMfaSetup(
@@ -504,7 +810,7 @@ export const authApi = {
       '/v1/auth/mfa/recovery/start',
       input
     )
-    return response.data
+    return parseApiResponse(mfaEnableResponseSchema, response.data)
   },
 
   async completeMfaSetup(input: AuthCompleteMfaSetupInput): Promise<void> {
@@ -536,5 +842,44 @@ export const authApi = {
     await apiClient.post('/auth/device/approve', {
       userCode,
     })
+  },
+
+  async denyDevice(userCode: string): Promise<void> {
+    if (isMockAuthEnabled()) {
+      if (!userCode.trim()) {
+        throw new Error('Device code is required.')
+      }
+
+      return
+    }
+
+    await apiClient.post('/auth/device/deny', {
+      userCode,
+    })
+  },
+
+  async listPasskeys(): Promise<AuthPasskey[]> {
+    if (isMockAuthEnabled()) {
+      return []
+    }
+
+    const response = await apiClient.get<AuthPasskey[]>('/auth/passkey/list-user-passkeys')
+    return parseApiResponse(passkeyListResponseSchema, response.data)
+  },
+
+  async deletePasskey(id: string): Promise<void> {
+    if (isMockAuthEnabled()) {
+      return
+    }
+
+    await apiClient.post('/auth/passkey/delete-passkey', { id })
+  },
+
+  async updatePasskey(input: { id: string; name: string }): Promise<void> {
+    if (isMockAuthEnabled()) {
+      return
+    }
+
+    await apiClient.post('/auth/passkey/update-passkey', input)
   },
 }

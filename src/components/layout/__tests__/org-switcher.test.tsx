@@ -1,12 +1,11 @@
-import type { ButtonHTMLAttributes, HTMLAttributes, MouseEvent, ReactNode } from 'react'
-
 import { fireEvent, render, screen } from '@testing-library/react'
+import type { ButtonHTMLAttributes, HTMLAttributes, MouseEvent, ReactNode } from 'react'
 
 import { OrgSwitcher } from '../org-switcher'
 
-const mutateAsync = jest.fn()
+const mutateAsync = vi.fn()
 
-jest.mock('@/lib/hooks/use-auth', () => ({
+vi.mock('@/lib/hooks/use-auth', () => ({
   useAuth: () => ({
     activeOrganization: {
       organization: {
@@ -49,13 +48,13 @@ jest.mock('@/lib/hooks/use-auth', () => ({
   }),
 }))
 
-jest.mock('@/lib/hooks/use-organizations', () => ({
+vi.mock('@/lib/hooks/use-organizations', () => ({
   useSwitchOrganization: () => ({
     mutateAsync,
   }),
 }))
 
-jest.mock('@/components/ui/dropdown', () => ({
+vi.mock('@/components/ui/dropdown', () => ({
   DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   DropdownMenuContent: ({
@@ -89,7 +88,7 @@ describe('OrgSwitcher', () => {
   })
 
   it('renders the current org name truncated', () => {
-    render(<OrgSwitcher onCreateOrganization={jest.fn()} />)
+    render(<OrgSwitcher onCreateOrganization={vi.fn()} />)
 
     expect(screen.getByRole('button', { name: 'Switch organisation' })).toHaveTextContent(
       'A Very Long Organisation Name'
@@ -97,19 +96,19 @@ describe('OrgSwitcher', () => {
   })
 
   it('shows ChevronsUpDown icon', () => {
-    const { container } = render(<OrgSwitcher onCreateOrganization={jest.fn()} />)
+    const { container } = render(<OrgSwitcher onCreateOrganization={vi.fn()} />)
 
     expect(container.querySelector('svg')).toBeInTheDocument()
   })
 
   it('opens dropdown on click', () => {
-    render(<OrgSwitcher onCreateOrganization={jest.fn()} />)
+    render(<OrgSwitcher onCreateOrganization={vi.fn()} />)
 
     expect(screen.getByRole('menu')).toBeInTheDocument()
   })
 
   it('shows all user orgs in dropdown', () => {
-    render(<OrgSwitcher onCreateOrganization={jest.fn()} />)
+    render(<OrgSwitcher onCreateOrganization={vi.fn()} />)
 
     expect(screen.getAllByText('A Very Long Organisation Name').length).toBeGreaterThan(0)
     expect(screen.getByText('Acme Corp')).toBeInTheDocument()
@@ -119,13 +118,13 @@ describe('OrgSwitcher', () => {
   })
 
   it('marks current org with a checkmark', () => {
-    render(<OrgSwitcher onCreateOrganization={jest.fn()} />)
+    render(<OrgSwitcher onCreateOrganization={vi.fn()} />)
 
     expect(screen.getAllByRole('menuitemcheckbox')[0]).toHaveAttribute('aria-checked', 'true')
   })
 
   it('calls switchOrganization when a different org is selected', () => {
-    render(<OrgSwitcher onCreateOrganization={jest.fn()} />)
+    render(<OrgSwitcher onCreateOrganization={vi.fn()} />)
 
     fireEvent.click(screen.getByText('Acme Corp'))
 
@@ -133,13 +132,13 @@ describe('OrgSwitcher', () => {
   })
 
   it('shows Create organisation option at bottom of dropdown', () => {
-    render(<OrgSwitcher onCreateOrganization={jest.fn()} />)
+    render(<OrgSwitcher onCreateOrganization={vi.fn()} />)
 
     expect(screen.getByText('Create organisation')).toBeInTheDocument()
   })
 
   it('has correct accessible label and ARIA attributes', () => {
-    render(<OrgSwitcher onCreateOrganization={jest.fn()} />)
+    render(<OrgSwitcher onCreateOrganization={vi.fn()} />)
 
     expect(screen.getByRole('button', { name: 'Switch organisation' })).toBeInTheDocument()
     expect(screen.getByRole('menu')).toBeInTheDocument()

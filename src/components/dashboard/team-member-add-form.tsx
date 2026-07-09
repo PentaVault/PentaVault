@@ -1,9 +1,8 @@
 'use client'
 
+import { Plus, Search } from 'lucide-react'
 import type { FormEvent } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-
-import { Plus, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -18,9 +17,10 @@ import { useAddProjectMember } from '@/lib/hooks/use-team'
 import { useToast } from '@/lib/hooks/use-toast'
 import { useUserSearch } from '@/lib/hooks/use-user-search'
 import type { UserSearchResult } from '@/lib/types/api'
-import type { ProjectRole } from '@/lib/types/models'
 import { cn } from '@/lib/utils/cn'
 import { getApiFieldErrors, getApiFriendlyMessageWithRef } from '@/lib/utils/errors'
+
+type EditableProjectRole = 'admin' | 'member'
 
 type TeamMemberAddFormProps = {
   existingUserIds: Set<string>
@@ -40,7 +40,7 @@ export function TeamMemberAddForm({
   const [selectedUser, setSelectedUser] = useState<UserSearchResult | null>(null)
   const [userSearch, setUserSearch] = useState('')
   const [isUserPickerOpen, setIsUserPickerOpen] = useState(false)
-  const [role, setRole] = useState<Exclude<ProjectRole, 'owner'>>('developer')
+  const [role, setRole] = useState<EditableProjectRole>('member')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const userSearchQuery = useUserSearch(userSearch, organizationId)
 
@@ -115,7 +115,6 @@ export function TeamMemberAddForm({
           {isUserPickerOpen ? (
             <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-card p-2">
               <input
-                autoFocus
                 className="h-8 w-full rounded-md border border-border bg-background-elevated px-2 text-sm outline-none focus:border-border-strong focus:ring-2 focus:ring-focus-ring"
                 onChange={(event) => setUserSearch(event.target.value)}
                 placeholder="Search by name or @username"
@@ -157,17 +156,13 @@ export function TeamMemberAddForm({
           ) : null}
         </div>
 
-        <Select
-          onValueChange={(value) => setRole(value as Exclude<ProjectRole, 'owner'>)}
-          value={role}
-        >
+        <Select onValueChange={(value) => setRole(value as EditableProjectRole)} value={role}>
           <SelectTrigger aria-label="Member role" className="lg:w-36">
             <SelectValue placeholder="Select role" />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectItem value="developer">developer</SelectItem>
-              <SelectItem value="readonly">readonly</SelectItem>
+              <SelectItem value="member">member</SelectItem>
               <SelectItem value="admin">admin</SelectItem>
             </SelectGroup>
           </SelectContent>
