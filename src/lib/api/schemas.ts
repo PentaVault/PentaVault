@@ -58,6 +58,7 @@ export const authOrganizationMembershipSchema = z.object({
     privateProjectDiscoverability: nullableStringSchema,
     membersCanSeeAllProjects: z.boolean().optional(),
     membersCanRequestProjectAccess: z.boolean().optional(),
+    plan: z.string().optional(),
   }),
   membership: z.object({
     id: z.string(),
@@ -117,7 +118,12 @@ export const authOrganizationMembersResponseSchema = z.object({
 })
 
 const projectRoleSchema = z.preprocess(
-  (role) => (role === 'developer' || role === 'readonly' ? 'member' : role),
+  (role) =>
+    role === 'owner' || role === 'admin'
+      ? 'admin'
+      : role === 'developer' || role === 'readonly'
+        ? 'member'
+        : role,
   z.enum(PROJECT_ROLES)
 )
 const projectStatusSchema = z.enum(PROJECT_STATUSES)
@@ -247,6 +253,116 @@ export const projectEnvironmentResponseSchema = z.object({
   environment: projectEnvironmentSchema,
 })
 
+export const projectConfigSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  environmentId: z.string(),
+  parentConfigId: nullableStringSchema,
+  type: z.enum(['root', 'branch']),
+  name: z.string(),
+  slug: z.string(),
+  isProtected: z.boolean(),
+  isPersonalDefault: z.boolean().optional(),
+  visibility: z.enum(['protected', 'private', 'shared']).optional(),
+  canEdit: z.boolean().optional(),
+  canShare: z.boolean().optional(),
+  sharedWith: z
+    .array(
+      z.object({
+        configId: z.string(),
+        userId: z.string(),
+        sharedByUserId: nullableStringSchema,
+        permission: z.literal('read'),
+        createdAt: z.string(),
+      })
+    )
+    .optional(),
+  createdByUserId: optionalNullableStringSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const projectConfigsResponseSchema = z.object({
+  configs: z.array(projectConfigSchema),
+})
+
+export const projectConfigResponseSchema = z.object({
+  config: projectConfigSchema,
+})
+
+export const deleteProjectConfigResponseSchema = z.object({
+  deleted: z.boolean(),
+  configId: z.string(),
+})
+
+export const projectConfigShareResponseSchema = z.object({
+  share: z.object({
+    configId: z.string(),
+    userId: z.string(),
+    sharedByUserId: nullableStringSchema,
+    permission: z.literal('read'),
+    createdAt: z.string(),
+  }),
+})
+
+const configChangeRequestItemSchema = z.object({
+  id: z.string(),
+  changeRequestId: z.string(),
+  operation: z.enum(['create', 'update', 'delete']),
+  secretName: z.string(),
+  currentSecretId: nullableStringSchema,
+  proposedSecretId: nullableStringSchema,
+  createdAt: z.string(),
+})
+
+const configChangeRequestApprovalSchema = z.object({
+  id: z.string(),
+  changeRequestId: z.string(),
+  reviewerUserId: z.string(),
+  status: z.enum(['approved', 'rescinded']),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const configChangeRequestSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  projectId: z.string(),
+  sourceConfigId: nullableStringSchema,
+  targetConfigId: z.string(),
+  title: z.string(),
+  description: nullableStringSchema,
+  status: z.enum(['draft', 'in_review', 'approved', 'merged', 'cancelled', 'closed']),
+  requestedByUserId: z.string(),
+  mergedByUserId: nullableStringSchema,
+  mergedAt: nullableStringSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  items: z.array(configChangeRequestItemSchema),
+  approvals: z.array(configChangeRequestApprovalSchema),
+})
+
+export const configChangeRequestsResponseSchema = z.object({
+  requests: z.array(configChangeRequestSchema),
+})
+
+export const configChangeRequestResponseSchema = z.object({
+  request: configChangeRequestSchema.nullable(),
+})
+
+export const projectMemberEnvironmentAccessSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  userId: z.string(),
+  environmentId: z.string(),
+  grantedBy: z.string(),
+  grantedAt: z.string(),
+})
+
+export const projectMemberEnvironmentAccessResponseSchema = z.object({
+  access: z.array(projectMemberEnvironmentAccessSchema),
+})
+
 export const projectSettingsSchema = z.object({
   projectId: z.string(),
   accessMode: projectSettingsAccessModeSchema,
@@ -277,6 +393,7 @@ export const secretSchema = z.object({
   organizationId: optionalNullableStringSchema,
   environment: z.string(),
   environmentId: optionalNullableStringSchema,
+  configId: optionalNullableStringSchema,
   name: z.string(),
   mode: secretModeSchema,
   encryptionMode: secretEncryptionModeSchema.optional(),
@@ -764,6 +881,20 @@ export const createProjectEnvironmentInputSchema = z.object({
     .nullable()
     .optional(),
   isDefault: z.boolean().optional(),
+})
+
+export const createProjectConfigInputSchema = z.object({
+  environmentId: z.string().trim().min(1),
+  name: z.string().trim().min(1).max(80),
+  slug: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/),
+  parentConfigId: z.string().trim().min(1).nullable().optional(),
+})
+
+export const replaceProjectMemberEnvironmentAccessInputSchema = z.object({
+  environmentIds: z.array(z.string().trim().min(1)).max(50),
 })
 
 export const updateProjectSettingsInputSchema = z

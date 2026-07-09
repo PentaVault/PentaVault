@@ -62,6 +62,16 @@ async function readOrganizations(): Promise<AuthOrganizationMembership[]> {
   return response.organizations
 }
 
+async function readAuthenticatedOrganizations(
+  session: AuthSession | null
+): Promise<AuthOrganizationMembership[]> {
+  if (!session?.user.id) {
+    return []
+  }
+
+  return readOrganizations()
+}
+
 export function AuthProvider({ children }: AuthProviderProps) {
   const [store] = useState(() => createAuthStore())
 
@@ -81,7 +91,9 @@ function AuthController({ children }: AuthProviderProps) {
   const clearAuthState = useAuthStore((state) => state.clearAuthState)
 
   const refresh = useCallback(async (): Promise<void> => {
-    const [nextSession, nextOrganizations] = await Promise.all([readSession(), readOrganizations()])
+    const nextSession = await readSession()
+    const nextOrganizations = await readAuthenticatedOrganizations(nextSession)
+
     setAuthState({
       session: nextSession,
       organizations: dedupeOrganizations(nextOrganizations),
@@ -145,10 +157,8 @@ function AuthController({ children }: AuthProviderProps) {
     let cancelled = false
 
     async function loadSession(): Promise<void> {
-      const [nextSession, nextOrganizations] = await Promise.all([
-        readSession(),
-        readOrganizations(),
-      ])
+      const nextSession = await readSession()
+      const nextOrganizations = await readAuthenticatedOrganizations(nextSession)
 
       if (cancelled) {
         return

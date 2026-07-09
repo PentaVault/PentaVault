@@ -1,17 +1,13 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 
-const projectRouteRoots = [
-  ['canonical /projects', join(process.cwd(), 'src', 'app', '(dashboard)', 'projects')],
-  [
-    'legacy /dashboard/projects',
-    join(process.cwd(), 'src', 'app', '(dashboard)', 'dashboard', 'projects'),
-  ],
-  [
-    'legacy /dashboard/org/:orgId/projects',
-    join(process.cwd(), 'src', 'app', '(dashboard)', 'dashboard', 'org', '[orgId]', 'projects'),
-  ],
-] as const
+import { describe, expect, it } from 'vitest'
+
+// The canonical flat route tree is the single source of truth for project
+// pages. Legacy trees (/dashboard/projects, /dashboard/org/[orgId]) are
+// redirect-shadowed by the middleware (see src/__tests__/proxy.test.ts), so the
+// invariant worth guarding here is that every canonical project route exists.
+const canonicalProjectsRoot = join(process.cwd(), 'src', 'app', '(dashboard)', 'projects')
 
 const projectRouteFiles = [
   ['index', 'page.tsx'],
@@ -26,29 +22,29 @@ const projectRouteFiles = [
   ['usage', '[projectId]/usage/page.tsx'],
 ] as const
 
-const dashboardProjectRouteRoot = join(
-  process.cwd(),
-  'src',
-  'app',
-  '(dashboard)',
-  'dashboard',
-  'projects'
-)
+const canonicalTopLevelRoutes = [
+  ['dashboard', 'dashboard/page.tsx'],
+  ['activity', 'activity/page.tsx'],
+  ['change-requests', 'change-requests/page.tsx'],
+  ['settings redirect', 'settings/page.tsx'],
+  ['organization settings', 'settings/organization/page.tsx'],
+  ['organization members', 'settings/organization/members/page.tsx'],
+  ['organization access', 'settings/organization/access/page.tsx'],
+  ['organization billing', 'settings/organization/billing/page.tsx'],
+  ['account settings', 'settings/account/page.tsx'],
+  ['account security', 'settings/account/security/page.tsx'],
+  ['account sessions', 'settings/account/sessions/page.tsx'],
+  ['account tokens', 'settings/account/tokens/page.tsx'],
+] as const
 
-describe('dashboard project compatibility routes', () => {
-  it.each(
-    projectRouteFiles
-  )('keeps /dashboard/projects compatibility route for %s', (_name, relativePath) => {
-    expect(existsSync(join(dashboardProjectRouteRoot, relativePath))).toBe(true)
+const dashboardRoot = join(process.cwd(), 'src', 'app', '(dashboard)')
+
+describe('canonical dashboard routes', () => {
+  it.each(projectRouteFiles)('exposes the canonical project %s route', (_name, relativePath) => {
+    expect(existsSync(join(canonicalProjectsRoot, relativePath))).toBe(true)
   })
 
-  it.each(projectRouteRoots)('keeps %s route files aligned', (routeName, routeRoot) => {
-    for (const [name, relativePath] of projectRouteFiles) {
-      if (relativePath === 'page.tsx' && routeName === 'legacy /dashboard/org/:orgId/projects') {
-        continue
-      }
-
-      expect(existsSync(join(routeRoot, relativePath)), `${name}: ${relativePath}`).toBe(true)
-    }
+  it.each(canonicalTopLevelRoutes)('exposes the canonical %s route', (_name, relativePath) => {
+    expect(existsSync(join(dashboardRoot, relativePath))).toBe(true)
   })
 })

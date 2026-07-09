@@ -2,6 +2,7 @@
   "name": "pentavault",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "packageManager": "pnpm@10.33.0",
   "engines": {
     "node": ">=22 <25",
@@ -19,10 +20,17 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ci": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report",
+    "cli:build": "cargo build --manifest-path packages/cli/Cargo.toml",
+    "cli:lint": "cargo clippy --manifest-path packages/cli/Cargo.toml -- -D warnings",
+    "cli:test": "cargo test --manifest-path packages/cli/Cargo.toml",
     "prepare": "husky"
   },
   "dependencies": {
-    "@better-auth/passkey": "^1.6.9",
+    "@better-auth/passkey": "^1.6.23",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.11",
@@ -38,14 +46,15 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tanstack/react-query": "^5.99.1",
     "@tanstack/react-query-devtools": "^5.99.1",
-    "axios": "^1.15.0",
-    "better-auth": "^1.6.9",
+    "axios": "^1.18.1",
+    "better-auth": "^1.6.23",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "js-cookie": "^3.0.5",
+    "js-cookie": "^3.0.8",
     "lucide-react": "^1.8.0",
-    "next": "16.2.4",
+    "motion": "^12.42.2",
+    "next": "16.2.10",
     "next-themes": "^0.4.6",
     "qrcode": "^1.5.4",
     "react": "19.2.4",
@@ -61,6 +70,7 @@
     "@biomejs/biome": "^2.4.13",
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -81,7 +91,10 @@
   },
   "pnpm": {
     "overrides": {
-      "postcss": "8.5.10"
+      "form-data": "4.0.6",
+      "postcss": "8.5.10",
+      "undici": "7.28.0",
+      "vite": "8.0.16"
     }
   }
 }

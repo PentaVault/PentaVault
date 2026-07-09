@@ -1,6 +1,10 @@
 import { QueryClient } from '@tanstack/react-query'
 
-import { clearAuthenticatedQueryCache, clearProjectScopedQueryCache } from '@/lib/query/cache'
+import {
+  clearAuthenticatedQueryCache,
+  clearOrganizationScopedQueryCache,
+  clearProjectScopedQueryCache,
+} from '@/lib/query/cache'
 import { queryKeys } from '@/lib/query/keys'
 
 function createClient() {
@@ -27,6 +31,25 @@ describe('query cache hardening', () => {
     expect(queryClient.getQueryData(queryKeys.projectTokens.list('project_123'))).toBeUndefined()
     expect(queryClient.getQueryData(queryKeys.projectAudit.list('project_123', {}))).toBeUndefined()
     expect(queryClient.getQueryData(queryKeys.notifications.all)).toEqual({ notifications: [] })
+  })
+
+  it('removes organization-scoped billing and team data on organization switch', () => {
+    const queryClient = createClient()
+    queryClient.setQueryData(queryKeys.billing.summary(), { billing: {} })
+    queryClient.setQueryData(queryKeys.billing.profile('org_123'), { profile: {} })
+    queryClient.setQueryData(queryKeys.organizationActivity.list('org_123', {}), { events: [] })
+    queryClient.setQueryData(queryKeys.organizationMembers.list('org_123'), { members: [] })
+    queryClient.setQueryData(queryKeys.organizations.all, { organizations: [] })
+
+    clearOrganizationScopedQueryCache(queryClient)
+
+    expect(queryClient.getQueryData(queryKeys.billing.summary())).toBeUndefined()
+    expect(queryClient.getQueryData(queryKeys.billing.profile('org_123'))).toBeUndefined()
+    expect(
+      queryClient.getQueryData(queryKeys.organizationActivity.list('org_123', {}))
+    ).toBeUndefined()
+    expect(queryClient.getQueryData(queryKeys.organizationMembers.list('org_123'))).toBeUndefined()
+    expect(queryClient.getQueryData(queryKeys.organizations.all)).toEqual({ organizations: [] })
   })
 
   it('removes authenticated cache entries on sign-out or session expiry', () => {

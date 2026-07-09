@@ -12,6 +12,14 @@ import type {
   UpdateProjectInput,
 } from '@/lib/types/api'
 
+async function invalidateProjectMutationCaches(queryClient: ReturnType<typeof useQueryClient>) {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.projects.all }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.organizationActivity.all }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.projectAudit.all }),
+  ])
+}
+
 export function useProjectsQuery() {
   const auth = useAuth()
   const activeOrgId = auth.activeOrganization?.organization.id ?? null
@@ -95,6 +103,24 @@ export function useProjectAccessRequests(
   })
 }
 
+export function useOrganizationAccessRequests(
+  organizationId: string | null,
+  status?: 'pending' | 'approved' | 'denied' | 'rejected' | 'cancelled',
+  enabled = true
+) {
+  return useQuery({
+    queryKey: queryKeys.projectAccessRequests.organization(organizationId, status ?? 'all'),
+    queryFn: async () => {
+      if (!organizationId) {
+        throw new Error('organizationId is required to list access requests')
+      }
+
+      return projectsApi.listOrganizationAccessRequests(organizationId, status)
+    },
+    enabled: Boolean(organizationId) && enabled,
+  })
+}
+
 export function useReviewProjectAccessRequest(projectId?: string | null) {
   const queryClient = useQueryClient()
 
@@ -142,7 +168,7 @@ export function useArchiveProject() {
   return useMutation({
     mutationFn: async (projectId: string) => projectsApi.archiveProject(projectId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.projects.all })
+      await invalidateProjectMutationCaches(queryClient)
     },
   })
 }
@@ -153,7 +179,7 @@ export function useUnarchiveProject() {
   return useMutation({
     mutationFn: async (projectId: string) => projectsApi.unarchiveProject(projectId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.projects.all })
+      await invalidateProjectMutationCaches(queryClient)
     },
   })
 }

@@ -10,29 +10,23 @@ import { ErrorState } from '@/components/shared/error-state'
 import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useProjectEnvironments } from '@/lib/hooks/use-project-configuration'
 import {
   useProject,
   useProjectAccessRequests,
   useReviewProjectAccessRequest,
 } from '@/lib/hooks/use-projects'
 import {
-  useApprovePromotionRequest,
   useGrantSecretAccess,
   useProjectSecretAccess,
   useProjectSecrets,
-  usePromotionRequests,
-  useRejectPromotionRequest,
   useRejectSecretAccessRequest,
   useSecretAccessRequests,
 } from '@/lib/hooks/use-secrets'
 import { useProjectMembers } from '@/lib/hooks/use-team'
 import { useToast } from '@/lib/hooks/use-toast'
 import { useProjectTokens } from '@/lib/hooks/use-tokens'
-import type {
-  AccessRequest,
-  PersonalSecretPromotionRequest,
-  SecretAccessRequest,
-} from '@/lib/types/models'
+import type { AccessRequest, SecretAccessRequest } from '@/lib/types/models'
 import { getApiErrorCode, getApiFriendlyMessage } from '@/lib/utils/errors'
 import { buildPendingSecretRequestsByUserFromRecords } from '@/lib/utils/secret-access-requests'
 
@@ -47,15 +41,13 @@ export default function ProjectTeamPage() {
   const canReadMembers =
     canAccessProject || effectiveRole === 'auditor' || effectiveRole === 'readonly'
   const membersQuery = useProjectMembers(projectId, canReadMembers)
+  const environmentsQuery = useProjectEnvironments(projectId, canReadMembers)
   const tokensQuery = useProjectTokens(projectId, canReadMembers)
   const secretsQuery = useProjectSecrets(projectId, canReadMembers)
   const secretAccessQuery = useProjectSecretAccess(projectId, canReadMembers)
   const secretAccessRequestsQuery = useSecretAccessRequests(projectId, canManageMembers)
-  const promotionRequestsQuery = usePromotionRequests(projectId, canManageMembers)
   const grantSecretAccess = useGrantSecretAccess()
   const rejectSecretAccessRequest = useRejectSecretAccessRequest()
-  const approvePromotionRequest = useApprovePromotionRequest()
-  const rejectPromotionRequest = useRejectPromotionRequest()
   const reviewRequest = useReviewProjectAccessRequest(projectId)
   const { toast } = useToast()
 
@@ -82,10 +74,6 @@ export default function ProjectTeamPage() {
   const pendingSecretRequests = useMemo(
     () => (secretAccessRequestsQuery.data ?? []).filter((request) => request.status === 'pending'),
     [secretAccessRequestsQuery.data]
-  )
-  const pendingPromotionRequests = useMemo(
-    () => (promotionRequestsQuery.data ?? []).filter((request) => request.status === 'pending'),
-    [promotionRequestsQuery.data]
   )
   const pendingSecretRequestsByUserId = buildPendingSecretRequestsByUserFromRecords({
     access: activeSecretAccess,
@@ -155,30 +143,6 @@ export default function ProjectTeamPage() {
     }
   }
 
-  async function reviewPromotionRequest(
-    request: PersonalSecretPromotionRequest,
-    status: 'approved' | 'rejected'
-  ): Promise<void> {
-    try {
-      if (status === 'approved') {
-        await approvePromotionRequest.mutateAsync({
-          projectId: request.projectId,
-          requestId: request.id,
-        })
-        toast.success('Promotion request approved.')
-      } else {
-        await rejectPromotionRequest.mutateAsync({
-          projectId: request.projectId,
-          requestId: request.id,
-          reviewerNote: 'Declined from Team & Access review.',
-        })
-        toast.success('Promotion request declined.')
-      }
-    } catch (error) {
-      toast.error(getApiFriendlyMessage(error, 'Unable to review promotion request right now.'))
-    }
-  }
-
   if (!projectId) {
     return (
       <div className="p-6">
@@ -225,7 +189,7 @@ export default function ProjectTeamPage() {
         <div>
           <h2 className="text-lg font-semibold">Team & Access</h2>
           <p className="text-sm text-muted-foreground">
-            Manage team access for {projectName}. Owner role is immutable by design.
+            Manage project admins, members, and environment visibility for {projectName}.
           </p>
         </div>
       </div>
@@ -260,9 +224,7 @@ export default function ProjectTeamPage() {
                 onRetry={() => void requestsQuery.refetch()}
               />
             </div>
-          ) : pendingRequests.length === 0 &&
-            pendingSecretRequests.length === 0 &&
-            pendingPromotionRequests.length === 0 ? (
+          ) : pendingRequests.length === 0 && pendingSecretRequests.length === 0 ? (
             <p className="p-4 text-sm text-muted-foreground">No pending access requests.</p>
           ) : (
             <>
@@ -285,19 +247,6 @@ export default function ProjectTeamPage() {
                   }
                   onReview={(status) => void reviewSecretAccessRequest(request, status)}
                   secretName={secretsById.get(request.secretId)?.name ?? request.secretId}
-                />
-              ))}
-              {pendingPromotionRequests.map((request) => (
-                <PromotionRequestRow
-                  isPending={approvePromotionRequest.isPending || rejectPromotionRequest.isPending}
-                  key={request.id}
-                  memberLabel={
-                    membersByUserId.get(request.requestedByUserId)?.user?.name ??
-                    membersByUserId.get(request.requestedByUserId)?.user?.email ??
-                    request.requestedByUserId
-                  }
-                  onReview={(status) => void reviewPromotionRequest(request, status)}
-                  request={request}
                 />
               ))}
             </>
@@ -342,6 +291,7 @@ export default function ProjectTeamPage() {
               membership={membership}
               pendingRequests={pendingSecretRequestsByUserId.get(membership.userId) ?? []}
               projectId={projectId}
+              environments={environmentsQuery.data?.environments ?? []}
               secrets={secrets}
             />
           ))
@@ -416,48 +366,6 @@ function SecretAccessRequestRow({
 
       <StatusBadge className="justify-self-start capitalize md:justify-self-center" tone="neutral">
         variable
-      </StatusBadge>
-
-      <div className="flex justify-start gap-2 md:justify-end">
-        <Button
-          disabled={isPending}
-          onClick={() => onReview('rejected')}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          Decline
-        </Button>
-        <Button disabled={isPending} onClick={() => onReview('approved')} size="sm" type="button">
-          Approve
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function PromotionRequestRow({
-  isPending,
-  memberLabel,
-  onReview,
-  request,
-}: {
-  isPending: boolean
-  memberLabel: string
-  onReview: (status: 'approved' | 'rejected') => void
-  request: PersonalSecretPromotionRequest
-}) {
-  return (
-    <div className="grid gap-3 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_140px_180px] md:items-center">
-      <div className="min-w-0">
-        <p className="truncate text-sm font-medium">{memberLabel}</p>
-        <p className="truncate font-mono text-xs text-muted-foreground">
-          {request.targetName} to project
-        </p>
-      </div>
-
-      <StatusBadge className="justify-self-start capitalize md:justify-self-center" tone="warning">
-        promotion
       </StatusBadge>
 
       <div className="flex justify-start gap-2 md:justify-end">

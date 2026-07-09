@@ -56,6 +56,15 @@ function isAuthOrganizationsRequest(url: string | undefined): boolean {
   )
 }
 
+function isAuthCapabilitiesRequest(url: string | undefined): boolean {
+  if (!url) {
+    return false
+  }
+
+  const normalizedUrl = normalizeUrlPath(url)
+  return normalizedUrl === 'v1/auth/capabilities'
+}
+
 function isProjectAuditRequest(url: string | undefined): boolean {
   if (!url) {
     return false
@@ -63,6 +72,33 @@ function isProjectAuditRequest(url: string | undefined): boolean {
 
   const normalizedUrl = normalizeUrlPath(url)
   return /^v1\/projects\/[^/]+\/audit(?:\?|$)/.test(normalizedUrl)
+}
+
+function isOrganizationActivityRequest(url: string | undefined): boolean {
+  if (!url) {
+    return false
+  }
+
+  const normalizedUrl = normalizeUrlPath(url)
+  return /^v1\/organizations\/[^/]+\/activity(?:\?|$)/.test(normalizedUrl)
+}
+
+function isProjectConfigRequest(url: string | undefined): boolean {
+  if (!url) {
+    return false
+  }
+
+  const normalizedUrl = normalizeUrlPath(url)
+  return /^v1\/projects\/[^/]+\/configs(?:\/[^/?]+)?(?:\?|$)/.test(normalizedUrl)
+}
+
+function isProjectMemberEnvironmentAccessRequest(url: string | undefined): boolean {
+  if (!url) {
+    return false
+  }
+
+  const normalizedUrl = normalizeUrlPath(url)
+  return /^v1\/projects\/[^/]+\/members\/[^/]+\/environments(?:\?|$)/.test(normalizedUrl)
 }
 
 function isUpstreamUnavailableResponse(error: unknown): boolean {
@@ -173,6 +209,8 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     isAuthOrganizationsRequest(error.config?.url) && error.response?.status === 401
   const isAuthOrganizationsUnavailable =
     isAuthOrganizationsRequest(error.config?.url) && isUpstreamUnavailableResponse(error)
+  const isAuthCapabilitiesUnavailable =
+    isAuthCapabilitiesRequest(error.config?.url) && isUpstreamUnavailableResponse(error)
 
   const authOrganizationsErrorCode = (error.response?.data as { code?: string } | undefined)?.code
   const isAuthSetActiveKnownFailure =
@@ -192,6 +230,26 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     isProjectAuditRequest(error.config?.url) &&
     error.response?.status === 429 &&
     errorCode === 'RATE_LIMITED'
+  const isOrganizationActivityRouteMissing =
+    error.config?.method?.toLowerCase() === 'get' &&
+    isOrganizationActivityRequest(error.config?.url) &&
+    error.response?.status === 404 &&
+    errorCode === 'ROUTE_NOT_FOUND'
+  const isProjectConfigRouteMissing =
+    error.config?.method?.toLowerCase() === 'get' &&
+    isProjectConfigRequest(error.config?.url) &&
+    error.response?.status === 404 &&
+    errorCode === 'ROUTE_NOT_FOUND'
+  const isProjectMemberEnvironmentAccessRouteMissing =
+    error.config?.method?.toLowerCase() === 'get' &&
+    isProjectMemberEnvironmentAccessRequest(error.config?.url) &&
+    error.response?.status === 404 &&
+    errorCode === 'ROUTE_NOT_FOUND'
+  const isBillingPortalSetupFailure =
+    error.config?.method?.toLowerCase() === 'get' &&
+    normalizeUrlPath(error.config?.url ?? '') === 'v1/billing/portal' &&
+    error.response?.status === 409 &&
+    errorCode === 'BILLING_STATE_INVALID'
 
   return (
     isProjectDeleteNotFound ||
@@ -200,9 +258,14 @@ function shouldSuppressDevErrorLog(error: unknown): boolean {
     isProjectCreateKnownFailure ||
     isAuthOrganizationsUnauthorized ||
     isAuthOrganizationsUnavailable ||
+    isAuthCapabilitiesUnavailable ||
     isAuthSetActiveKnownFailure ||
     isOrgDeleteGuardedFailure ||
     isProjectAuditReadRateLimited ||
+    isOrganizationActivityRouteMissing ||
+    isProjectConfigRouteMissing ||
+    isProjectMemberEnvironmentAccessRouteMissing ||
+    isBillingPortalSetupFailure ||
     isExpectedEmailNotVerified
   )
 }

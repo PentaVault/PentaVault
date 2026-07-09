@@ -8,7 +8,11 @@ import { DASHBOARD_HOME_PATH } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { clearProjectScopedQueryCache } from '@/lib/query/cache'
 import { queryKeys } from '@/lib/query/keys'
-import type { CreateProjectMemberInput, UpdateProjectMemberInput } from '@/lib/types/api'
+import type {
+  CreateProjectMemberInput,
+  ReplaceProjectMemberEnvironmentAccessInput,
+  UpdateProjectMemberInput,
+} from '@/lib/types/api'
 import type { OrgRole } from '@/lib/types/auth'
 
 export function useProjectMembers(projectId: string | null, enabled = true) {
@@ -140,6 +144,49 @@ export function useRemoveProjectMember(projectId: string | null) {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.projectMembers.list(projectId) })
+    },
+  })
+}
+
+export function useProjectMemberEnvironmentAccess(
+  projectId: string | null,
+  userId: string | null,
+  enabled = true
+) {
+  return useQuery({
+    queryKey: queryKeys.projectMembers.environmentAccess(projectId, userId),
+    queryFn: async () => {
+      if (!projectId || !userId) {
+        throw new Error('projectId and userId are required to list environment access')
+      }
+
+      return teamApi.listMemberEnvironmentAccess(projectId, userId)
+    },
+    enabled: Boolean(projectId && userId) && enabled,
+  })
+}
+
+export function useReplaceProjectMemberEnvironmentAccess(projectId: string | null) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: {
+      userId: string
+      input: ReplaceProjectMemberEnvironmentAccessInput
+    }) => {
+      if (!projectId) {
+        throw new Error('projectId is required to update member environment access')
+      }
+
+      return teamApi.replaceMemberEnvironmentAccess(projectId, payload.userId, payload.input)
+    },
+    onSuccess: async (_result, payload) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectMembers.environmentAccess(projectId, payload.userId),
+        }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectMembers.list(projectId) }),
+      ])
     },
   })
 }

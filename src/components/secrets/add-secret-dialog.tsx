@@ -16,20 +16,14 @@ import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogOverlay,
   DialogPortal,
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Switch, SwitchThumb } from '@/components/ui/switch'
-import { useCreatePersonalSecret, useCreateSecrets } from '@/lib/hooks/use-secrets'
+import { useCreateSecrets } from '@/lib/hooks/use-secrets'
 import { useToast } from '@/lib/hooks/use-toast'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
 
@@ -40,8 +34,6 @@ type SecretRowInput = {
 }
 
 const SECRET_NAME_PATTERN = /^[A-Z0-9_]+$/
-const MEMBER_DEVELOPMENT_ONLY_MESSAGE =
-  'Members can create personal variables only in the development environment.'
 
 function createEmptyRow(): SecretRowInput {
   return { key: '', value: '', id: crypto.randomUUID() }
@@ -75,14 +67,14 @@ function parseEnvText(text: string): SecretRowInput[] {
 }
 
 export function AddSecretDialog({
-  allowProjectScope = false,
+  configId,
   environmentId,
   environmentSlug,
   projectId,
   open,
   onOpenChange,
 }: {
-  allowProjectScope?: boolean
+  configId?: string | null
   environmentId?: string | null
   environmentSlug?: string
   projectId: string
@@ -92,15 +84,11 @@ export function AddSecretDialog({
   const [rows, setRows] = useState<SecretRowInput[]>([createEmptyRow()])
   const [showValues, setShowValues] = useState<Record<string, boolean>>({})
   const [encryptionMode, setEncryptionMode] = useState<'encrypted' | 'plaintext'>('encrypted')
-  const [scope, setScope] = useState<'project' | 'personal'>(
-    allowProjectScope ? 'project' : 'personal'
-  )
   const [formError, setFormError] = useState<string | null>(null)
   const [pendingPlaintextRows, setPendingPlaintextRows] = useState<SecretRowInput[] | null>(null)
   const createSecrets = useCreateSecrets()
-  const createPersonalSecret = useCreatePersonalSecret()
   const { toast } = useToast()
-  const isSaving = createSecrets.isPending || createPersonalSecret.isPending
+  const isSaving = createSecrets.isPending
 
   function handleKeyPaste(event: ClipboardEvent<HTMLInputElement>) {
     const text = event.clipboardData.getData('text')
@@ -134,7 +122,6 @@ export function AddSecretDialog({
     setRows([createEmptyRow()])
     setShowValues({})
     setEncryptionMode('encrypted')
-    setScope(allowProjectScope ? 'project' : 'personal')
     setFormError(null)
     setPendingPlaintextRows(null)
   }
@@ -145,38 +132,14 @@ export function AddSecretDialog({
     }
 
     try {
-      const result =
-        scope === 'personal'
-          ? await Promise.all(
-              validRows.map((row) =>
-                createPersonalSecret.mutateAsync({
-                  projectId,
-                  environment: environmentSlug ?? 'development',
-                  encryptionMode,
-                  name: row.key,
-                  plaintext: row.value,
-                  mode: 'compatibility',
-                  ...(environmentId ? { environmentId } : {}),
-                })
-              )
-            ).then((responses) => ({
-              imported: responses.map((response) => ({
-                name: response.secret.name,
-                secretId: response.secret.id,
-                currentVersionId: response.currentVersionId,
-                versionNumber: response.versionNumber,
-              })),
-              updated: [],
-              failed: [],
-            }))
-          : await createSecrets.mutateAsync({
-              projectId,
-              environment: environmentSlug ?? 'development',
-              encryptionMode,
-              scope: 'project',
-              secrets: validRows,
-              ...(environmentId ? { environmentId } : {}),
-            })
+      const result = await createSecrets.mutateAsync({
+        projectId,
+        environment: environmentSlug ?? 'development',
+        encryptionMode,
+        secrets: validRows,
+        ...(environmentId ? { environmentId } : {}),
+        ...(configId ? { configId } : {}),
+      })
       const addedCount = result.imported.length
       const updatedCount = result.updated?.length ?? 0
       const failedCount = result.failed?.length ?? 0
@@ -211,11 +174,6 @@ export function AddSecretDialog({
     const validRows = rows
       .map((row) => ({ ...row, key: row.key.trim(), value: row.value.trim() }))
       .filter((row) => row.key && row.value)
-
-    if (!allowProjectScope && (environmentSlug ?? 'development') !== 'development') {
-      setFormError(MEMBER_DEVELOPMENT_ONLY_MESSAGE)
-      return
-    }
 
     if (validRows.length === 0) {
       setFormError('Add at least one KEY=VALUE pair before saving.')
@@ -293,37 +251,12 @@ export function AddSecretDialog({
       <DialogPortal>
         <DialogOverlay className="fixed inset-0 bg-black/45" />
         <DialogContent className="fixed top-1/2 left-1/2 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-visible rounded-lg border border-border bg-card p-6">
-          <DialogTitle className="text-lg font-medium">
-            Add {scope === 'personal' ? 'personal ' : ''}environment variable
-          </DialogTitle>
+          <DialogTitle className="text-lg font-medium">Add environment variable</DialogTitle>
+          <DialogDescription className="mt-1 text-sm text-muted-foreground">
+            Add one or more KEY=VALUE pairs, or paste and import a .env file.
+          </DialogDescription>
 
           <form className="mt-3 pt-2" onSubmit={(event) => void handleSubmit(event)}>
-            <div className="mb-4 grid gap-3">
-              <div className="grid gap-2">
-                <label className="text-xs font-medium text-muted-foreground" htmlFor="scope-mode">
-                  Save as
-                </label>
-                <Select
-                  onValueChange={(value) => setScope(value === 'project' ? 'project' : 'personal')}
-                  value={scope}
-                >
-                  <SelectTrigger id="scope-mode">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allowProjectScope ? <SelectItem value="project">Project</SelectItem> : null}
-                    <SelectItem value="personal">Personal</SelectItem>
-                  </SelectContent>
-                </Select>
-                {!allowProjectScope ? (
-                  <p className="text-xs text-muted-foreground">
-                    Members save personal development variables first, then request approval to
-                    promote them to project development.
-                  </p>
-                ) : null}
-              </div>
-            </div>
-
             <div className="max-h-[52vh] space-y-3 overflow-y-auto p-1">
               {rows.map((row, index) => (
                 <div className="flex items-start gap-2" key={row.id}>

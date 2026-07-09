@@ -10,7 +10,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
       <div className="mx-auto grid min-h-screen w-full max-w-7xl gap-0 lg:grid-cols-2">
         <section className="hidden border-r border-border p-12 lg:flex lg:flex-col lg:justify-between">
           <div className="space-y-5">
-            <p className="text-xs font-mono tracking-[0.12em] uppercase text-[#00c573]">
+            <p className="text-xs font-mono tracking-[0.12em] uppercase text-accent">
               PentaVault Auth
             </p>
             <h2 className="max-w-lg text-5xl leading-[1.02] tracking-tight text-foreground">

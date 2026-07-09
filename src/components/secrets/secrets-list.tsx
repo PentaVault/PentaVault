@@ -3,7 +3,6 @@
 import {
   Eye,
   EyeOff,
-  GitPullRequest,
   KeyRound,
   Lock,
   MoreHorizontal,
@@ -15,7 +14,7 @@ import {
 } from 'lucide-react'
 import type { FormEvent } from 'react'
 import { useMemo, useState } from 'react'
-
+import { SpotlightCard } from '@/components/shared/spotlight-card'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,17 +42,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown'
 import { Input } from '@/components/ui/input'
+import { useCreateConfigChangeRequest } from '@/lib/hooks/use-project-configuration'
 import { useCreateSecretAccessRequest } from '@/lib/hooks/use-projects'
 import {
-  useApprovePromotionRequest,
   useCancelSecretAccessRequest,
   useDeleteSecret,
-  usePersonalSecrets,
   useProjectSecretAccess,
   useProjectSecrets,
-  usePromotePersonalSecret,
-  usePromotionRequests,
-  useRejectPromotionRequest,
   useRestoreSecretVersion,
   useSecretAccessRequests,
   useSecretVersions,
@@ -68,6 +63,8 @@ import { formatDateTime, formatRelativeDate } from '@/lib/utils/format'
 
 export function SecretsList({
   canManage = false,
+  canRequestMerge = false,
+  configId,
   enabled = true,
   environmentId,
   environmentSlug,
@@ -75,22 +72,20 @@ export function SecretsList({
   search,
 }: {
   canManage?: boolean
+  canRequestMerge?: boolean
+  configId?: string | null
   enabled?: boolean
   environmentId?: string | null
   environmentSlug?: string
   projectId: string
   search: string
 }) {
-  const secretsQuery = useProjectSecrets(projectId, enabled)
-  const personalSecretsQuery = usePersonalSecrets(projectId, enabled && !canManage)
+  const secretsQuery = useProjectSecrets(projectId, enabled, configId)
   const accessQuery = useProjectSecretAccess(projectId, enabled)
   const secretAccessRequestsQuery = useSecretAccessRequests(projectId, enabled)
-  const promotionRequestsQuery = usePromotionRequests(projectId, enabled)
   const membersQuery = useProjectMembers(projectId, enabled)
   const deleteSecret = useDeleteSecret()
-  const promotePersonalSecret = usePromotePersonalSecret()
-  const approvePromotionRequest = useApprovePromotionRequest()
-  const rejectPromotionRequest = useRejectPromotionRequest()
+  const createChangeRequest = useCreateConfigChangeRequest(projectId)
   const requestAccess = useCreateSecretAccessRequest(projectId)
   const cancelAccessRequest = useCancelSecretAccessRequest()
   const { toast } = useToast()
@@ -108,28 +103,8 @@ export function SecretsList({
   const [requestCooldownUntil, setRequestCooldownUntil] = useState<Record<string, number>>({})
 
   const secrets = useMemo(() => {
-    const projectSecrets = secretsQuery.data ?? []
-    const projectSecretKeys = new Set(
-      projectSecrets.map((secret) => `${secret.environmentId ?? secret.environment}:${secret.name}`)
-    )
-    const visiblePersonalSecrets = (personalSecretsQuery.data ?? []).filter(
-      (secret) =>
-        !projectSecretKeys.has(`${secret.environmentId ?? secret.environment}:${secret.name}`)
-    )
-
-    return [...projectSecrets, ...visiblePersonalSecrets]
-  }, [personalSecretsQuery.data, secretsQuery.data])
-  const pendingPromotionRequestsBySecretId = useMemo(() => {
-    return new Map(
-      (promotionRequestsQuery.data ?? [])
-        .filter((request) => request.status === 'pending')
-        .map((request) => [request.personalSecretId, request])
-    )
-  }, [promotionRequestsQuery.data])
-  const pendingPromotionRequests = useMemo(
-    () => (promotionRequestsQuery.data ?? []).filter((request) => request.status === 'pending'),
-    [promotionRequestsQuery.data]
-  )
+    return secretsQuery.data ?? []
+  }, [secretsQuery.data])
   const membersByUserId = useMemo(() => {
     return new Map((membersQuery.data?.members ?? []).map((member) => [member.userId, member]))
   }, [membersQuery.data?.members])
@@ -320,52 +295,6 @@ export function SecretsList({
     await handleRequestAccess(secret)
   }
 
-  async function handlePromotePersonalSecret(secret: Secret): Promise<void> {
-    try {
-      await promotePersonalSecret.mutateAsync({
-        projectId,
-        secretId: secret.id,
-        targetName: secret.name,
-        targetEnvironment: secret.environment,
-        targetEnvironmentId: secret.environmentId ?? null,
-      })
-      toast.success('Promotion request sent.')
-    } catch (error) {
-      toast.error(
-        getApiFriendlyMessageWithRef(
-          error,
-          'Unable to request promotion right now. The server did not return a specific reason.'
-        )
-      )
-    }
-  }
-
-  async function handleReviewPromotionRequest(
-    requestId: string,
-    status: 'approved' | 'rejected'
-  ): Promise<void> {
-    try {
-      if (status === 'approved') {
-        await approvePromotionRequest.mutateAsync({ projectId, requestId })
-        toast.success('Promotion request approved.')
-      } else {
-        await rejectPromotionRequest.mutateAsync({
-          projectId,
-          requestId,
-          reviewerNote: 'Declined from project secrets review.',
-        })
-        toast.success('Promotion request declined.')
-      }
-    } catch (error) {
-      toast.error(
-        getApiFriendlyMessageWithRef(
-          error,
-          'Unable to review this promotion request right now. The server did not return a specific reason.'
-        )
-      )
-    }
-  }
-
   async function handleDelete(secret: Secret | null): Promise<void> {
     if (!secret) {
       return
@@ -431,7 +360,33 @@ export function SecretsList({
     }
   }
 
-  if (secretsQuery.isLoading || personalSecretsQuery.isLoading) {
+  async function handleCreateChangeRequest(secretNames?: string[]): Promise<void> {
+    if (!configId) {
+      return
+    }
+
+    try {
+      await createChangeRequest.mutateAsync({
+        sourceConfigId: configId,
+        title:
+          secretNames && secretNames.length > 0
+            ? `Merge ${secretNames.length} selected variable${secretNames.length === 1 ? '' : 's'}`
+            : 'Merge branch variables',
+        ...(secretNames && secretNames.length > 0 ? { secretNames } : { allKeys: true }),
+      })
+      setSelectedSecretIds(new Set())
+      toast.success('Change request created.')
+    } catch (error) {
+      toast.error(
+        getApiFriendlyMessageWithRef(
+          error,
+          'Unable to create this change request right now. The server did not return a specific reason.'
+        )
+      )
+    }
+  }
+
+  if (secretsQuery.isLoading) {
     return <SecretsListSkeleton />
   }
 
@@ -486,6 +441,20 @@ export function SecretsList({
             >
               Edit values
             </Button>
+            {canRequestMerge ? (
+              <Button
+                className="px-3 text-xs"
+                disabled={createChangeRequest.isPending}
+                onClick={() =>
+                  void handleCreateChangeRequest(selectedSecrets.map((secret) => secret.name))
+                }
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                Request merge
+              </Button>
+            ) : null}
             <Button
               className="px-3 text-xs"
               onClick={() => setIsBulkDeleteOpen(true)}
@@ -500,55 +469,21 @@ export function SecretsList({
         </div>
       ) : null}
 
-      {canManage && pendingPromotionRequests.length > 0 ? (
-        <div className="mb-3 overflow-hidden rounded-lg border border-border bg-background-secondary">
-          <div className="border-b border-border px-4 py-3">
-            <p className="text-sm font-medium">Promotion requests</p>
-          </div>
-          {pendingPromotionRequests.map((request) => (
-            <div
-              className="grid gap-3 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_9rem_11rem] md:items-center"
-              key={request.id}
-            >
-              <div className="min-w-0">
-                <p className="truncate font-mono text-sm">{request.targetName}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  Requested by{' '}
-                  {membersByUserId.get(request.requestedByUserId)?.user?.name ??
-                    membersByUserId.get(request.requestedByUserId)?.user?.email ??
-                    request.requestedByUserId}
-                </p>
-              </div>
-              <span className="justify-self-start font-mono text-xs text-muted-foreground md:justify-self-center">
-                {request.targetEnvironment}
-              </span>
-              <div className="flex justify-start gap-2 md:justify-end">
-                <Button
-                  className="h-8 px-2 text-xs"
-                  disabled={approvePromotionRequest.isPending || rejectPromotionRequest.isPending}
-                  onClick={() => void handleReviewPromotionRequest(request.id, 'rejected')}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  Decline
-                </Button>
-                <Button
-                  className="h-8 px-2 text-xs"
-                  disabled={approvePromotionRequest.isPending || rejectPromotionRequest.isPending}
-                  onClick={() => void handleReviewPromotionRequest(request.id, 'approved')}
-                  size="sm"
-                  type="button"
-                >
-                  Approve
-                </Button>
-              </div>
-            </div>
-          ))}
+      {canRequestMerge && filtered.length > 0 && !anySelected ? (
+        <div className="mb-3 flex justify-end">
+          <Button
+            disabled={createChangeRequest.isPending}
+            onClick={() => void handleCreateChangeRequest()}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            Request branch merge
+          </Button>
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-lg border border-border">
+      <SpotlightCard className="overflow-hidden border border-border">
         {filtered.map((secret, index) => (
           <SecretRow
             anySelected={anySelected}
@@ -562,20 +497,17 @@ export function SecretsList({
             showAccessCount={canManage}
             isRequestingAccess={requestingSecretId === secret.id}
             isCancellingRequest={cancelAccessRequest.isPending}
-            isPromoting={promotePersonalSecret.isPending}
             onDelete={() => setDeleteTarget(secret)}
             onEdit={() => setEditTarget(secret)}
             onHistory={() => setHistoryTarget(secret)}
-            onPromote={() => void handlePromotePersonalSecret(secret)}
             onCancelRequest={() => void handleCancelAccessRequest(secret)}
             onRequestAccess={() => void handleRequestAccess(secret)}
             onResendRequest={() => void handleResendAccessRequest(secret)}
             onSelect={handleSelect}
-            promotionPending={pendingPromotionRequestsBySecretId.has(secret.id)}
             secret={secret}
           />
         ))}
-      </div>
+      </SpotlightCard>
 
       {canManage || editTarget ? (
         <EditSecretDialog
@@ -710,7 +642,6 @@ function SecretRow({
   canManage,
   hasAccess,
   isCancellingRequest,
-  isPromoting,
   accessUserCount,
   showAccessCount,
   secret,
@@ -720,19 +651,16 @@ function SecretRow({
   onDelete,
   onEdit,
   onHistory,
-  onPromote,
   onCancelRequest,
   onRequestAccess,
   onResendRequest,
   onSelect,
-  promotionPending,
 }: {
   accessRequestStatus: SecretAccessRequestStatus | null
   anySelected: boolean
   canManage: boolean
   hasAccess: boolean
   isCancellingRequest: boolean
-  isPromoting: boolean
   accessUserCount: number
   showAccessCount: boolean
   secret: Secret
@@ -742,19 +670,16 @@ function SecretRow({
   onDelete: () => void
   onEdit: () => void
   onHistory: () => void
-  onPromote: () => void
   onCancelRequest: () => void
   onRequestAccess: () => void
   onResendRequest: () => void
   onSelect: (secretId: string, checked: boolean) => void
-  promotionPending: boolean
 }) {
   const [showValue, setShowValue] = useState(false)
   const showCheckbox = canManage && (anySelected || isSelected)
   const canRevealPlaintextValue =
     secret.encryptionMode === 'plaintext' && typeof secret.plaintextValue === 'string'
-  const isPersonal = (secret.scope ?? 'project') === 'personal'
-  const canOpenMenu = canManage || isPersonal
+  const canOpenMenu = canManage
 
   return (
     <div
@@ -804,17 +729,12 @@ function SecretRow({
             {secret.encryptionMode === 'plaintext' ? 'unencrypted' : null}
           </span>
         </span>
-        <span
-          className={cn(
-            'text-center font-sans text-[11px]',
-            isPersonal ? 'text-accent' : 'text-muted-foreground'
-          )}
-        >
-          {isPersonal ? 'personal' : 'project'}
+        <span className={cn('text-center font-sans text-[11px]', 'text-muted-foreground')}>
+          branch
         </span>
       </div>
 
-      {isPersonal || canManage || hasAccess ? (
+      {canManage || hasAccess ? (
         <div className="flex min-w-[17rem] items-center justify-end gap-2">
           <span className="flex w-4 items-center justify-center">
             {canRevealPlaintextValue ? (
@@ -901,16 +821,6 @@ function SecretRow({
               <DropdownMenuItem onSelect={onEdit}>Edit value</DropdownMenuItem>
               {canManage ? (
                 <DropdownMenuItem onSelect={onHistory}>Back to older version</DropdownMenuItem>
-              ) : null}
-              {isPersonal ? (
-                promotionPending ? (
-                  <DropdownMenuItem disabled>Promotion pending</DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem disabled={isPromoting} onSelect={onPromote}>
-                    <GitPullRequest className="mr-2 h-3.5 w-3.5" />
-                    Promote
-                  </DropdownMenuItem>
-                )
               ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-danger" onSelect={onDelete}>

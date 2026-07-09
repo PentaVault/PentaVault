@@ -77,6 +77,8 @@ describe('useSwitchOrganization', () => {
     expect(removeQueries).toHaveBeenCalledWith({ queryKey: queryKeys.projectMembers.all })
     expect(removeQueries).toHaveBeenCalledWith({ queryKey: queryKeys.projectSecrets.all })
     expect(removeQueries).toHaveBeenCalledWith({ queryKey: queryKeys.projectTokens.all })
+    expect(removeQueries).toHaveBeenCalledWith({ queryKey: queryKeys.billing.all })
+    expect(removeQueries).toHaveBeenCalledWith({ queryKey: queryKeys.organizationActivity.all })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.projects.all })
   })
 

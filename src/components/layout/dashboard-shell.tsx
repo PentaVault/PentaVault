@@ -1,6 +1,15 @@
 'use client'
 
-import { BarChart3, Building2, FolderKanban, LayoutDashboard, User } from 'lucide-react'
+import {
+  Activity,
+  Building2,
+  FileDiff,
+  FolderKanban,
+  LayoutDashboard,
+  PanelLeftClose,
+  PanelLeftOpen,
+  User,
+} from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
@@ -24,8 +33,9 @@ import { authApi } from '@/lib/api/auth'
 import {
   APP_NAME,
   DASHBOARD_HOME_PATH,
+  getOrgActivityPath,
+  getOrgChangeRequestsPath,
   getOrgDashboardPath,
-  getOrgOnboardingPath,
   getOrgProjectsPath,
   SETTINGS_ACCOUNT_PATH,
   SETTINGS_ORGANIZATION_PATH,
@@ -53,6 +63,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const shouldUseContextSidebar = isProjectRoute || isSettingsContextRoute
   const isCreateOrgOpen = useUiStore((state) => state.createOrganizationDialogOpen)
   const setIsCreateOrgOpen = useUiStore((state) => state.setCreateOrganizationDialogOpen)
+  const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed)
+  const toggleSidebarCollapsed = useUiStore((state) => state.toggleSidebarCollapsed)
   const [organizationName, setOrganizationName] = useState('')
   const [isCreatingOrganization, setIsCreatingOrganization] = useState(false)
 
@@ -94,14 +106,14 @@ export function DashboardShell({ children }: DashboardShellProps) {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
       <header className="z-20 flex-shrink-0 border-b border-border bg-[var(--header-glass)] backdrop-blur">
-        <div className="flex w-full flex-col gap-3 px-2 py-3 sm:px-3 lg:px-4">
+        <div className="mx-auto flex w-full max-w-[var(--app-max-width)] flex-col gap-3 px-2 py-3 sm:px-3 lg:px-4">
           <div className="flex w-full items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2.5">
               <Link
                 className="text-sm font-mono tracking-[0.12em] uppercase"
                 href={DASHBOARD_HOME_PATH}
               >
-                <span className="text-[#00c573]">{APP_NAME}</span> Console
+                <span className="text-accent-strong">{APP_NAME}</span> Console
               </Link>
 
               {auth.status === 'loading' ? (
@@ -175,14 +187,19 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
       <div
         className={cn(
-          'grid min-h-0 flex-1 w-full grid-cols-1 gap-0 overflow-hidden',
-          shouldUseContextSidebar ? 'md:grid-cols-1' : 'md:grid-cols-[220px_1fr]'
+          'mx-auto grid min-h-0 flex-1 w-full max-w-[var(--app-max-width)] grid-cols-1 gap-0 overflow-hidden transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none',
+          shouldUseContextSidebar
+            ? 'md:grid-cols-1'
+            : sidebarCollapsed
+              ? 'md:grid-cols-[64px_1fr]'
+              : 'md:grid-cols-[220px_1fr]'
         )}
       >
         {!shouldUseContextSidebar ? (
           <aside className="flex h-full flex-col overflow-y-auto border-b border-border bg-card md:border-r md:border-b-0">
             <nav className="flex flex-1 flex-wrap gap-2 px-2 py-3 md:flex-col md:px-3 md:py-4">
               <DashboardNavLink
+                collapsed={sidebarCollapsed}
                 exact
                 href={
                   activeOrganization
@@ -193,6 +210,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 label="Overview"
               />
               <DashboardNavLink
+                collapsed={sidebarCollapsed}
                 href={
                   activeOrganization
                     ? getOrgProjectsPath(activeOrganization.id)
@@ -202,23 +220,55 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 label="Projects"
               />
               <DashboardNavLink
+                collapsed={sidebarCollapsed}
                 href={
                   activeOrganization
-                    ? getOrgOnboardingPath(activeOrganization.id)
+                    ? getOrgActivityPath(activeOrganization.id)
                     : DASHBOARD_HOME_PATH
                 }
-                icon={<BarChart3 />}
-                label="Onboarding"
+                icon={<Activity />}
+                label="Activity"
+              />
+              <DashboardNavLink
+                collapsed={sidebarCollapsed}
+                href={
+                  activeOrganization
+                    ? getOrgChangeRequestsPath(activeOrganization.id)
+                    : DASHBOARD_HOME_PATH
+                }
+                icon={<FileDiff />}
+                label="Change Requests"
               />
             </nav>
 
             <div className="border-t border-border p-2">
               <DashboardNavLink
+                collapsed={sidebarCollapsed}
                 href={SETTINGS_ORGANIZATION_PATH}
                 icon={<Building2 />}
                 label="Organisation"
               />
-              <DashboardNavLink href={SETTINGS_ACCOUNT_PATH} icon={<User />} label="Account" />
+              <DashboardNavLink
+                collapsed={sidebarCollapsed}
+                href={SETTINGS_ACCOUNT_PATH}
+                icon={<User />}
+                label="Account"
+              />
+              <button
+                aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                className={cn(
+                  'mt-1 hidden w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-card-elevated hover:text-foreground md:flex',
+                  sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
+                )}
+                onClick={toggleSidebarCollapsed}
+                title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                type="button"
+              >
+                <span className="inline-flex h-4 w-4 items-center justify-center text-current">
+                  {sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+                </span>
+                {sidebarCollapsed ? null : 'Collapse'}
+              </button>
             </div>
           </aside>
         ) : null}

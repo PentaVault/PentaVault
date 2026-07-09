@@ -13,6 +13,8 @@ import { clearClientAuthHint, hasAuthCookieHint, setClientAuthHint } from '@/lib
 import { AUTH_REVOKE_SESSION_PATH, AUTH_SESSION_PATH, AUTH_SESSIONS_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
 import type {
+  AuthApiKeyListResponse,
+  AuthApiKeyRevokeResponse,
   AuthCapabilitiesResponse,
   AuthChangePasswordInput,
   AuthCompleteMfaSetupInput,
@@ -62,6 +64,8 @@ const sessionListResponseSchema = z.object({
       os: z.string().nullable().optional(),
       device: z.string().nullable().optional(),
       location: z.string().nullable().optional(),
+      clientType: z.enum(['browser', 'cli', 'api-key']).optional(),
+      clientLabel: z.string().nullable().optional(),
     })
   ),
 })
@@ -94,6 +98,53 @@ const revokeSessionResponseSchema = z.object({
   sessionId: z.string(),
 })
 
+const apiKeyPermissionActionSchema = z.enum(['read', 'write', 'create', 'delete'])
+
+const apiKeyPermissionsSchema = z
+  .object({
+    proxy: z.array(apiKeyPermissionActionSchema).optional(),
+  })
+  .default({})
+
+const apiKeyTokenTypeSchema = z.enum([
+  'command-line',
+  'service-account',
+  'personal',
+  'scim',
+  'audit',
+])
+
+const apiKeyListItemSchema = z.object({
+  id: z.string(),
+  name: z.string().nullable(),
+  start: z.string().nullable(),
+  prefix: z.string().nullable(),
+  enabled: z.boolean(),
+  expiresAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  lastRequest: z.string().nullable(),
+  requestCount: z.number(),
+  rateLimitEnabled: z.boolean(),
+  rateLimitMax: z.number().nullable(),
+  rateLimitTimeWindow: z.number().nullable(),
+  permissions: apiKeyPermissionsSchema,
+  source: z.enum(['user', 'cli', 'application']),
+  tokenType: apiKeyTokenTypeSchema.default('personal'),
+  organizationId: z.string().nullable().default(null),
+  organizationName: z.string().nullable().default(null),
+  isCli: z.boolean().optional(),
+})
+
+const apiKeyListResponseSchema = z.object({
+  apiKeys: z.array(apiKeyListItemSchema),
+})
+
+const apiKeyRevokeResponseSchema = z.object({
+  revoked: z.boolean(),
+  apiKeyId: z.string(),
+})
+
 const createApiKeyResponseSchema = z.object({
   headerName: z.string(),
   key: z.string(),
@@ -104,6 +155,7 @@ const createApiKeyResponseSchema = z.object({
     prefix: z.string().nullable(),
     expiresAt: z.string().nullable(),
     metadata: z.unknown(),
+    permissions: apiKeyPermissionsSchema.nullable(),
     rateLimitEnabled: z.boolean().nullable(),
     rateLimitMax: z.number().nullable(),
     rateLimitTimeWindow: z.number().nullable(),
@@ -167,6 +219,23 @@ function captchaHeaders(captchaToken?: string): { headers?: Record<string, strin
   return captchaToken ? { headers: { 'x-captcha-response': captchaToken } } : {}
 }
 
+function parseOptionalJsonPayload(data: unknown): unknown {
+  if (typeof data !== 'string') {
+    return data
+  }
+
+  const trimmedData = data.trim()
+  if (!trimmedData) {
+    return null
+  }
+
+  try {
+    return JSON.parse(trimmedData)
+  } catch {
+    return data
+  }
+}
+
 export const authApi = {
   async getCapabilities(): Promise<AuthCapabilitiesResponse> {
     if (isMockAuthEnabled()) {
@@ -199,7 +268,13 @@ export const authApi = {
 
     try {
       const response = await apiClient.get<AuthSessionResponse>(AUTH_SESSION_PATH)
-      return parseApiResponse(authSessionSchema, response.data)
+      const data = parseOptionalJsonPayload(response.data)
+
+      if (data === null) {
+        return null
+      }
+
+      return parseApiResponse(authSessionSchema, data)
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         return null
@@ -274,7 +349,15 @@ export const authApi = {
 
     try {
       const response = await apiClient.get<AuthOrganizationsResponse>('/v1/auth/organizations')
-      return parseApiResponse(authOrganizationsResponseSchema, response.data)
+      const data = parseOptionalJsonPayload(response.data)
+
+      if (data === null) {
+        return {
+          organizations: [],
+        }
+      }
+
+      return parseApiResponse(authOrganizationsResponseSchema, data)
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         return {
@@ -473,6 +556,9 @@ export const authApi = {
           metadata: {
             mode: 'mock',
           },
+          permissions: input.permissions ?? {
+            proxy: ['read', 'write', 'create', 'delete'],
+          },
           rateLimitEnabled: false,
           rateLimitMax: null,
           rateLimitTimeWindow: null,
@@ -482,6 +568,55 @@ export const authApi = {
 
     const response = await apiClient.post<AuthCreateApiKeyResponse>('/v1/auth/api-keys', input)
     return parseApiResponse(createApiKeyResponseSchema, response.data)
+  },
+
+  async listApiKeys(): Promise<AuthApiKeyListResponse> {
+    if (isMockAuthEnabled()) {
+      return {
+        apiKeys: [
+          {
+            id: 'mock-api-key-1',
+            name: 'demo-mock-key',
+            start: 'pv_mock',
+            prefix: 'pv_mock',
+            enabled: true,
+            expiresAt: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            lastRequest: null,
+            requestCount: 0,
+            rateLimitEnabled: false,
+            rateLimitMax: null,
+            rateLimitTimeWindow: null,
+            permissions: {
+              proxy: ['read', 'write', 'create', 'delete'],
+            },
+            source: 'user',
+            tokenType: 'personal',
+            organizationId: null,
+            organizationName: null,
+            isCli: false,
+          },
+        ],
+      }
+    }
+
+    const response = await apiClient.get<AuthApiKeyListResponse>('/v1/auth/api-keys')
+    return parseApiResponse(apiKeyListResponseSchema, response.data)
+  },
+
+  async revokeApiKey(apiKeyId: string): Promise<AuthApiKeyRevokeResponse> {
+    if (isMockAuthEnabled()) {
+      return {
+        revoked: true,
+        apiKeyId,
+      }
+    }
+
+    const response = await apiClient.post<AuthApiKeyRevokeResponse>(
+      `/v1/auth/api-keys/${encodeURIComponent(apiKeyId)}/revoke`
+    )
+    return parseApiResponse(apiKeyRevokeResponseSchema, response.data)
   },
 
   async signInWithEmail(input: AuthSignInWithEmailInput): Promise<AuthSignInWithEmailResponse> {
@@ -532,6 +667,7 @@ export const authApi = {
       {
         name: input.name,
         email: input.email,
+        username: input.username,
         password: input.password,
       },
       captchaHeaders(input.captchaToken)
@@ -704,6 +840,20 @@ export const authApi = {
     }
 
     await apiClient.post('/auth/device/approve', {
+      userCode,
+    })
+  },
+
+  async denyDevice(userCode: string): Promise<void> {
+    if (isMockAuthEnabled()) {
+      if (!userCode.trim()) {
+        throw new Error('Device code is required.')
+      }
+
+      return
+    }
+
+    await apiClient.post('/auth/device/deny', {
       userCode,
     })
   },

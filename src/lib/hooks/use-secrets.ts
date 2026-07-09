@@ -4,31 +4,21 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { secretsApi } from '@/lib/api/secrets'
 import { queryKeys } from '@/lib/query/keys'
-import type { CreatePersonalSecretInput, CreateSecretInput } from '@/lib/types/api'
+import type { CreateSecretInput } from '@/lib/types/api'
 
-export function useProjectSecrets(projectId: string | null, enabled = true) {
+export function useProjectSecrets(
+  projectId: string | null,
+  enabled = true,
+  configId?: string | null
+) {
   return useQuery({
-    queryKey: queryKeys.projectSecrets.list(projectId),
+    queryKey: queryKeys.projectSecrets.list(projectId, configId),
     queryFn: async () => {
       if (!projectId) {
         throw new Error('projectId is required to list secrets')
       }
 
-      return secretsApi.listProjectSecrets(projectId).then((response) => response.secrets)
-    },
-    enabled: Boolean(projectId) && enabled,
-  })
-}
-
-export function usePersonalSecrets(projectId: string | null, enabled = true) {
-  return useQuery({
-    queryKey: queryKeys.projectSecrets.personal(projectId),
-    queryFn: async () => {
-      if (!projectId) {
-        throw new Error('projectId is required to list personal secrets')
-      }
-
-      return secretsApi.listPersonalSecrets(projectId).then((response) => response.secrets)
+      return secretsApi.listProjectSecrets(projectId, configId).then((response) => response.secrets)
     },
     enabled: Boolean(projectId) && enabled,
   })
@@ -78,20 +68,6 @@ export function useSecretAccess(projectId: string | null, secretId: string | nul
   })
 }
 
-export function usePromotionRequests(projectId: string | null, enabled = true) {
-  return useQuery({
-    queryKey: queryKeys.projectSecrets.promotionRequests(projectId),
-    queryFn: async () => {
-      if (!projectId) {
-        throw new Error('projectId is required to list promotion requests')
-      }
-
-      return secretsApi.listPromotionRequests(projectId).then((response) => response.requests)
-    },
-    enabled: Boolean(projectId) && enabled,
-  })
-}
-
 export function useSecretVersions(
   projectId: string | null,
   secretId: string | null,
@@ -120,6 +96,7 @@ export function useCreateSecrets() {
       projectId: string
       environment?: string
       environmentId?: string
+      configId?: string
       encryptionMode?: CreateSecretInput['encryptionMode']
       scope?: CreateSecretInput['scope']
       secrets: Array<{ key: string; value: string }>
@@ -133,45 +110,13 @@ export function useCreateSecrets() {
         issueTokens: false,
         secrets: Object.fromEntries(payload.secrets.map((row) => [row.key, row.value])),
         ...(payload.environmentId ? { environmentId: payload.environmentId } : {}),
+        ...(payload.configId ? { configId: payload.configId } : {}),
       })
     },
     onSuccess: async (_result, payload) => {
       await queryClient.invalidateQueries({
-        queryKey: queryKeys.projectSecrets.list(payload.projectId),
+        queryKey: queryKeys.projectSecrets.list(payload.projectId, payload.configId),
       })
-    },
-  })
-}
-
-export function useCreatePersonalSecret() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (payload: CreatePersonalSecretInput) => {
-      return secretsApi.createPersonalSecret(payload)
-    },
-    onSuccess: async (_result, payload) => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.projectSecrets.personal(payload.projectId),
-      })
-    },
-  })
-}
-
-export function usePromotePersonalSecret() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: secretsApi.promotePersonalSecret,
-    onSuccess: async (_result, payload) => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.projectSecrets.promotionRequests(payload.projectId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.projectSecrets.personal(payload.projectId),
-        }),
-      ])
     },
   })
 }

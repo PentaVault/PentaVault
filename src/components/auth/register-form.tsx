@@ -39,6 +39,7 @@ export function RegisterForm() {
   const invitationEmail = searchParams.get('email') ?? ''
 
   const [name, setName] = useState('')
+  const [username, setUsername] = useState('')
   const [email, setEmail] = useState(invitationEmail)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -83,11 +84,20 @@ export function RegisterForm() {
     }
 
     const normalizedName = name.trim()
+    const normalizedUsername = username.trim().toLowerCase()
     const normalizedEmail = email.trim().toLowerCase()
     const nextFieldErrors: Record<string, string> = {}
 
     if (!normalizedName) {
       nextFieldErrors.name = 'Please enter your full name.'
+    }
+
+    if (!normalizedUsername) {
+      nextFieldErrors.username = 'Please choose a username.'
+    } else if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(normalizedUsername)) {
+      nextFieldErrors.username = 'Use lowercase letters, numbers, and single dashes.'
+    } else if (normalizedUsername.length < 3 || normalizedUsername.length > 32) {
+      nextFieldErrors.username = 'Username must be 3 to 32 characters.'
     }
 
     if (!normalizedEmail) {
@@ -116,6 +126,7 @@ export function RegisterForm() {
       setIsPending(true)
       await authApi.startRegistration({
         name: normalizedName,
+        username: normalizedUsername,
         email: normalizedEmail,
         password,
         captchaToken: capabilities.captcha.enabled ? captchaToken : undefined,
@@ -337,6 +348,33 @@ export function RegisterForm() {
       <div className="space-y-1">
         <label
           className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
+          htmlFor="register-username"
+        >
+          Username
+        </label>
+        <Input
+          autoComplete="username"
+          className={cn(fieldErrors.username && 'border-danger focus-visible:ring-danger')}
+          id="register-username"
+          onChange={(event) => {
+            setUsername(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
+            setFieldErrors((current) => ({ ...current, username: '' }))
+          }}
+          placeholder="alex-rivera"
+          value={username}
+        />
+        {fieldErrors.username ? (
+          <p className="text-sm text-danger">{fieldErrors.username}</p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Lowercase letters, numbers, and dashes. This is your unique handle.
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-1">
+        <label
+          className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground"
           htmlFor="register-email"
         >
           Email
@@ -427,7 +465,7 @@ export function RegisterForm() {
         </Button>
 
         <Link
-          className="text-sm whitespace-normal text-[#00c573] underline decoration-[#00c573]/55 underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out hover:text-[#3ecf8e] hover:decoration-[#3ecf8e]"
+          className="text-sm whitespace-normal text-accent underline decoration-accent/55 underline-offset-4 transition-[color,text-decoration-color] duration-200 ease-out hover:text-accent-strong hover:decoration-accent-strong"
           href={LOGIN_PATH}
         >
           Already registered? Sign in

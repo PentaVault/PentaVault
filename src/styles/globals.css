@@ -1,27 +1,42 @@
 @import "tailwindcss";
 
 :root {
-  --background: #171717;
-  --background-deep: #0f0f0f;
-  --background-elevated: rgba(41, 41, 41, 0.84);
-  --foreground: #fafafa;
-  --foreground-soft: #b4b4b4;
-  --card: #171717;
-  --card-elevated: #1d1d1d;
-  --surface-frost: hsla(200, 90.3%, 93.4%, 0.109);
-  --border: #2e2e2e;
-  --border-strong: #393939;
-  --border-subtle: #242424;
-  --muted-foreground: #898989;
-  --accent: #3ecf8e;
-  --accent-strong: #00c573;
-  --danger: #d55b73;
-  --danger-muted: rgba(213, 91, 115, 0.14);
-  --warning: #d9a441;
-  --warning-muted: rgba(217, 164, 65, 0.14);
-  --focus-ring: rgba(62, 207, 142, 0.3);
-  --accent-border: rgba(62, 207, 142, 0.3);
-  --header-glass: rgba(23, 23, 23, 0.85);
+  --app-max-width: 1680px;
+  color-scheme: dark;
+  /* Vivid emerald + jewel tones on a deep green-black canvas. The emerald
+     accent is the primary brand signal; sapphire / violet / coral are
+     functional secondary accents (section identity, charts, spotlight hovers). */
+  --background: #0a0f0d;
+  --background-deep: #060a08;
+  --background-elevated: rgba(22, 33, 28, 0.84);
+  --foreground: #f2fbf6;
+  --foreground-soft: #b3c6bd;
+  --card: #0f1512;
+  --card-elevated: #16211c;
+  --surface-frost: rgba(16, 185, 129, 0.07);
+  --border: #21302a;
+  --border-strong: #2f453c;
+  --border-subtle: #182119;
+  --muted-foreground: #7d9488;
+  /* Primary brand: emerald */
+  --accent: #10b981;
+  --accent-strong: #34d399;
+  --accent-muted: rgba(16, 185, 129, 0.14);
+  /* Jewel-tone secondary accents */
+  --sapphire: #3b82f6;
+  --sapphire-muted: rgba(59, 130, 246, 0.14);
+  --violet: #a855f7;
+  --violet-muted: rgba(168, 85, 247, 0.14);
+  --coral: #fb7185;
+  --coral-muted: rgba(251, 113, 133, 0.14);
+  --danger: #f43f5e;
+  --danger-muted: rgba(244, 63, 94, 0.14);
+  --warning: #fbbf24;
+  --warning-muted: rgba(251, 191, 36, 0.14);
+  --focus-ring: rgba(16, 185, 129, 0.45);
+  --accent-border: rgba(16, 185, 129, 0.4);
+  --header-glass: rgba(10, 15, 13, 0.85);
+  --radius: 0.625rem;
 }
 
 @theme inline {
@@ -38,6 +53,13 @@
   --color-border-subtle: var(--border-subtle);
   --color-accent: var(--accent);
   --color-accent-strong: var(--accent-strong);
+  --color-accent-muted: var(--accent-muted);
+  --color-sapphire: var(--sapphire);
+  --color-sapphire-muted: var(--sapphire-muted);
+  --color-violet: var(--violet);
+  --color-violet-muted: var(--violet-muted);
+  --color-coral: var(--coral);
+  --color-coral-muted: var(--coral-muted);
   --color-danger: var(--danger);
   --color-danger-muted: var(--danger-muted);
   --color-warning: var(--warning);
@@ -57,8 +79,9 @@ body {
 
 body {
   background:
-    radial-gradient(circle at 12% -15%, rgba(62, 207, 142, 0.08), transparent 34%),
-    linear-gradient(180deg, var(--background), #141414 70%);
+    radial-gradient(circle at 12% -15%, rgba(16, 185, 129, 0.1), transparent 34%),
+    radial-gradient(circle at 88% -10%, rgba(59, 130, 246, 0.06), transparent 32%),
+    linear-gradient(180deg, var(--background), #060a08 70%);
   color: var(--foreground);
   font-family: var(--font-brand-sans), "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-weight: 400;
@@ -102,8 +125,8 @@ a {
 }
 
 ::selection {
-  background: rgba(62, 207, 142, 0.28);
-  color: #fafafa;
+  background: rgba(16, 185, 129, 0.32);
+  color: #f2fbf6;
 }
 
 button,
@@ -142,6 +165,125 @@ a:focus-visible {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* Mouse-following spotlight border. A radial gradient in the section's accent
+   color is painted at the cursor position and masked to the border ring only
+   (mask-composite: exclude punches out the interior), so the OUTER LINE lights
+   up exactly where the pointer is — no transform/lift/pop. Driven by
+   --spotlight-x/y/opacity set by SpotlightCard on pointermove. */
+.spotlight-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: radial-gradient(
+    var(--spotlight-radius, 180px) circle at var(--spotlight-x, 50%) var(--spotlight-y, 50%),
+    var(--spotlight-color, var(--accent)),
+    transparent 70%
+  );
+  opacity: var(--spotlight-opacity, 0);
+  transition: opacity 200ms ease-out;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spotlight-card::before {
+    transition: none;
+  }
+}
+
+/* Dialog / dropdown enter-exit, driven by Radix data-state. Radix keeps the
+   node mounted until the closed-state animation finishes, so this animates
+   every dialog and dropdown in the app from one place with no call-site changes. */
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Content is opacity-only so it works regardless of how each dialog positions
+   itself — a transform keyframe would override each call site's own centering
+   transform and yank the dialog mid-animation. */
+@keyframes content-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes content-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Dropdown/popover content does NOT carry its own positioning transform (the
+   Radix popper wrapper does), so a transform keyframe here is safe. */
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+[data-radix-dialog-overlay][data-state="open"] {
+  animation: overlay-in 160ms ease-out;
+}
+[data-radix-dialog-overlay][data-state="closed"] {
+  animation: overlay-out 140ms ease-in;
+}
+
+[data-radix-dialog-content][data-state="open"] {
+  animation: content-in 170ms ease-out;
+}
+[data-radix-dialog-content][data-state="closed"] {
+  animation: content-out 140ms ease-in;
+}
+
+[data-radix-dropdown-menu-content][data-state="open"],
+[data-radix-popper-content-wrapper] [data-state="open"] {
+  animation: menu-in 140ms ease-out;
+}
+
+/* Matches the specificity of the [data-state] rules above and comes later in
+   source order, so it overrides them without needing !important. */
+@media (prefers-reduced-motion: reduce) {
+  [data-radix-dialog-overlay][data-state],
+  [data-radix-dialog-content][data-state],
+  [data-radix-dropdown-menu-content][data-state] {
+    animation: none;
   }
 }
 

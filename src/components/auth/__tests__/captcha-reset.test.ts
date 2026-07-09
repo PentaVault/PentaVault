@@ -19,7 +19,7 @@ describe('captcha-protected auth submissions', () => {
     'src/components/auth/login-form.tsx',
     'src/components/auth/register-form.tsx',
     'src/components/auth/forgot-password-form.tsx',
-    'src/app/(dashboard)/settings/account/page.tsx',
+    'src/app/(dashboard)/settings/account/security/page.tsx',
   ])('resets captcha state after protected submissions in %s', (relativePath) => {
     const source = readSource(relativePath)
 

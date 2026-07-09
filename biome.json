@@ -10,7 +10,8 @@
       "**/*.jsx",
       "**/*.json",
       "**/*.jsonc",
-      "**/*.css"
+      "**/*.css",
+      "!PentaVault-Backend"
     ]
   },
   "vcs": {

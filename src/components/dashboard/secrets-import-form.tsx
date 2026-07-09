@@ -184,7 +184,7 @@ export function SecretsImportForm({ projectId }: SecretsImportFormProps) {
       </p>
 
       <p className="text-xs text-muted-foreground">
-        Imported secrets can optionally issue tokens immediately for runtime onboarding.
+        Imported secrets can optionally issue tokens immediately for runtime setup.
       </p>
 
       <Button disabled={secrets.importSecrets.isPending} type="submit" variant="outline">

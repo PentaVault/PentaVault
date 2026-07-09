@@ -44,9 +44,13 @@ import type {
 } from '@/lib/types/api'
 
 export const secretsApi = {
-  async listProjectSecrets(projectId: string): Promise<ProjectSecretsResponse> {
+  async listProjectSecrets(
+    projectId: string,
+    configId?: string | null
+  ): Promise<ProjectSecretsResponse> {
     const response = await apiClient.get<ProjectSecretsResponse>(
-      `/v1/projects/${projectId}/secrets`
+      `/v1/projects/${projectId}/secrets`,
+      configId ? { params: { configId } } : undefined
     )
     return parseApiResponse(projectSecretsResponseSchema, response.data)
   },
@@ -93,6 +97,7 @@ export const secretsApi = {
       {
         environment: input.environment ?? 'development',
         environmentId: input.environmentId,
+        configId: input.configId,
         name: input.name,
         plaintext: input.plaintext,
         mode: input.mode,
