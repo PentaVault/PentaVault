@@ -3,8 +3,6 @@
 # ============================================================
 
 # Backend — private repo, managed separately, not public yet
-PentaVault-Backend/
-
 # Next.js
 .next/
 out/

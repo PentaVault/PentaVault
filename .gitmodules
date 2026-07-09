@@ -1,0 +1,3 @@
+[submodule "PentaVault-Backend"]
+	path = PentaVault-Backend
+	url = https://github.com/PentaVault/PentaVault-Backend.git

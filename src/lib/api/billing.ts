@@ -6,6 +6,7 @@ export type BillingStatus = {
   plan: PlanId
   effectivePlan: PlanId
   lifecycleState:
+    | 'free'
     | 'active_paid'
     | 'pending_checkout'
     | 'pending_upgrade'

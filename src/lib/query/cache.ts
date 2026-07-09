@@ -21,10 +21,16 @@ export function clearProjectScopedQueryCache(queryClient: QueryClient): void {
   queryClient.removeQueries({ queryKey: queryKeys.userSearchAll })
 }
 
-export function clearAuthenticatedQueryCache(queryClient: QueryClient): void {
+export function clearOrganizationScopedQueryCache(queryClient: QueryClient): void {
   clearProjectScopedQueryCache(queryClient)
   queryClient.removeQueries({ queryKey: queryKeys.organizationMembers.all })
   queryClient.removeQueries({ queryKey: queryKeys.organizationInvitations.all })
+  queryClient.removeQueries({ queryKey: queryKeys.organizationActivity.all })
+  queryClient.removeQueries({ queryKey: queryKeys.billing.all })
+}
+
+export function clearAuthenticatedQueryCache(queryClient: QueryClient): void {
+  clearOrganizationScopedQueryCache(queryClient)
   queryClient.removeQueries({ queryKey: queryKeys.organizations.all })
   queryClient.removeQueries({ queryKey: queryKeys.notifications.all })
   queryClient.removeQueries({ queryKey: queryKeys.invitationAll })

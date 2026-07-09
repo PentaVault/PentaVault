@@ -40,6 +40,7 @@ export function useUpdateBillingProfile(organizationId: string | null) {
   return useMutation({
     mutationFn: (input: BillingProfileInput) => billingApi.updateProfile(input),
     onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.billing.summary() })
       await queryClient.invalidateQueries({ queryKey: queryKeys.billing.profile(organizationId) })
       await queryClient.invalidateQueries({ queryKey: queryKeys.billing.history(organizationId) })
     },

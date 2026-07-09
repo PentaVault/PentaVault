@@ -108,3 +108,7 @@ Status values:
 - [x] `completed` 2026-05-09: `pnpm run test:e2e` passed with Playwright Chromium and mobile Chrome coverage for `/device`.
 - [x] `completed` 2026-05-09: backend `pnpm run lint`, `pnpm run typecheck`, and `pnpm test` passed after CLI permission hardening tests.
 - [x] `completed` 2026-05-09: Added Windows CLI artifact workflow and PowerShell completion packaging docs.
+- [x] `completed` 2026-07-09: `pnpm run lint`, `pnpm run type-check`, and `pnpm test` passed after billing recovery work.
+- [x] `completed` 2026-07-09: backend `pnpm run lint`, `pnpm run typecheck`, and `pnpm test` passed after billing recovery work.
+- [x] `completed` 2026-07-09: `pnpm run cli:build`, `pnpm run cli:lint`, and `pnpm run cli:test` passed after installing Visual Studio Build Tools C++ workload and running through `VsDevCmd`.
+- [x] `completed` 2026-07-09: frontend and backend `pnpm audit --prod` passed with no known production vulnerabilities.

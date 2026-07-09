@@ -41,6 +41,8 @@ describe('proxy', () => {
     ['/dashboard/org/org_1/settings/members', '/settings/organization/members'],
     ['/dashboard/org/org_1/settings/access', '/settings/organization/access'],
     ['/dashboard/org/org_1/settings/billing', '/settings/organization/billing'],
+    ['/dashboard/org/org_1/settings/billing/plans', '/settings/organization/billing/plans'],
+    ['/dashboard/org/org_1/settings/billing/upgrade/team', '/settings/organization/billing/plans'],
     ['/dashboard/org/org_1/settings/api-keys', '/settings/account/tokens'],
     ['/dashboard/org/org_1/settings/sessions', '/settings/account/sessions'],
   ])('redirects legacy route %s to %s', (from, to) => {

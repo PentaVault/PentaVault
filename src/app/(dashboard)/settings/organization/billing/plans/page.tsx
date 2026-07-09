@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   getMonthlySeatTotal,
+  getPlanChangeBlockedReason,
+  getPlanChangeKind,
   getPlanRank,
   getSelectablePlans,
   normalizePlanId,
@@ -50,37 +52,31 @@ function actionLabel(input: {
   isPending: boolean
 }): string {
   if (input.isPending) return 'Working...'
-  if (input.currentPlanId === input.targetPlanId) return 'Current plan'
-  if (input.targetPlanId === 'free') return 'Schedule cancellation'
-  if (!isPaidPlan(input.currentPlanId)) return 'Continue to Polar checkout'
-  if (getPlanRank(input.targetPlanId) > getPlanRank(input.currentPlanId))
-    return 'Upgrade with Polar'
+  const kind = getPlanChangeKind(input.currentPlanId, input.targetPlanId)
+
+  if (kind === 'current') return 'Current plan'
+  if (kind === 'cancel') return 'Cancel at period end'
+  if (kind === 'checkout') return 'Continue to checkout'
+  if (kind === 'upgrade') return 'Upgrade now'
   return 'Schedule downgrade'
 }
 
-function selectionBlockedReason(input: {
-  canManageBilling: boolean
-  currentPlanId: PlanId
-  targetPlanId: PlanId
-  seatsUsed: number | null
-}): string | null {
-  if (!input.canManageBilling) {
-    return 'Only organisation owners and admins can change billing.'
+function confirmPlanChange(input: { currentPlanId: PlanId; targetPlanId: PlanId }): boolean {
+  const kind = getPlanChangeKind(input.currentPlanId, input.targetPlanId)
+
+  if (kind === 'cancel') {
+    return window.confirm(
+      'Cancel this subscription at period end? Paid access stays active until the current period ends.'
+    )
   }
 
-  if (input.currentPlanId === input.targetPlanId) {
-    return 'This is your current effective plan.'
+  if (kind === 'downgrade') {
+    return window.confirm(
+      'Schedule this downgrade for the next billing period? Current paid access stays active until then.'
+    )
   }
 
-  if (input.targetPlanId === 'pro' && input.seatsUsed !== null && input.seatsUsed > 15) {
-    return 'Remove members until the organisation has 15 or fewer seats before moving to Pro.'
-  }
-
-  if (input.targetPlanId === 'free' && !isPaidPlan(input.currentPlanId)) {
-    return 'Free is already active.'
-  }
-
-  return null
+  return true
 }
 
 function planTone(planId: PlanId, currentPlanId: PlanId): 'neutral' | 'success' | 'warning' {
@@ -119,15 +115,20 @@ export default function BillingPlansPage() {
   const isSubmitting = checkoutMutation.isPending || changePlanMutation.isPending
 
   async function handleSelectPlan(targetPlanId: PlanId) {
-    const blockedReason = selectionBlockedReason({
+    const blockedReason = getPlanChangeBlockedReason({
       canManageBilling,
       currentPlanId,
       targetPlanId,
       seatsUsed,
+      lifecycleState: billing?.lifecycleState ?? null,
     })
 
     if (blockedReason) {
       setActionError(blockedReason)
+      return
+    }
+
+    if (!confirmPlanChange({ currentPlanId, targetPlanId })) {
       return
     }
 
@@ -187,9 +188,8 @@ export default function BillingPlansPage() {
           <div>
             <p className="text-sm font-medium">How changes apply</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Free-to-paid opens Polar sandbox checkout. Paid upgrades are sent to Polar as
-              subscription updates. Downgrades and cancellations are scheduled for period end so
-              paid access is not removed mid-cycle.
+              New paid plans open Polar checkout. Paid upgrades apply with Polar proration.
+              Downgrades and cancellations are scheduled for period end.
             </p>
           </div>
         </div>
@@ -198,11 +198,12 @@ export default function BillingPlansPage() {
       <div className="grid gap-4 xl:grid-cols-3">
         {getSelectablePlans().map((plan) => {
           const total = getMonthlySeatTotal(plan, seatsUsed)
-          const blockedReason = selectionBlockedReason({
+          const blockedReason = getPlanChangeBlockedReason({
             canManageBilling,
             currentPlanId,
             targetPlanId: plan.id,
             seatsUsed,
+            lifecycleState: billing?.lifecycleState ?? null,
           })
           const isCurrent = plan.id === currentPlanId
           const actionIsPending = isSubmitting && activePlanAction === plan.id

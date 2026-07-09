@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import {
   getBillingPlansPath,
-  getBillingUpgradePath,
   getHigherPlans,
   getMonthlySeatTotal,
+  getPlanChangeBlockedReason,
+  getPlanChangeKind,
   getSelectablePlans,
   isHigherPlan,
   normalizePlanId,
@@ -42,10 +43,6 @@ describe('billing plan utilities', () => {
     expect(isHigherPlan('pro', 'team')).toBe(true)
   })
 
-  it('builds the billing upgrade route for a plan', () => {
-    expect(getBillingUpgradePath('team')).toBe('/settings/organization/billing/upgrade/team')
-  })
-
   it('builds the all-tier plan picker route', () => {
     expect(getBillingPlansPath()).toBe('/settings/organization/billing/plans')
   })
@@ -58,5 +55,34 @@ describe('billing plan utilities', () => {
     expect(getMonthlySeatTotal(getPlan('free'), 3)).toBe(0)
     expect(getMonthlySeatTotal(getPlan('pro'), 4)).toBe(1400)
     expect(getMonthlySeatTotal(getPlan('team'), null)).toBe(600)
+  })
+
+  it('classifies plan changes for the single billing flow', () => {
+    expect(getPlanChangeKind('free', 'pro')).toBe('checkout')
+    expect(getPlanChangeKind('pro', 'team')).toBe('upgrade')
+    expect(getPlanChangeKind('team', 'pro')).toBe('downgrade')
+    expect(getPlanChangeKind('team', 'free')).toBe('cancel')
+    expect(getPlanChangeKind('team', 'team')).toBe('current')
+  })
+
+  it('blocks conflicting or over-limit plan changes', () => {
+    expect(
+      getPlanChangeBlockedReason({
+        canManageBilling: true,
+        currentPlanId: 'team',
+        targetPlanId: 'pro',
+        seatsUsed: 16,
+      })
+    ).toContain('15 or fewer')
+
+    expect(
+      getPlanChangeBlockedReason({
+        canManageBilling: true,
+        currentPlanId: 'team',
+        targetPlanId: 'pro',
+        seatsUsed: 3,
+        lifecycleState: 'pending_cancel',
+      })
+    ).toContain('already scheduled')
   })
 })

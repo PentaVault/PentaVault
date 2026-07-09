@@ -1,5 +1,7 @@
-import SettingsBillingPage from '@/app/(dashboard)/settings/billing/page'
+import { redirect } from 'next/navigation'
 
-export default function OrgSettingsBillingPage() {
-  return <SettingsBillingPage />
+import { SETTINGS_ORGANIZATION_BILLING_PATH } from '@/lib/constants'
+
+export default function OrgSettingsBillingPage(): never {
+  redirect(SETTINGS_ORGANIZATION_BILLING_PATH)
 }

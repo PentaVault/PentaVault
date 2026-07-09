@@ -59,8 +59,14 @@ function resolveLegacyDashboardPath(pathname: string): string | null {
   if (rest.startsWith('/settings/sessions')) {
     return '/settings/account/sessions'
   }
-  if (rest.startsWith('/settings/billing')) {
+  if (rest === '/settings/billing' || rest === '/settings/billing/') {
     return '/settings/organization/billing'
+  }
+  if (rest.startsWith('/settings/billing/plans')) {
+    return '/settings/organization/billing/plans'
+  }
+  if (rest.startsWith('/settings/billing/upgrade')) {
+    return '/settings/organization/billing/plans'
   }
   if (rest.startsWith('/settings/members')) {
     return '/settings/organization/members'
