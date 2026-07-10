@@ -413,6 +413,7 @@ impl ApiClient {
         name: Option<&str>,
         token_type: &str,
         organization_id: Option<&str>,
+        permissions: &[&str],
     ) -> Result<CreateApiKeyResponse, String> {
         self.post_json(
             token,
@@ -421,6 +422,7 @@ impl ApiClient {
                 "name": name,
                 "organizationId": organization_id,
                 "tokenType": token_type,
+                "permissions": { "proxy": permissions },
             }),
         )
     }
@@ -943,7 +945,13 @@ fn format_error_response(status: reqwest::StatusCode, body: String) -> String {
         .unwrap_or_else(|| body.trim().to_owned());
     let sanitized = message
         .chars()
-        .filter(|character| !character.is_control() || matches!(character, '\t' | '\n'))
+        .map(|character| {
+            if character.is_control() {
+                ' '
+            } else {
+                character
+            }
+        })
         .take(MAX_ERROR_MESSAGE_LENGTH)
         .collect::<String>();
 
@@ -994,6 +1002,7 @@ mod tests {
                 .to_string(),
         );
         assert!(!message.contains('\u{1b}'));
+        assert!(!message.contains('\n'));
         assert!(message.len() < 1_100);
     }
 

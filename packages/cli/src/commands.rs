@@ -547,7 +547,7 @@ fn version(cli: &Cli) -> ExitCode {
 }
 
 fn doctor(cli: &Cli) -> ExitCode {
-    let config_path = ConfigStore::platform()
+    let config_path = ConfigStore::effective()
         .map(|store| store.path().display().to_string())
         .unwrap_or_else(|error| format!("unavailable: {error}"));
     let auth_status = auth::effective_credential()
@@ -557,37 +557,87 @@ fn doctor(cli: &Cli) -> ExitCode {
             None => "not-authenticated",
         })
         .unwrap_or("credential-store-unavailable");
+    let config_result = ConfigStore::load_resolved();
+    let api_result = config_result
+        .as_ref()
+        .map_err(Clone::clone)
+        .and_then(|config| {
+            let configured_url = cli.api_url.as_ref().or(config.api_url.as_ref());
+            ApiClient::new(configured_url.map(String::as_str), cli.allow_insecure_http).map(|_| ())
+        });
+    let diagnostics_ok = config_result.is_ok() && api_result.is_ok();
+    let auth_check_status = if matches!(auth_status, "not-authenticated") {
+        "needs_setup"
+    } else if matches!(auth_status, "credential-store-unavailable") {
+        "warning"
+    } else {
+        "ok"
+    };
+    let auth_message = if matches!(auth_status, "not-authenticated") {
+        "Run `pv login` for browser-approved device authentication."
+    } else {
+        "A credential source is available."
+    };
+    let config_message = config_result
+        .as_ref()
+        .map(|_| "Configuration parsed successfully.".to_owned())
+        .unwrap_or_else(|error| error.clone());
+    let api_message = api_result
+        .as_ref()
+        .map(|_| "API URL is valid.".to_owned())
+        .unwrap_or_else(|error| error.clone());
 
     if cli.json {
         println!(
             "{}",
             serde_json::json!({
-                "status": "ok",
+                "status": if diagnostics_ok { "ok" } else { "error" },
                 "configPath": config_path,
                 "auth": auth_status,
                 "checks": [
                     {
                         "name": "cli",
                         "status": "ok",
-                        "message": "CLI skeleton is installed."
+                        "message": "CLI is installed."
+                    },
+                    {
+                        "name": "config",
+                        "status": if config_result.is_ok() { "ok" } else { "error" },
+                        "message": config_message
+                    },
+                    {
+                        "name": "api-url",
+                        "status": if api_result.is_ok() { "ok" } else { "error" },
+                        "message": api_message
                     },
                     {
                         "name": "auth",
-                        "status": "needs_setup",
-                        "message": "Use `pv login --token-stdin` for local development until interactive auth lands."
+                        "status": auth_check_status,
+                        "message": auth_message
+                    },
+                    {
+                        "name": "offline-cache",
+                        "status": "disabled",
+                        "message": "Disabled until the API provides revocable leases and revision checks."
                     }
                 ]
             })
         );
     } else {
         println!("PentaVault CLI doctor");
-        println!("Status: ok");
+        println!("Status: {}", if diagnostics_ok { "ok" } else { "error" });
         println!("CLI: installed");
         println!("Config: {config_path}");
+        println!("API URL: {api_message}");
         println!("Auth: {auth_status}");
+        println!("Offline cache: disabled (awaiting revocable leases)");
     }
 
-    ExitCode::from(EXIT_SUCCESS)
+    ExitCode::from(if diagnostics_ok {
+        EXIT_SUCCESS
+    } else {
+        EXIT_USAGE_OR_CONFIG
+    })
 }
 
 fn login(cli: &Cli, token_stdin: bool) -> ExitCode {
@@ -874,11 +924,20 @@ fn api_keys(cli: &Cli, command: &ApiKeysCommand) -> ExitCode {
             name,
             r#type,
             organization,
+            permissions,
         } => match client.create_api_key(
             &token,
             name.as_deref(),
             r#type.as_api_value(),
             organization.as_deref(),
+            &if permissions.is_empty() {
+                vec!["read"]
+            } else {
+                permissions
+                    .iter()
+                    .map(crate::cli::ApiKeyPermission::as_api_value)
+                    .collect()
+            },
         ) {
             Ok(response) => {
                 if wants_json(cli) {
@@ -1591,20 +1650,21 @@ fn shell_single_quoted(value: &str) -> String {
 }
 
 fn slugify(value: &str) -> String {
-    let slug = value
-        .trim()
-        .to_lowercase()
-        .chars()
-        .map(|character| {
-            if character.is_ascii_alphanumeric() {
-                character
-            } else {
-                '-'
-            }
-        })
-        .collect::<String>();
-
-    slug.trim_matches('-').replace("--", "-")
+    let mut slug = String::with_capacity(value.len());
+    let mut previous_was_separator = true;
+    for character in value.trim().to_lowercase().chars() {
+        if character.is_ascii_alphanumeric() {
+            slug.push(character);
+            previous_was_separator = false;
+        } else if !previous_was_separator {
+            slug.push('-');
+            previous_was_separator = true;
+        }
+    }
+    if previous_was_separator {
+        slug.pop();
+    }
+    slug
 }
 
 fn fail_api(error: String) -> ExitCode {
@@ -1636,7 +1696,7 @@ fn format_device_code(code: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{dotenv_value, format_device_code, shell_single_quoted};
+    use super::{dotenv_value, format_device_code, shell_single_quoted, slugify};
 
     #[test]
     fn formats_device_code_with_three_character_grouping() {
@@ -1649,5 +1709,14 @@ mod tests {
         assert_eq!(dotenv_value("plain_value-1"), "plain_value-1");
         assert_eq!(dotenv_value("needs spaces"), "\"needs spaces\"");
         assert_eq!(shell_single_quoted("can't"), "'can'\"'\"'t'");
+    }
+
+    #[test]
+    fn slugify_collapses_all_separator_runs() {
+        assert_eq!(
+            slugify("  Production --- West / API  "),
+            "production-west-api"
+        );
+        assert_eq!(slugify("---"), "");
     }
 }

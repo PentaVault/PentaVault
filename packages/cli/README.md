@@ -1,115 +1,108 @@
 # PentaVault CLI
 
-`pv` is the Rust command line interface for PentaVault. The first usable
-milestone is online and read-only: it authenticates with the web app, lists
-authorized projects/environments/secrets, pulls secret values, and injects them
-into a child process through `pv run`.
+`pv` is the native Rust CLI for PentaVault. It uses browser-approved device login, keeps persistent credentials in the OS credential store, and leaves authorization decisions to the backend.
 
-## Commands
+## Start
+
+```powershell
+pv --api-url http://localhost:3001 login
+cd path\to\project
+pv init
+pv secrets list
+pv run -- pnpm dev
+```
+
+`pv init` is a guided terminal flow. It shows the signed-in user, organization count, organization choices, projects, environments, and config branches. It writes `.pentavault.toml` in the current project. That file contains routing metadata only:
+
+```toml
+api_url = "https://api.example.com"
+organization = "org_123"
+project = "project_123"
+environment = "development"
+config = "my-branch"
+```
+
+Never put a token, API key, session, or secret value in this file. Command flags override project config; project config overrides global CLI config.
+
+Use `pv init --yes` for deterministic defaults. Add `--package-json` to create non-destructive `secrets:pull` and `secrets:run` scripts when `package.json` exists.
+
+## Command Map
 
 ```text
-pv login
-pv logout
+pv login [--token-stdin]
+pv logout [--purge-cache]
 pv whoami
+pv init [--yes] [--package-json]
+
+pv organizations list
+pv organizations select <organization-id>
 pv projects list
 pv projects select <project-id>
 pv envs list
 pv envs select <environment>
+
+pv configs list
+pv configs select <config>
+pv configs create <name> [--slug <slug>] [--parent <config>]
+pv configs diff [--target <config>]
+
+pv change-requests list
+pv change-requests create --config <source> --target <target> [--all|--secret <name>]
+pv change-requests approve|merge|cancel <id>
+
+pv access request [--message <text>]
+pv access status [--status <status>] [--all-projects]
+pv access cancel <id>
+
+pv api-keys list
+pv api-keys create [--name <name>] [--type <type>] [--organization <id>] [--permission <action>]...
+pv api-keys revoke <id>
+
 pv secrets list
 pv secrets get <name> [--plain] [--silent]
 pv secrets pull
 pv run -- <command> [args...]
+
+pv config get|set|unset <key> [value]
 pv doctor
 pv version
 pv completion power-shell|bash|zsh|fish
 ```
 
-Global flags:
+New keys are read-only unless `--permission` is repeated with one or more of
+`read`, `write`, `create`, or `delete`. API-key credentials cannot create or
+revoke other API keys; use a browser-approved user session for key management.
 
-```text
---api-url <url>
---project <project-id>
---env <environment>
---json
---format human|json|dotenv|env
---no-color
---verbose
-```
+Global routing/output flags include `--api-url`, `--project`, `--env`, `--config`, `--json`, `--format`, `--no-color`, and `--verbose`. Plain HTTP is accepted only for loopback by default; `--allow-insecure-http` is an explicit development-only escape hatch.
 
-## Local Login Flow
+## API Keys And Collaboration
 
-With the backend on `http://localhost:3001` and frontend on
-`http://localhost:3000`:
+- Personal keys belong to one person and one organization scope.
+- Service-account keys belong to one workload, not a human team.
+- Collaborators join organizations and receive project roles; they do not share keys.
+- New keys are shown once. Put them in an OS credential store or CI/deployment secret vault immediately.
+- A request authenticated by an API key cannot create, list, or revoke more keys. Run `pv login` for a browser-approved user session before key management.
+- Revoke unused keys and inspect request counts/last-use metadata regularly.
 
-```powershell
-packages\cli\target\debug\pv.exe --api-url http://localhost:3001 login
-```
+For disposable CI, set `PENTAVAULT_TOKEN` only for the process. `pv logout` cannot remove an environment variable; unset it in the parent shell.
 
-The CLI prints:
+## Security And Failure Behavior
 
-- `Open: http://localhost:3000/device`
-- `Code: ABC-123`
-
-Open the URL, sign in or register if needed, confirm the current account, enter
-the six-character code, and approve. The CLI stores the returned credential in
-the OS credential store.
-
-For CI or disposable local sessions, use a process-scoped token instead:
-
-```powershell
-$env:PENTAVAULT_TOKEN = "dev-token"
-packages\cli\target\debug\pv.exe whoami
-Remove-Item Env:PENTAVAULT_TOKEN
-```
-
-## Read-Only Secret Workflows
-
-```powershell
-packages\cli\target\debug\pv.exe projects list
-packages\cli\target\debug\pv.exe projects select project_123
-packages\cli\target\debug\pv.exe envs list
-packages\cli\target\debug\pv.exe envs select development
-packages\cli\target\debug\pv.exe secrets list
-packages\cli\target\debug\pv.exe secrets get STRIPE_SECRET --plain
-packages\cli\target\debug\pv.exe --format dotenv secrets pull
-packages\cli\target\debug\pv.exe run -- pnpm test
-```
-
-`projects select` and `envs select` store only non-secret routing metadata in the
-platform config file. Secret values and tokens are never written to the config
-file.
-
-## Security Model
-
-- All online commands call backend `/api/v1/cli/*` endpoints with the current
-  credential.
-- Backend session, organization, project, and secret-access policy remains the
-  source of truth.
-- `secrets list` returns metadata only.
-- `secrets get`, `secrets pull`, and `run` request values only after backend
-  policy checks and audit logging.
-- The CLI does not implement write, access-review, or cache mutation commands in
-  this milestone.
-- Command tests assert that credentials are not printed in normal output.
+- Remote non-loopback APIs require HTTPS unless explicitly overridden.
+- Redirects are not followed for authenticated requests.
+- Dynamic URL path segments are encoded.
+- API error bodies are sanitized and bounded before terminal output.
+- `secrets list` returns metadata. Values are fetched only by `get`, `pull`, or `run` after backend policy checks and audit logging.
+- Logout attempts remote session revocation before deleting the local credential.
+- No offline secret cache exists yet. It will not be added until backend leases and revision checks prevent stale cache from bypassing revocation.
 
 ## Development
-
-From the repository root:
 
 ```text
 pnpm run cli:build
 pnpm run cli:lint
 pnpm run cli:test
+cargo build --release --manifest-path packages/cli/Cargo.toml
 ```
 
-The root scripts call Cargo with `--manifest-path packages/cli/Cargo.toml` so
-the frontend package manager remains the main entry point while Rust stays
-isolated inside the CLI package.
-
-## Packaging
-
-Windows artifact packaging is defined in
-`.github/workflows/cli-windows-artifact.yml`. It builds `pv.exe`, generates shell
-completions, packages a zip, and writes a SHA-256 checksum. See
-`docs/cli-packaging.md` for the release checklist and PowerShell completion
-installation steps.
+Windows artifact packaging lives in `.github/workflows/cli-windows-artifact.yml`. See `docs/cli-packaging.md` for completion and release steps.

@@ -146,6 +146,25 @@ impl ApiKeyType {
     }
 }
 
+#[derive(Clone, Debug, ValueEnum)]
+pub enum ApiKeyPermission {
+    Read,
+    Write,
+    Create,
+    Delete,
+}
+
+impl ApiKeyPermission {
+    pub fn as_api_value(&self) -> &'static str {
+        match self {
+            Self::Read => "read",
+            Self::Write => "write",
+            Self::Create => "create",
+            Self::Delete => "delete",
+        }
+    }
+}
+
 #[derive(Debug, Subcommand)]
 pub enum ApiKeysCommand {
     List,
@@ -159,6 +178,12 @@ pub enum ApiKeysCommand {
             help = "Scope the key to an organization id. Defaults to the active organization."
         )]
         organization: Option<String>,
+        #[arg(
+            long = "permission",
+            value_enum,
+            help = "Grant a proxy action. Repeat for more actions. Defaults to read only."
+        )]
+        permissions: Vec<ApiKeyPermission>,
     },
     Revoke {
         id: String,

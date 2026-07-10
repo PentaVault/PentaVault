@@ -99,12 +99,45 @@ fn version_supports_json_output() {
 }
 
 #[test]
-fn doctor_reports_m1_status() {
+fn doctor_reports_current_security_status_without_stale_setup_text() {
     pv().arg("doctor")
         .assert()
         .success()
         .stdout(predicate::str::contains("PentaVault CLI doctor"))
-        .stdout(predicate::str::contains("Auth:"));
+        .stdout(predicate::str::contains("Auth:"))
+        .stdout(predicate::str::contains("Offline cache: disabled"))
+        .stdout(predicate::str::contains("skeleton").not())
+        .stdout(predicate::str::contains("until interactive auth lands").not());
+}
+
+#[test]
+fn api_key_creation_defaults_to_read_only_permissions() {
+    let server = serve_once(
+        r#"{"headerName":"x-pentavault-key","key":"pvk_new_secret","apiKey":{"id":"key_123","name":"CI read key","prefix":"pvk","start":"pvk_new","tokenType":"personal","organizationId":"org_123"}}"#,
+    );
+
+    pv().args([
+        "--api-url",
+        &server.url,
+        "api-keys",
+        "create",
+        "--name",
+        "CI read key",
+    ])
+    .env("PENTAVAULT_TOKEN", "session_secret")
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("pvk_new_secret"));
+
+    let request = server.request.recv().expect("captured request");
+    assert!(request.starts_with("POST /api/v1/auth/api-keys "));
+    let body = request
+        .split_once("\r\n\r\n")
+        .map(|(_, body)| body)
+        .expect("request body");
+    let payload: serde_json::Value = serde_json::from_str(body).expect("request JSON");
+    assert_eq!(payload["permissions"]["proxy"], serde_json::json!(["read"]));
+    assert!(!body.contains("session_secret"));
 }
 
 #[test]
