@@ -50,9 +50,14 @@ pnpm run cli:test
 ```
 
 The debug binary is written to `packages/cli/target/debug/pv.exe` on Windows.
-Use `pv login --api-url http://localhost:3001` for the Better Auth device-code
-flow, then use read-only commands such as `projects list`, `envs list`,
-`secrets list`, `secrets get`, `secrets pull`, and `run`.
+Use `pv --api-url http://localhost:3001 login` for the Better Auth device-code
+flow, then run `pv init` inside a project. The guided terminal flow selects an
+organization, project, environment, and config branch and writes routing-only
+metadata to `.pentavault.toml`.
+
+The CLI also supports organization switching, API-key lifecycle management,
+project access requests, least-privilege API keys, config branches, change requests, secret reads, and
+`pv run -- <command>`. See `packages/cli/README.md` for the full command map.
 
 ## Testing
 

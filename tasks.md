@@ -12,7 +12,7 @@ Status values:
 - [x] `completed` Place the CLI package at `packages/cli`.
 - [x] `completed` Confirm the v1 interactive auth flow uses Better Auth OAuth device authorization through the frontend verification page.
 - [ ] `needs review` Confirm cache lease semantics and offline/stale-if-error policy limits.
-- [ ] `needs review` Review the implemented backend `/v1/cli/*` read-only API contract before frontend/CLI consumption is finalized.
+- [x] `completed` Review and consume the implemented backend CLI, auth, access-request, config-branch, and change-request contracts.
 
 ## M1: CLI Skeleton
 
@@ -27,7 +27,7 @@ Status values:
 
 ## M2: Auth And Config
 
-- [x] `completed` Implement `pv login --token-stdin`, `pv logout`, and `pv whoami` as the pre-interactive-auth foundation.
+- [x] `completed` Implement browser-approved device login, `pv login --token-stdin` for automation, remote session logout, and live `pv whoami` identity output.
 - [x] `completed` Store persistent development credentials through the OS credential store abstraction.
 - [x] `completed` Store non-secret config in the platform app config directory.
 - [x] `completed` Support `PENTAVAULT_TOKEN` without persisting CI/service credentials by default.
@@ -44,7 +44,7 @@ Status values:
 - [x] `completed` Add backend `/api/v1/cli/projects/:projectId/secrets` for readable metadata without values.
 - [x] `completed` Add backend single-secret and batch-value endpoints for `get`, `pull`, and `run`.
 - [x] `completed` Add backend audit-event integration points for CLI secret list/read/inject operations.
-- [x] `completed` Keep first usable CLI scope read-only by removing v1 write/access/cache command surface from the scaffold.
+- [x] `completed` Keep secret value mutation out of the initial CLI while adding separately authorized access, config-branch, and change-request workflows.
 
 ## M4: Secure Cache V1
 
@@ -56,9 +56,18 @@ Status values:
 
 ## M5: Access Workflows
 
-- [ ] `pending` Implement access request, cancel, and status commands.
-- [ ] `pending` Show pending/approved/declined request states.
-- [ ] `pending` Include request ids and audit metadata in user-visible output.
+- [x] `completed` Implement project access request, cancel, and user-scoped status commands.
+- [x] `completed` Show pending, approved, denied, rejected, and cancelled request states.
+- [x] `completed` Include request ids, project ids, status, and creation time in user-visible output.
+
+## M5.1: Organization, Keys, And Config Branches
+
+- [x] `completed` Add guided `pv init` organization, project, environment, and config selection.
+- [x] `completed` Persist routing-only `.pentavault.toml` project configuration with atomic writes.
+- [x] `completed` Add organization list/select and real signed-in identity output.
+- [x] `completed` Add account API-key list/create/revoke with no key-chaining enforcement.
+- [x] `completed` Default CLI-created API keys to read-only proxy permission and allow explicit repeated permission grants.
+- [x] `completed` Replace config-branch and change-request placeholder success messages with real API calls.
 
 ## M6: Packaging
 
@@ -112,3 +121,6 @@ Status values:
 - [x] `completed` 2026-07-09: backend `pnpm run lint`, `pnpm run typecheck`, and `pnpm test` passed after billing recovery work.
 - [x] `completed` 2026-07-09: `pnpm run cli:build`, `pnpm run cli:lint`, and `pnpm run cli:test` passed after installing Visual Studio Build Tools C++ workload and running through `VsDevCmd`.
 - [x] `completed` 2026-07-09: frontend and backend `pnpm audit --prod` passed with no known production vulnerabilities.
+- [x] `completed` 2026-07-10: CLI unit/integration tests and Clippy passed after guided setup, API-key, config-branch, change-request, and access-request work.
+- [x] `completed` 2026-07-10: frontend and backend production dependency audits reported no known production vulnerabilities.
+- [x] `completed` 2026-07-10: stripped release CLI measured 3,858,432 bytes with a 15.7 ms median `pv version` startup across 30 runs on Windows.

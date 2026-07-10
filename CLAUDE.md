@@ -13,7 +13,7 @@ with an audit trail, change-request approvals, and security alerts.
 
 ## Repository shape
 
-- **Frontend** — repo root (`C:\Users\abhas\PentaVault`). Next.js 16 App Router,
+- **Frontend** — repository root. Next.js 16 App Router,
   React 19, Tailwind v4 (CSS-variable theme in `src/styles/globals.css`),
   shadcn/ui + Radix primitives in `src/components/ui/`, TanStack Query +
   Zustand, axios client (`src/lib/api/client.ts`), Better Auth, Zod. Tests:
@@ -23,8 +23,9 @@ with an audit trail, change-request approvals, and security alerts.
   a `#`-prefix map in the root `package.json` `imports` field (e.g. `#billing`,
   `#projects`). Route handlers in `apps/api/src/plugins/`; domain logic in
   `packages/`. Tests: Vitest (unit + integration) in `tests/`.
-- **Rust CLI (`pv`)** — `packages/cli/`. clap + reqwest + keyring. A client-side
-  tool; not a backend service.
+- **Rust CLI (`pv`)** — `packages/cli/`. clap + reqwest + keyring + dialoguer.
+  It supports guided project setup, organizations, API keys, config branches,
+  change requests, access requests, secret reads, and child-process injection.
 
 ## Required commands before finishing work
 
@@ -44,6 +45,10 @@ rerun — it is not a source bug.
   server-side. Prefer deny-by-default when a permission case is unclear.
 - CLI secret reads go through backend session/project/secret checks — never
   bypass org/project permissions.
+- `.pentavault.toml` contains routing metadata only. Credentials stay in the OS
+  credential store or process-scoped `PENTAVAULT_TOKEN`.
+- API-key-authenticated requests cannot manage other API keys. Collaboration
+  uses organization membership and per-user/project roles, never shared keys.
 - Proxy/gateway must keep SSRF protections (host canonicalisation,
   loopback/private-range blocking) and the upstream response-size cap. Token
   policy (hash, expiry, revocation, rate-limit window roll-forward, device/IP

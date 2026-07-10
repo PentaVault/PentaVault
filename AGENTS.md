@@ -75,8 +75,24 @@ Do not duplicate project RBAC logic inside route handlers or React components. I
 - Keep backend tests in `PentaVault-Backend/tests/`.
 - Use Biome to format supported source and JSON files.
 
+## CLI Rules
+
+- The CLI is Rust in `packages/cli/`; keep startup paths synchronous and small unless profiling proves async work is needed.
+- Tokens belong only in `PENTAVAULT_TOKEN` for process-scoped automation or the OS credential store for persistent login.
+- `.pentavault.toml` is project-local routing metadata only. Never add tokens, API keys, secret values, or session data to it.
+- API keys are per-user or service-account capabilities scoped to one organization. Never share one personal key between collaborators.
+- An API key must not create, list, or revoke other API keys. Key management requires a browser-approved user session.
+- Offline secret cache work remains blocked until the backend supplies revocable leases and revision checks. Do not add an authorization-bypassing fallback cache.
+
+## Branching
+
+- `main` stays releasable and protected. Work on short-lived `codex/*` or feature branches and merge through reviewed pull requests.
+- Do not add a long-lived `develop` branch; release automation already treats `main` as the integration branch.
+- Keep frontend and backend commits independently reviewable. Commit the final backend submodule pointer in the frontend repo only after backend commits are complete.
+
 ## Documentation
 
 - `todo.md` tracks review-derived bugs, security work, and remaining design decisions.
 - `docs/review/2026-04-29.md` contains the first formal product review.
 - Keep docs truthful. Do not mark security architecture as complete until backend enforcement and tests exist.
+- `cloud.md` is the deployment and environment-variable handoff.

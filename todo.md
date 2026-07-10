@@ -2,7 +2,7 @@
 
 Current open work only. Completed review items and manually verified flows have been removed from this list.
 
-Last updated: July 9, 2026 3:15 PM +05:30.
+Last updated: July 10, 2026.
 
 ## Database Rollout
 
@@ -19,3 +19,7 @@ changes.
   production captcha secrets.
 - [ ] Define the final secret naming rules and conflict behavior as product policy.
 - [ ] Continue expanding policy-module coverage for future organization, token, audit, and access-request capabilities outside the completed core secrets engine roadmap.
+
+## CLI Cache Gate
+
+- [ ] Define backend-issued cache leases, revision checks, and offline expiry before implementing encrypted local secret caching. The CLI intentionally remains online-only until revocation cannot be bypassed.
