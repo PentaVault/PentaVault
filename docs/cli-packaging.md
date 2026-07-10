@@ -1,33 +1,34 @@
 # CLI Packaging
 
 Status: Active
-Updated: 2026-05-09
+Updated: 2026-07-10
 
 This document describes the current packaging baseline for the Rust `pv` CLI.
 
-## Windows Artifact
+## Native Release Artifacts
 
 The GitHub Actions workflow at
-`.github/workflows/cli-windows-artifact.yml` builds the Windows x64 artifact on:
+`.github/workflows/cli-release-artifacts.yml` builds native artifacts on:
 
 - manual `workflow_dispatch`
 - tags matching `cli-v*`
 
-The workflow:
+The matrix covers Windows, Linux, and macOS using each hosted runner's native
+architecture. The workflow:
 
-- installs pnpm and Node.js 22
-- installs the stable Rust toolchain
-- runs `pnpm run cli:test`
-- runs `pnpm run cli:lint`
-- builds `pv.exe` with `cargo build --release --locked`
+- installs the pinned Rust 1.82 toolchain
+- checks Rust formatting
+- runs locked Cargo tests and Clippy on every platform
+- builds the native `pv` executable with `cargo build --release --locked`
 - generates PowerShell, bash, zsh, and fish completions
-- packages `pv.exe`, completions, `README.md`, and `LICENSE`
-- uploads a zip and SHA-256 checksum
+- packages the native binary, completions, `README.md`, and `LICENSE`
+- uploads a zip on Windows or a permission-preserving tarball on Unix, plus a
+  SHA-256 checksum
 
 The artifact name is:
 
 ```text
-pv-<version>-windows-x64.zip
+pv-<version>-<platform>-<architecture>.<zip|tar.gz>
 ```
 
 ## Local Release Smoke Test
@@ -89,4 +90,4 @@ the signing process is approved.
 
 - signed binary release process
 - installer metadata submission
-- macOS and Linux release artifacts
+- publishing workflow artifacts as signed GitHub release assets

@@ -74,7 +74,7 @@ Status values:
 - [x] `completed` Add Windows release artifact packaging workflow and winget-ready handoff documentation.
 - [x] `completed` Add PowerShell completion installation docs.
 - [ ] `pending` Add signed binary release process when certificates are available.
-- [ ] `pending` Add macOS/Linux artifacts after Windows flow stabilizes.
+- [x] `completed` Build checksum-protected native Windows, Linux, and macOS artifacts from one locked matrix workflow.
 
 ## M7: Polish And Hardening
 

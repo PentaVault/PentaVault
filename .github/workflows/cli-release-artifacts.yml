@@ -1,0 +1,88 @@
+name: CLI Release Artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "cli-v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build CLI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+          - ubuntu-latest
+          - macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.82.0
+        with:
+          components: clippy,rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --check --manifest-path packages/cli/Cargo.toml
+
+      - name: Test CLI
+        run: cargo test --locked --manifest-path packages/cli/Cargo.toml
+
+      - name: Lint CLI
+        run: cargo clippy --locked --all-targets --manifest-path packages/cli/Cargo.toml -- -D warnings
+
+      - name: Build release binary
+        run: cargo build --release --locked --manifest-path packages/cli/Cargo.toml
+
+      - name: Package artifact
+        id: package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = (cargo metadata --no-deps --manifest-path packages/cli/Cargo.toml --format-version 1 | ConvertFrom-Json).packages[0].version
+          $platform = if ($IsWindows) { "windows" } elseif ($IsMacOS) { "macos" } else { "linux" }
+          $architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
+          $packageName = "pv-$version-$platform-$architecture"
+          $root = "dist/$packageName"
+          $binary = if ($IsWindows) { "packages/cli/target/release/pv.exe" } else { "packages/cli/target/release/pv" }
+          $packagedBinary = if ($IsWindows) { "$root/pv.exe" } else { "$root/pv" }
+
+          New-Item -ItemType Directory -Force "$root/completions" | Out-Null
+          Copy-Item $binary $packagedBinary
+          Copy-Item "packages/cli/README.md" "$root/README.md"
+          Copy-Item "LICENSE" "$root/LICENSE"
+          & $binary completion power-shell | Out-File -Encoding utf8 "$root/completions/pv.ps1"
+          & $binary completion bash | Out-File -Encoding utf8 "$root/completions/pv.bash"
+          & $binary completion zsh | Out-File -Encoding utf8 "$root/completions/_pv"
+          & $binary completion fish | Out-File -Encoding utf8 "$root/completions/pv.fish"
+
+          if ($IsWindows) {
+            $archive = "dist/$packageName.zip"
+            Compress-Archive -Path "$root/*" -DestinationPath $archive -Force
+          } else {
+            $archive = "dist/$packageName.tar.gz"
+            tar -czf $archive -C dist $packageName
+          }
+
+          Get-FileHash $archive -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLowerInvariant())  $(Split-Path $archive -Leaf)" } |
+            Out-File -Encoding ascii "$archive.sha256"
+          "id=$platform-$architecture" >> $env:GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pv-${{ steps.package.outputs.id }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
