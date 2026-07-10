@@ -23,6 +23,7 @@ import {
 import { useToast } from '@/lib/hooks/use-toast'
 import type { VerifyInvitationResponse } from '@/lib/types/api'
 import { getApiErrorCode, getApiFriendlyMessage } from '@/lib/utils/errors'
+import { formatDateTime } from '@/lib/utils/format'
 
 type InvitationDialogProps = {
   invite: VerifyInvitationResponse
@@ -146,7 +147,7 @@ export function InvitationDialog({
                 ) : null}
                 {invite.email ? <Field>Sent to {invite.email}</Field> : null}
                 {invite.expiresAt ? (
-                  <Field>Expires {new Date(invite.expiresAt).toLocaleString()}</Field>
+                  <Field>Expires {formatDateTime(invite.expiresAt)}</Field>
                 ) : null}
               </DialogDescription>
             </div>

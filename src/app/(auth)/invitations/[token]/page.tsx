@@ -1,6 +1,5 @@
 'use client'
 
-import { formatDistanceToNow } from 'date-fns'
 import { Building2, Mail, XCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
@@ -11,9 +10,10 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useVerifyInvitation } from '@/lib/hooks/use-invitations'
 import type { VerifyInvitationResponse } from '@/lib/types/api'
+import { formatRelativeDate } from '@/lib/utils/format'
 
 function formatExpiry(value: string | null) {
-  return value ? `in ${formatDistanceToNow(new Date(value))}` : 'soon'
+  return value ? `on ${formatRelativeDate(value)}` : 'soon'
 }
 
 function InvitationError({ message }: { message: string }) {

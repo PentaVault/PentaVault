@@ -2,7 +2,7 @@
 
 import { AlertTriangle, Eye, EyeOff, Plus, Upload, X } from 'lucide-react'
 import type { ChangeEvent, ClipboardEvent, FormEvent } from 'react'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,8 +35,8 @@ type SecretRowInput = {
 
 const SECRET_NAME_PATTERN = /^[A-Z0-9_]+$/
 
-function createEmptyRow(): SecretRowInput {
-  return { key: '', value: '', id: crypto.randomUUID() }
+function createEmptyRow(id = crypto.randomUUID()): SecretRowInput {
+  return { key: '', value: '', id }
 }
 
 function parseEnvText(text: string): SecretRowInput[] {
@@ -81,7 +81,8 @@ export function AddSecretDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const [rows, setRows] = useState<SecretRowInput[]>([createEmptyRow()])
+  const initialRowId = useId()
+  const [rows, setRows] = useState<SecretRowInput[]>(() => [createEmptyRow(initialRowId)])
   const [showValues, setShowValues] = useState<Record<string, boolean>>({})
   const [encryptionMode, setEncryptionMode] = useState<'encrypted' | 'plaintext'>('encrypted')
   const [formError, setFormError] = useState<string | null>(null)

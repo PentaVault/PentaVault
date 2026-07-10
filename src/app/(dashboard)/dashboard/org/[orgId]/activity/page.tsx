@@ -485,14 +485,14 @@ function renderSentenceWithProjectLink(
 }
 
 function groupEvents(events: AuditEvent[]) {
-  const formatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
-  const today = formatter.format(new Date())
-  const yesterday = formatter.format(new Date(Date.now() - 24 * 60 * 60 * 1000))
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeZone: 'UTC',
+  })
   const groups = new Map<string, AuditEvent[]>()
 
   for (const event of events) {
-    const formatted = formatter.format(new Date(event.occurredAt))
-    const label = formatted === today ? 'Today' : formatted === yesterday ? 'Yesterday' : formatted
+    const label = formatter.format(new Date(event.occurredAt))
     groups.set(label, [...(groups.get(label) ?? []), event])
   }
 

@@ -25,6 +25,7 @@ import { useAuthCapabilities } from '@/lib/hooks/use-auth-capabilities'
 import { useEmailCooldown } from '@/lib/hooks/use-email-cooldown'
 import { useToast } from '@/lib/hooks/use-toast'
 import { getApiErrorPayload, getApiFieldErrors, getApiFriendlyMessage } from '@/lib/utils/errors'
+import { formatRelativeDate } from '@/lib/utils/format'
 
 export default function AccountSecuritySettingsPage() {
   const auth = useAuth()
@@ -92,11 +93,7 @@ export default function AccountSecuritySettingsPage() {
       document.cookie = 'better-auth.session_token=; path=/; max-age=0'
       // biome-ignore lint/suspicious/noDocumentCookie: Clear the secure Better Auth cookie variant after account deletion.
       document.cookie = '__Secure-better-auth.session_token=; path=/; max-age=0'
-      const purgeDate = deletion.purgeAfter
-        ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
-            new Date(deletion.purgeAfter)
-          )
-        : null
+      const purgeDate = deletion.purgeAfter ? formatRelativeDate(deletion.purgeAfter) : null
       toast.success(
         purgeDate
           ? `Account deletion scheduled. Sign in before ${purgeDate} to restore it.`

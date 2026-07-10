@@ -1,6 +1,5 @@
 'use client'
 
-import { formatDistanceToNow } from 'date-fns'
 import { Bell, Check, Trash2, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
@@ -36,6 +35,7 @@ import { useToast } from '@/lib/hooks/use-toast'
 import type { NotificationRecord, VerifyInvitationResponse } from '@/lib/types/api'
 import { cn } from '@/lib/utils/cn'
 import { getApiErrorCode, getApiFriendlyMessage } from '@/lib/utils/errors'
+import { formatDateTime } from '@/lib/utils/format'
 
 type NotificationTab = 'unread' | 'all'
 type InvitationNotificationAction =
@@ -611,7 +611,7 @@ function NotificationRow({
                 {notification.body}
               </span>
               <span className="mt-2 block text-xs text-muted-foreground">
-                {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                {formatDateTime(notification.createdAt)}
               </span>
             </span>
           </div>

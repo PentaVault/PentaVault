@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { Manrope, Source_Code_Pro } from 'next/font/google'
 import { headers } from 'next/headers'
 import type { ReactNode } from 'react'
 
@@ -7,16 +6,6 @@ import { APP_DESCRIPTION, APP_NAME } from '@/lib/constants'
 import { env } from '@/lib/env'
 import { AppProviders } from '@/providers'
 import '@/styles/globals.css'
-
-const brandSans = Manrope({
-  variable: '--font-brand-sans',
-  subsets: ['latin'],
-})
-
-const brandMono = Source_Code_Pro({
-  variable: '--font-brand-mono',
-  subsets: ['latin'],
-})
 
 export const metadata: Metadata = {
   metadataBase: new URL(env.appUrl),
@@ -56,11 +45,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   const providerProps = nonce ? { nonce } : {}
 
   return (
-    <html
-      lang="en"
-      className={`${brandSans.variable} ${brandMono.variable} h-full`}
-      suppressHydrationWarning
-    >
+    <html lang="en" className="h-full" suppressHydrationWarning>
       <head>
         <meta name="color-scheme" content="dark" />
         <meta name="darkreader-lock" />

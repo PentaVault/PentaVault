@@ -2,6 +2,8 @@
 
 :root {
   --app-max-width: 1680px;
+  --font-brand-sans: "Manrope", "Avenir Next", "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-brand-mono: "Source Code Pro", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
   color-scheme: dark;
   /* Vivid emerald + jewel tones on a deep green-black canvas. The emerald
      accent is the primary brand signal; sapphire / violet / coral are

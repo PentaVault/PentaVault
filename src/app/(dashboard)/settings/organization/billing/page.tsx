@@ -69,7 +69,10 @@ function formatCurrency(amount: number, currency: string): string {
 
 function formatDate(value: string | null): string | null {
   if (!value) return null
-  return new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date(value))
+  return new Intl.DateTimeFormat('en-IN', {
+    dateStyle: 'medium',
+    timeZone: 'UTC',
+  }).format(new Date(value))
 }
 
 function formatPlanName(planId: PlanId | null): string {
@@ -174,18 +177,14 @@ export default function OrgBillingPage() {
   const billing = billingSummary.data?.billing ?? null
   const membersQuery = useOrganizationMembers(organizationId)
   const portalMutation = useOpenBillingPortal()
-  const [hasMounted, setHasMounted] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [profileMessage, setProfileMessage] = useState<string | null>(null)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [profileForm, setProfileForm] = useState<BillingProfileForm>(emptyProfileForm)
 
-  useEffect(() => {
-    setHasMounted(true)
-  }, [])
-
+  const authReady = auth.status !== 'loading'
   const canManageBilling =
-    hasMounted && (billing?.canManageBilling ?? (role === 'owner' || role === 'admin'))
+    authReady && (billing?.canManageBilling ?? (role === 'owner' || role === 'admin'))
   const historyQuery = useBillingHistory(organizationId, canManageBilling)
   const profileQuery = useBillingProfile(organizationId, canManageBilling)
   const updateProfileMutation = useUpdateBillingProfile(organizationId)
@@ -201,7 +200,7 @@ export default function OrgBillingPage() {
     pendingDate,
     graceEndsAt: formatDate(billing?.graceEndsAt ?? null),
   })
-  const shouldShowPortal = hasMounted && canManageBilling && Boolean(billing?.customerId)
+  const shouldShowPortal = canManageBilling && Boolean(billing?.customerId)
 
   useEffect(() => {
     const profile = profileQuery.data?.profile

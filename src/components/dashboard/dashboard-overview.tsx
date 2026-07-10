@@ -11,14 +11,16 @@ import {
   SETTINGS_ORGANIZATION_MEMBERS_PATH,
 } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useHydrated } from '@/lib/hooks/use-hydrated'
 import { useProjectsQuery } from '@/lib/hooks/use-projects'
 import { useOrganizationMembers } from '@/lib/hooks/use-team'
 
 function formatToday() {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
+    timeZone: 'UTC',
   }).format(new Date())
 }
 
@@ -54,6 +56,7 @@ function StatCard({
 
 export function DashboardOverview() {
   const auth = useAuth()
+  const hydrated = useHydrated()
   const projectsQuery = useProjectsQuery()
   const activeOrg = auth.activeOrganization?.organization
   const activeOrgId = activeOrg?.id ?? null
@@ -79,7 +82,7 @@ export function DashboardOverview() {
       <div>
         <h1 className="text-xl font-semibold">Welcome back, {firstName}</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          {activeOrg?.name ?? 'Organisation'} - {formatToday()}
+          {activeOrg?.name ?? 'Organisation'} - {hydrated ? formatToday() : 'Today'}
         </p>
       </div>
 

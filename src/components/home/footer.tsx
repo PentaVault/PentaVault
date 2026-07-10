@@ -65,7 +65,7 @@ export function Footer() {
 
         <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-border-subtle pt-6 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            © {year} {APP_NAME}. All rights reserved.
+            &copy; {year} {APP_NAME}. All rights reserved.
           </p>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-accent" />

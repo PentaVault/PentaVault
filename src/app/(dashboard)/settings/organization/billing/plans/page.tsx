@@ -3,7 +3,7 @@
 import { ArrowLeft, Check, CreditCard, Info, ShieldCheck, Users } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -95,14 +95,9 @@ export default function BillingPlansPage() {
   const billingSummary = useBillingSummary(Boolean(organizationId))
   const checkoutMutation = useCreateBillingCheckout()
   const changePlanMutation = useChangeBillingPlan()
-  const [hasMounted, setHasMounted] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [activePlanAction, setActivePlanAction] = useState<PlanId | null>(null)
-
-  useEffect(() => {
-    setHasMounted(true)
-  }, [])
 
   const billing = billingSummary.data?.billing ?? null
   const currentPlanId = normalizePlanId(
@@ -110,8 +105,9 @@ export default function BillingPlansPage() {
   )
   const seatsUsed = membersQuery.data?.members?.length ?? null
   const billableSeats = Math.max(seatsUsed ?? 1, 1)
+  const authReady = auth.status !== 'loading'
   const canManageBilling =
-    hasMounted && (billing?.canManageBilling ?? (role === 'owner' || role === 'admin'))
+    authReady && (billing?.canManageBilling ?? (role === 'owner' || role === 'admin'))
   const isSubmitting = checkoutMutation.isPending || changePlanMutation.isPending
 
   async function handleSelectPlan(targetPlanId: PlanId) {
@@ -287,13 +283,13 @@ export default function BillingPlansPage() {
 
                 <Button
                   className="w-full"
-                  disabled={!hasMounted || Boolean(blockedReason) || isSubmitting}
+                  disabled={!authReady || Boolean(blockedReason) || isSubmitting}
                   onClick={() => void handleSelectPlan(plan.id)}
                   size="sm"
                   type="button"
                   variant={isCurrent ? 'outline' : 'default'}
                 >
-                  {!hasMounted
+                  {!authReady
                     ? 'Loading billing...'
                     : actionLabel({
                         currentPlanId,

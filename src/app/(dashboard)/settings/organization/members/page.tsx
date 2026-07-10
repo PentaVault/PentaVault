@@ -1,6 +1,5 @@
 'use client'
 
-import { formatDistanceToNow } from 'date-fns'
 import { Search, Trash2, UserMinus, UserPlus } from 'lucide-react'
 import type { FormEvent } from 'react'
 import { useMemo, useState } from 'react'
@@ -35,6 +34,7 @@ import {
 import { useToast } from '@/lib/hooks/use-toast'
 import type { AuthOrganizationMember, OrgInvitation, OrgRole } from '@/lib/types/auth'
 import { getApiErrorPayload, getApiFriendlyMessage } from '@/lib/utils/errors'
+import { formatDateTime, formatRelativeDate } from '@/lib/utils/format'
 
 const ORG_ROLES: OrgRole[] = ['owner', 'admin', 'developer', 'auditor']
 
@@ -121,7 +121,7 @@ function formatGuestExpiry(expiresAt: string | null): string {
     return 'no expiry'
   }
 
-  return `expires ${formatDistanceToNow(new Date(expiresAt), { addSuffix: true })}`
+  return `expires ${formatRelativeDate(expiresAt)}`
 }
 
 function invitationTone(status: OrgInvitation['status']) {
@@ -573,9 +573,7 @@ export default function OrganizationMembersPage() {
                         <p className="truncate text-sm font-medium">{invitation.email}</p>
                         <p className="truncate text-xs text-muted-foreground">
                           Invited as {roleLabel(invitation.role)} - updated{' '}
-                          {formatDistanceToNow(new Date(invitation.updatedAt), {
-                            addSuffix: true,
-                          })}
+                          {formatDateTime(invitation.updatedAt)}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 lg:justify-end">
