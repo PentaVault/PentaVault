@@ -126,11 +126,6 @@ function getErrorMeta(error: unknown): Record<string, unknown> {
     typeof responseData === 'object' && responseData !== null && 'code' in responseData
       ? ((responseData as { code?: string }).code ?? 'UNKNOWN_CODE')
       : 'UNKNOWN_CODE'
-  const responseError =
-    typeof responseData === 'object' && responseData !== null && 'error' in responseData
-      ? ((responseData as { error?: string }).error ?? 'UNKNOWN_ERROR')
-      : 'UNKNOWN_ERROR'
-
   return {
     kind: 'axios',
     message: error.message || 'Request failed',
@@ -139,8 +134,6 @@ function getErrorMeta(error: unknown): Record<string, unknown> {
     status,
     code: error.code ?? 'UNKNOWN_AXIOS_CODE',
     responseCode,
-    responseError,
-    data: responseData ?? null,
   }
 }
 
@@ -153,9 +146,7 @@ function formatErrorMeta(meta: Record<string, unknown>): string {
   const url = String(meta.url ?? 'UNKNOWN_URL')
   const status = String(meta.status ?? 'NO_RESPONSE')
   const responseCode = String(meta.responseCode ?? 'UNKNOWN_CODE')
-  const responseError = String(meta.responseError ?? 'UNKNOWN_ERROR')
-
-  return `${method} ${url} failed with ${status} ${responseCode}: ${responseError}`
+  return `${method} ${url} failed with ${status} ${responseCode}`
 }
 
 function shouldSuppressDevErrorLog(error: unknown): boolean {
