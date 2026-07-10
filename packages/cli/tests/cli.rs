@@ -228,6 +228,33 @@ fn api_key_credentials_cannot_mint_more_keys() {
 }
 
 #[test]
+fn access_status_lists_only_the_authenticated_users_requests() {
+    let server = serve_once(
+        r#"{"requests":[{"id":"access_123","projectId":"project_123","organizationId":"org_123","requesterId":"user_123","requestedRole":"member","message":"Need access","status":"pending","reviewedBy":null,"reviewerNote":null,"createdAt":"2026-05-02T00:00:00.000Z","updatedAt":"2026-05-02T00:00:00.000Z"}]}"#,
+    );
+
+    pv().args([
+        "--api-url",
+        &server.url,
+        "--project",
+        "project_123",
+        "access",
+        "status",
+        "--status",
+        "pending",
+    ])
+    .env("PENTAVAULT_TOKEN", "session_secret")
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("access_123"))
+    .stdout(predicate::str::contains("session_secret").not());
+
+    let request = server.request.recv().expect("captured request");
+    assert!(request
+        .starts_with("GET /api/v1/access-requests/mine?projectId=project_123&status=pending "));
+}
+
+#[test]
 fn init_persists_only_project_routing_metadata() {
     let server = serve_sequence(vec![
         r#"{"session":{"id":"session_123","expiresAt":"2026-12-01T00:00:00.000Z","activeOrganizationId":"org_123","activeOrganizationSlug":"pentavault"},"user":{"id":"user_123","email":"king@example.test","name":"King","username":"king","emailVerified":true,"twoFactorEnabled":true}}"#,

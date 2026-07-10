@@ -100,6 +100,8 @@ pub enum Command {
     Config(ConfigCommand),
     #[command(subcommand, about = "Work with change requests.")]
     ChangeRequests(ChangeRequestsCommand),
+    #[command(subcommand, about = "Request and track project access.")]
+    Access(AccessCommand),
     #[command(about = "Run local diagnostics for the CLI environment.")]
     Doctor,
     #[command(about = "Generate shell completion scripts.")]
@@ -237,6 +239,44 @@ pub enum ChangeRequestsCommand {
     },
     Merge {
         id: String,
+    },
+    Cancel {
+        id: String,
+    },
+}
+
+#[derive(Clone, Debug, ValueEnum)]
+pub enum AccessRequestStatus {
+    Pending,
+    Approved,
+    Denied,
+    Rejected,
+    Cancelled,
+}
+
+impl AccessRequestStatus {
+    pub fn as_api_value(&self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Approved => "approved",
+            Self::Denied => "denied",
+            Self::Rejected => "rejected",
+            Self::Cancelled => "cancelled",
+        }
+    }
+}
+
+#[derive(Debug, Subcommand)]
+pub enum AccessCommand {
+    Request {
+        #[arg(long)]
+        message: Option<String>,
+    },
+    Status {
+        #[arg(long, value_enum)]
+        status: Option<AccessRequestStatus>,
+        #[arg(long, help = "List requests across all projects.")]
+        all_projects: bool,
     },
     Cancel {
         id: String,

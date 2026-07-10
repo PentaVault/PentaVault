@@ -182,6 +182,39 @@ pub struct RevokeCliSessionResponse {
     pub session_id: String,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliAccessRequest {
+    pub id: String,
+    pub project_id: String,
+    pub organization_id: String,
+    pub requester_id: String,
+    pub requested_role: String,
+    pub message: Option<String>,
+    pub status: String,
+    pub reviewed_by: Option<String>,
+    pub reviewer_note: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CliAccessRequestResponse {
+    pub request: CliAccessRequest,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CliAccessRequestsResponse {
+    pub requests: Vec<CliAccessRequest>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelAccessRequestResponse {
+    pub cancelled: bool,
+    pub request_id: String,
+}
+
 #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CliProject {
@@ -415,6 +448,52 @@ impl ApiClient {
         self.delete_json(
             token,
             &format!("/api/v1/cli/sessions/{}", encode_path_segment(session_id)),
+        )
+    }
+
+    pub fn create_access_request(
+        &self,
+        token: &str,
+        project_id: &str,
+        message: Option<&str>,
+    ) -> Result<CliAccessRequestResponse, String> {
+        self.post_json(
+            token,
+            &format!(
+                "/api/v1/projects/{}/access-requests",
+                encode_path_segment(project_id)
+            ),
+            &json!({ "requestedRole": "member", "message": message }),
+        )
+    }
+
+    pub fn list_access_requests(
+        &self,
+        token: &str,
+        project_id: Option<&str>,
+        status: Option<&str>,
+    ) -> Result<CliAccessRequestsResponse, String> {
+        let mut query = Vec::new();
+        if let Some(project_id) = project_id {
+            query.push(("projectId", project_id));
+        }
+        if let Some(status) = status {
+            query.push(("status", status));
+        }
+        self.get_json(token, "/api/v1/access-requests/mine", &query)
+    }
+
+    pub fn cancel_access_request(
+        &self,
+        token: &str,
+        request_id: &str,
+    ) -> Result<CancelAccessRequestResponse, String> {
+        self.delete_json(
+            token,
+            &format!(
+                "/api/v1/access-requests/{}",
+                encode_path_segment(request_id)
+            ),
         )
     }
 

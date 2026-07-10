@@ -15,8 +15,9 @@ use crate::api::{
 };
 use crate::auth::{self, Credential};
 use crate::cli::{
-    ApiKeysCommand, ChangeRequestsCommand, Cli, Command, ConfigsCommand, EnvsCommand,
-    OrganizationsCommand, OutputFormat, ProjectsCommand, SecretPullFormat, SecretsCommand,
+    AccessCommand, ApiKeysCommand, ChangeRequestsCommand, Cli, Command, ConfigsCommand,
+    EnvsCommand, OrganizationsCommand, OutputFormat, ProjectsCommand, SecretPullFormat,
+    SecretsCommand,
 };
 use crate::config::{atomic_write, AppConfig, ConfigStore};
 
@@ -43,6 +44,7 @@ pub fn dispatch(cli: Cli) -> ExitCode {
         Command::Secrets(command) => secrets(&cli, command),
         Command::Run { command } => run(&cli, command),
         Command::ChangeRequests(command) => change_requests(&cli, command),
+        Command::Access(command) => access(&cli, command),
     }
 }
 
@@ -449,6 +451,83 @@ fn print_change_request(request: &CliChangeRequest) {
         request.target_config_id,
         request.title
     );
+}
+
+fn access(cli: &Cli, command: &AccessCommand) -> ExitCode {
+    let (client, token) = match authenticated_client(cli) {
+        Ok(value) => value,
+        Err((message, code)) => {
+            eprintln!("Error: {message}");
+            return ExitCode::from(code);
+        }
+    };
+
+    match command {
+        AccessCommand::Request { message } => {
+            let project_id = match resolve_project(cli) {
+                Ok(value) => value,
+                Err(error) => return fail_prompt(error),
+            };
+            match client.create_access_request(&token, &project_id, message.as_deref()) {
+                Ok(response) => {
+                    if wants_json(cli) {
+                        println!("{}", serde_json::to_string(&response).expect("json"));
+                    } else {
+                        println!(
+                            "Access request `{}` created for project `{}`.",
+                            response.request.id, response.request.project_id
+                        );
+                        println!("Status: {}", response.request.status);
+                    }
+                    ExitCode::from(EXIT_SUCCESS)
+                }
+                Err(error) => fail_api(error),
+            }
+        }
+        AccessCommand::Status {
+            status,
+            all_projects,
+        } => {
+            let project_id = if *all_projects {
+                None
+            } else {
+                resolve_project(cli).ok()
+            };
+            match client.list_access_requests(
+                &token,
+                project_id.as_deref(),
+                status.as_ref().map(|status| status.as_api_value()),
+            ) {
+                Ok(response) => {
+                    if wants_json(cli) {
+                        println!("{}", serde_json::to_string(&response).expect("json"));
+                    } else if response.requests.is_empty() {
+                        println!("No matching access requests.");
+                    } else {
+                        for request in response.requests {
+                            println!(
+                                "{}\t{}\t{}\t{}",
+                                request.id, request.status, request.project_id, request.created_at
+                            );
+                        }
+                    }
+                    ExitCode::from(EXIT_SUCCESS)
+                }
+                Err(error) => fail_api(error),
+            }
+        }
+        AccessCommand::Cancel { id } => match client.cancel_access_request(&token, id) {
+            Ok(response) => {
+                if wants_json(cli) {
+                    println!("{}", serde_json::to_string(&response).expect("json"));
+                } else {
+                    println!("Cancelled access request `{}`.", response.request_id);
+                }
+                ExitCode::from(EXIT_SUCCESS)
+            }
+            Err(error) => fail_api(error),
+        },
+    }
 }
 
 fn version(cli: &Cli) -> ExitCode {
