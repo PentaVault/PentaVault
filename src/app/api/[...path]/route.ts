@@ -2,6 +2,8 @@ import type { NextRequest } from 'next/server'
 
 import { env } from '@/lib/env'
 
+const MAX_PROXY_BODY_BYTES = 1024 * 1024
+
 const HOP_BY_HOP_HEADERS = new Set([
   'connection',
   'keep-alive',
@@ -77,14 +79,74 @@ export function forwardResponseHeaders(upstreamHeaders: Headers): Headers {
   upstreamHeaders.forEach((value, key) => {
     const normalizedKey = key.toLowerCase()
 
-    if (HOP_BY_HOP_HEADERS.has(normalizedKey)) {
+    if (HOP_BY_HOP_HEADERS.has(normalizedKey) || normalizedKey === 'set-cookie') {
       return
     }
 
     headers.append(key, value)
   })
 
+  const headersWithCookies = upstreamHeaders as Headers & { getSetCookie?: () => string[] }
+  const setCookies = headersWithCookies.getSetCookie?.() ?? []
+  if (setCookies.length > 0) {
+    for (const cookie of setCookies) {
+      headers.append('set-cookie', cookie)
+    }
+  } else {
+    const combinedSetCookie = upstreamHeaders.get('set-cookie')
+    if (combinedSetCookie) {
+      headers.set('set-cookie', combinedSetCookie)
+    }
+  }
+
   return headers
+}
+
+export async function readBodyWithLimit(
+  stream: ReadableStream<Uint8Array> | null,
+  limit = MAX_PROXY_BODY_BYTES
+): Promise<ArrayBuffer | null> {
+  if (!stream) {
+    return new ArrayBuffer(0)
+  }
+
+  const reader = stream.getReader()
+  const chunks: Uint8Array[] = []
+  let totalBytes = 0
+
+  try {
+    while (true) {
+      const chunk = await reader.read()
+      if (chunk.done) {
+        break
+      }
+      totalBytes += chunk.value.byteLength
+      if (totalBytes > limit) {
+        await reader.cancel('body limit exceeded')
+        return null
+      }
+      chunks.push(chunk.value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+
+  const body = new Uint8Array(totalBytes)
+  let offset = 0
+  for (const chunk of chunks) {
+    body.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return body.buffer
+}
+
+function contentLengthExceedsLimit(headers: Headers): boolean {
+  const rawLength = headers.get('content-length')
+  if (!rawLength) {
+    return false
+  }
+  const length = Number(rawLength)
+  return Number.isFinite(length) && length > MAX_PROXY_BODY_BYTES
 }
 
 async function handle(request: NextRequest, path: string[]): Promise<Response> {
@@ -110,7 +172,26 @@ async function handle(request: NextRequest, path: string[]): Promise<Response> {
   }
 
   if (method !== 'GET' && method !== 'HEAD') {
-    requestInit.body = await request.arrayBuffer()
+    if (contentLengthExceedsLimit(request.headers)) {
+      return Response.json(
+        {
+          code: 'REQUEST_TOO_LARGE',
+          error: 'Request body is too large. Maximum size is 1 MiB.',
+        },
+        { status: 413 }
+      )
+    }
+    const requestBody = await readBodyWithLimit(request.body)
+    if (requestBody === null) {
+      return Response.json(
+        {
+          code: 'REQUEST_TOO_LARGE',
+          error: 'Request body is too large. Maximum size is 1 MiB.',
+        },
+        { status: 413 }
+      )
+    }
+    requestInit.body = requestBody
   }
 
   let upstreamResponse: Response
@@ -137,7 +218,26 @@ async function handle(request: NextRequest, path: string[]): Promise<Response> {
 
   let responseBody: ArrayBuffer | null = null
   try {
-    responseBody = method === 'HEAD' ? null : await upstreamResponse.arrayBuffer()
+    if (contentLengthExceedsLimit(upstreamResponse.headers)) {
+      return Response.json(
+        {
+          code: 'API_UPSTREAM_RESPONSE_TOO_LARGE',
+          error: 'The API response exceeded the 1 MiB proxy limit.',
+        },
+        { status: 502 }
+      )
+    }
+    responseBody =
+      method === 'HEAD' ? new ArrayBuffer(0) : await readBodyWithLimit(upstreamResponse.body)
+    if (responseBody === null) {
+      return Response.json(
+        {
+          code: 'API_UPSTREAM_RESPONSE_TOO_LARGE',
+          error: 'The API response exceeded the 1 MiB proxy limit.',
+        },
+        { status: 502 }
+      )
+    }
   } catch {
     return Response.json(
       {

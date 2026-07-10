@@ -53,6 +53,34 @@ describe('Next API proxy route helpers', () => {
     expect(forwarded.get('x-real-ip')).toBeNull()
   })
 
+  it('preserves independent Set-Cookie response headers', async () => {
+    const { forwardResponseHeaders } = await import('../route')
+    const upstream = new Headers()
+    upstream.append('set-cookie', 'session=one; Path=/; HttpOnly')
+    upstream.append('set-cookie', 'csrf=two; Path=/; SameSite=Lax')
+
+    const forwarded = forwardResponseHeaders(upstream) as Headers & {
+      getSetCookie?: () => string[]
+    }
+    expect(forwarded.getSetCookie?.() ?? [forwarded.get('set-cookie')]).toEqual([
+      'session=one; Path=/; HttpOnly',
+      'csrf=two; Path=/; SameSite=Lax',
+    ])
+  })
+
+  it('stops reading bodies after the proxy byte limit', async () => {
+    const { readBodyWithLimit } = await import('../route')
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(8))
+        controller.enqueue(new Uint8Array(8))
+        controller.close()
+      },
+    })
+
+    await expect(readBodyWithLimit(stream, 10)).resolves.toBeNull()
+  })
+
   it('returns a 503 when the upstream body terminates before it can be read', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
@@ -102,5 +130,28 @@ describe('Next API proxy route helpers', () => {
     const chunk = await reader?.read()
     await reader?.cancel()
     expect(new TextDecoder().decode(chunk?.value)).toBe('event: connected\ndata: {}\n\n')
+  })
+
+  it('rejects oversized non-streaming upstream responses', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('too large', {
+          headers: {
+            'content-length': String(1024 * 1024 + 1),
+          },
+        })
+      )
+    )
+
+    const { GET } = await import('../route')
+    const response = await GET(createRequest({}), {
+      params: Promise.resolve({ path: ['v1', 'projects'] }),
+    })
+
+    expect(response.status).toBe(502)
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'API_UPSTREAM_RESPONSE_TOO_LARGE',
+    })
   })
 })
