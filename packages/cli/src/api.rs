@@ -1,8 +1,10 @@
 use std::thread;
 use std::time::{Duration, Instant};
 
+use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
+use reqwest::redirect::Policy;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -11,7 +13,27 @@ const DEVICE_GRANT_TYPE: &str = "urn:ietf:params:oauth:grant-type:device_code";
 const DEFAULT_API_ORIGIN: &str = "http://localhost:3001";
 const DEFAULT_DEVICE_CODE_EXPIRES_IN_SECONDS: u64 = 600;
 const DEFAULT_DEVICE_POLL_INTERVAL_SECONDS: u64 = 5;
+const MAX_ERROR_MESSAGE_LENGTH: usize = 1_024;
 const USER_AGENT: &str = concat!("PentaVault CLI/", env!("CARGO_PKG_VERSION"));
+const PATH_SEGMENT_ENCODE_SET: &AsciiSet = &CONTROLS
+    .add(b' ')
+    .add(b'"')
+    .add(b'#')
+    .add(b'%')
+    .add(b'/')
+    .add(b':')
+    .add(b'<')
+    .add(b'>')
+    .add(b'?')
+    .add(b'@')
+    .add(b'[')
+    .add(b'\\')
+    .add(b']')
+    .add(b'^')
+    .add(b'`')
+    .add(b'{')
+    .add(b'|')
+    .add(b'}');
 
 #[derive(Debug, Deserialize)]
 pub struct DeviceCode {
@@ -41,6 +63,123 @@ struct DeviceTokenResponse {
 pub struct ApiClient {
     base_url: String,
     http: Client,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthSessionResponse {
+    pub session: AuthSession,
+    pub user: AuthUser,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthSession {
+    pub id: Option<String>,
+    pub expires_at: Option<String>,
+    pub active_organization_id: Option<String>,
+    pub active_organization_slug: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthUser {
+    pub id: Option<String>,
+    pub email: Option<String>,
+    pub name: Option<String>,
+    pub username: Option<String>,
+    pub email_verified: bool,
+    pub two_factor_enabled: bool,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliOrganization {
+    pub id: String,
+    pub name: String,
+    pub slug: String,
+    pub active: bool,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliOrganizationMembership {
+    pub role: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliOrganizationEntry {
+    pub organization: CliOrganization,
+    pub membership: CliOrganizationMembership,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CliOrganizationsResponse {
+    pub organizations: Vec<CliOrganizationEntry>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveOrganizationResponse {
+    pub active_organization_id: Option<String>,
+    pub active_organization_slug: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliApiKey {
+    pub id: String,
+    pub name: Option<String>,
+    pub start: Option<String>,
+    pub prefix: Option<String>,
+    pub enabled: bool,
+    pub expires_at: Option<String>,
+    pub created_at: String,
+    pub last_request: Option<String>,
+    pub request_count: u64,
+    pub source: String,
+    pub token_type: String,
+    pub organization_id: Option<String>,
+    pub organization_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliApiKeysResponse {
+    pub api_keys: Vec<CliApiKey>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatedApiKeyMetadata {
+    pub id: Option<String>,
+    pub name: Option<String>,
+    pub start: Option<String>,
+    pub prefix: Option<String>,
+    pub expires_at: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateApiKeyResponse {
+    pub header_name: String,
+    pub key: String,
+    pub api_key: CreatedApiKeyMetadata,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RevokeApiKeyResponse {
+    pub revoked: bool,
+    pub api_key_id: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RevokeCliSessionResponse {
+    pub revoked: bool,
+    pub session_id: String,
 }
 
 #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -109,6 +248,47 @@ pub struct CliConfigsResponse {
     pub configs: Vec<CliConfig>,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CliConfigResponse {
+    pub config: CliConfig,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliChangeRequest {
+    pub id: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub status: String,
+    pub source_config_id: String,
+    pub target_config_id: String,
+    pub requested_by_user_id: String,
+    pub created_at: String,
+    #[serde(default)]
+    pub items: Vec<serde_json::Value>,
+    #[serde(default)]
+    pub approvals: Vec<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CliChangeRequestsResponse {
+    pub requests: Vec<CliChangeRequest>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CliChangeRequestResponse {
+    pub request: CliChangeRequest,
+}
+
+pub struct CreateChangeRequestInput<'a> {
+    pub source_config_id: &'a str,
+    pub target_config_id: Option<&'a str>,
+    pub title: &'a str,
+    pub description: Option<&'a str>,
+    pub all_keys: bool,
+    pub secret_names: &'a [String],
+}
+
 #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CliSecret {
@@ -156,15 +336,86 @@ pub struct CliSecretValuesResponse {
 }
 
 impl ApiClient {
-    pub fn new(api_url: Option<&str>) -> Result<Self, String> {
-        let base_url = normalize_api_origin(api_url.unwrap_or(DEFAULT_API_ORIGIN))?;
+    pub fn new(api_url: Option<&str>, allow_insecure_http: bool) -> Result<Self, String> {
+        let base_url =
+            normalize_api_origin(api_url.unwrap_or(DEFAULT_API_ORIGIN), allow_insecure_http)?;
         let http = Client::builder()
+            .connect_timeout(Duration::from_secs(5))
             .timeout(Duration::from_secs(15))
+            .redirect(Policy::none())
             .user_agent(USER_AGENT)
             .build()
             .map_err(|error| format!("unable to create HTTP client: {error}"))?;
 
         Ok(Self { base_url, http })
+    }
+
+    pub fn session(&self, token: &str) -> Result<AuthSessionResponse, String> {
+        self.get_json(token, "/api/v1/auth/session", &[])
+    }
+
+    pub fn list_organizations(&self, token: &str) -> Result<CliOrganizationsResponse, String> {
+        self.get_json(token, "/api/v1/auth/organizations", &[])
+    }
+
+    pub fn set_active_organization(
+        &self,
+        token: &str,
+        organization: &str,
+    ) -> Result<ActiveOrganizationResponse, String> {
+        self.post_json(
+            token,
+            "/api/v1/auth/organizations/active",
+            &json!({ "organizationId": organization }),
+        )
+    }
+
+    pub fn list_api_keys(&self, token: &str) -> Result<CliApiKeysResponse, String> {
+        self.get_json(token, "/api/v1/auth/api-keys", &[])
+    }
+
+    pub fn create_api_key(
+        &self,
+        token: &str,
+        name: Option<&str>,
+        token_type: &str,
+        organization_id: Option<&str>,
+    ) -> Result<CreateApiKeyResponse, String> {
+        self.post_json(
+            token,
+            "/api/v1/auth/api-keys",
+            &json!({
+                "name": name,
+                "organizationId": organization_id,
+                "tokenType": token_type,
+            }),
+        )
+    }
+
+    pub fn revoke_api_key(
+        &self,
+        token: &str,
+        api_key_id: &str,
+    ) -> Result<RevokeApiKeyResponse, String> {
+        self.post_json(
+            token,
+            &format!(
+                "/api/v1/auth/api-keys/{}/revoke",
+                encode_path_segment(api_key_id)
+            ),
+            &json!({}),
+        )
+    }
+
+    pub fn revoke_cli_session(
+        &self,
+        token: &str,
+        session_id: &str,
+    ) -> Result<RevokeCliSessionResponse, String> {
+        self.delete_json(
+            token,
+            &format!("/api/v1/cli/sessions/{}", encode_path_segment(session_id)),
+        )
     }
 
     pub fn request_device_code(&self) -> Result<DeviceCode, String> {
@@ -280,7 +531,10 @@ impl ApiClient {
     ) -> Result<CliEnvironmentsResponse, String> {
         self.get_json(
             token,
-            &format!("/api/v1/cli/projects/{project_id}/environments"),
+            &format!(
+                "/api/v1/cli/projects/{}/environments",
+                encode_path_segment(project_id)
+            ),
             &[],
         )
     }
@@ -292,8 +546,93 @@ impl ApiClient {
     ) -> Result<CliConfigsResponse, String> {
         self.get_json(
             token,
-            &format!("/api/v1/cli/projects/{project_id}/configs"),
+            &format!(
+                "/api/v1/cli/projects/{}/configs",
+                encode_path_segment(project_id)
+            ),
             &[],
+        )
+    }
+
+    pub fn create_config(
+        &self,
+        token: &str,
+        project_id: &str,
+        environment_id: &str,
+        name: &str,
+        slug: &str,
+        parent_config_id: Option<&str>,
+    ) -> Result<CliConfigResponse, String> {
+        self.post_json(
+            token,
+            &format!(
+                "/api/v1/projects/{}/configs",
+                encode_path_segment(project_id)
+            ),
+            &json!({
+                "environmentId": environment_id,
+                "name": name,
+                "slug": slug,
+                "parentConfigId": parent_config_id,
+            }),
+        )
+    }
+
+    pub fn list_change_requests(
+        &self,
+        token: &str,
+        project_id: &str,
+    ) -> Result<CliChangeRequestsResponse, String> {
+        self.get_json(
+            token,
+            &format!(
+                "/api/v1/projects/{}/change-requests",
+                encode_path_segment(project_id)
+            ),
+            &[],
+        )
+    }
+
+    pub fn create_change_request(
+        &self,
+        token: &str,
+        project_id: &str,
+        input: CreateChangeRequestInput<'_>,
+    ) -> Result<CliChangeRequestResponse, String> {
+        self.post_json(
+            token,
+            &format!(
+                "/api/v1/projects/{}/change-requests",
+                encode_path_segment(project_id)
+            ),
+            &json!({
+                "sourceConfigId": input.source_config_id,
+                "targetConfigId": input.target_config_id,
+                "title": input.title,
+                "description": input.description,
+                "allKeys": input.all_keys,
+                "secretNames": input.secret_names,
+            }),
+        )
+    }
+
+    pub fn change_request_action(
+        &self,
+        token: &str,
+        project_id: &str,
+        request_id: &str,
+        action: &str,
+    ) -> Result<CliChangeRequestResponse, String> {
+        debug_assert!(matches!(action, "approve" | "merge" | "cancel"));
+        self.post_json(
+            token,
+            &format!(
+                "/api/v1/projects/{}/change-requests/{}/{}",
+                encode_path_segment(project_id),
+                encode_path_segment(request_id),
+                action
+            ),
+            &json!({}),
         )
     }
 
@@ -310,7 +649,10 @@ impl ApiClient {
         }
         self.get_json(
             token,
-            &format!("/api/v1/cli/projects/{project_id}/secrets"),
+            &format!(
+                "/api/v1/cli/projects/{}/secrets",
+                encode_path_segment(project_id)
+            ),
             &query,
         )
     }
@@ -329,7 +671,11 @@ impl ApiClient {
         }
         self.get_json(
             token,
-            &format!("/api/v1/cli/projects/{project_id}/secrets/{name}"),
+            &format!(
+                "/api/v1/cli/projects/{}/secrets/{}",
+                encode_path_segment(project_id),
+                encode_path_segment(name)
+            ),
             &query,
         )
     }
@@ -348,7 +694,10 @@ impl ApiClient {
         }
         self.get_json(
             token,
-            &format!("/api/v1/cli/projects/{project_id}/secrets/values"),
+            &format!(
+                "/api/v1/cli/projects/{}/secrets/values",
+                encode_path_segment(project_id)
+            ),
             &query,
         )
     }
@@ -381,12 +730,60 @@ impl ApiClient {
         let status = response.status();
 
         if !status.is_success() {
-            let body = response.text().unwrap_or_default();
-            return Err(if body.trim().is_empty() {
-                format!("request failed with HTTP status {status}")
-            } else {
-                format!("request failed with HTTP status {status}: {body}")
-            });
+            return Err(format_error_response(
+                status,
+                response.text().unwrap_or_default(),
+            ));
+        }
+
+        response
+            .json::<T>()
+            .map_err(|error| format!("unable to parse API response: {error}"))
+    }
+
+    fn post_json<B: Serialize + ?Sized, T: for<'de> Deserialize<'de>>(
+        &self,
+        token: &str,
+        path: &str,
+        body: &B,
+    ) -> Result<T, String> {
+        let response = self
+            .http
+            .post(self.url(path))
+            .headers(auth_headers(token)?)
+            .json(body)
+            .send()
+            .map_err(|error| format!("request failed: {error}"))?;
+        let status = response.status();
+        if !status.is_success() {
+            return Err(format_error_response(
+                status,
+                response.text().unwrap_or_default(),
+            ));
+        }
+
+        response
+            .json::<T>()
+            .map_err(|error| format!("unable to parse API response: {error}"))
+    }
+
+    fn delete_json<T: for<'de> Deserialize<'de>>(
+        &self,
+        token: &str,
+        path: &str,
+    ) -> Result<T, String> {
+        let response = self
+            .http
+            .delete(self.url(path))
+            .headers(auth_headers(token)?)
+            .send()
+            .map_err(|error| format!("request failed: {error}"))?;
+        let status = response.status();
+        if !status.is_success() {
+            return Err(format_error_response(
+                status,
+                response.text().unwrap_or_default(),
+            ));
         }
 
         response
@@ -415,7 +812,7 @@ fn auth_headers(token: &str) -> Result<HeaderMap, String> {
     Ok(headers)
 }
 
-fn normalize_api_origin(input: &str) -> Result<String, String> {
+fn normalize_api_origin(input: &str, allow_insecure_http: bool) -> Result<String, String> {
     let trimmed = input.trim().trim_end_matches('/');
     if trimmed.is_empty() {
         return Err("API URL cannot be empty".to_owned());
@@ -425,8 +822,60 @@ fn normalize_api_origin(input: &str) -> Result<String, String> {
     if !(without_api_suffix.starts_with("http://") || without_api_suffix.starts_with("https://")) {
         return Err("API URL must start with http:// or https://".to_owned());
     }
+    let parsed = reqwest::Url::parse(without_api_suffix)
+        .map_err(|error| format!("API URL is invalid: {error}"))?;
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err("API URL must not contain embedded credentials".to_owned());
+    }
+    if parsed.query().is_some() || parsed.fragment().is_some() {
+        return Err("API URL must not contain a query string or fragment".to_owned());
+    }
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+        return Err("API URL must start with http:// or https://".to_owned());
+    }
+    if parsed.scheme() == "http" && !allow_insecure_http && !is_loopback_host(parsed.host_str()) {
+        return Err(
+            "plain HTTP is only allowed for localhost. Use HTTPS or pass --allow-insecure-http for a trusted development network."
+                .to_owned(),
+        );
+    }
 
     Ok(without_api_suffix.to_owned())
+}
+
+fn is_loopback_host(host: Option<&str>) -> bool {
+    matches!(host, Some("localhost" | "127.0.0.1" | "::1"))
+}
+
+fn encode_path_segment(value: &str) -> String {
+    utf8_percent_encode(value, PATH_SEGMENT_ENCODE_SET).to_string()
+}
+
+fn format_error_response(status: reqwest::StatusCode, body: String) -> String {
+    let message = serde_json::from_str::<serde_json::Value>(&body)
+        .ok()
+        .and_then(|payload| {
+            payload
+                .get("error")
+                .and_then(serde_json::Value::as_str)
+                .or_else(|| payload.get("message").and_then(serde_json::Value::as_str))
+                .map(str::to_owned)
+        })
+        .unwrap_or_else(|| body.trim().to_owned());
+    let sanitized = message
+        .chars()
+        .filter(|character| !character.is_control() || matches!(character, '\t' | '\n'))
+        .take(MAX_ERROR_MESSAGE_LENGTH)
+        .collect::<String>();
+
+    if sanitized.trim().is_empty() {
+        format!("request failed with HTTP status {status}")
+    } else {
+        format!(
+            "request failed with HTTP status {status}: {}",
+            sanitized.trim()
+        )
+    }
 }
 
 #[cfg(test)]
@@ -436,9 +885,37 @@ mod tests {
     #[test]
     fn strips_api_suffix_from_configured_api_url() {
         assert_eq!(
-            normalize_api_origin("http://localhost:3001/api").expect("url"),
+            normalize_api_origin("http://localhost:3001/api", false).expect("url"),
             "http://localhost:3001"
         );
+    }
+
+    #[test]
+    fn rejects_insecure_remote_and_credentialed_api_urls() {
+        assert!(normalize_api_origin("http://api.example.test", false).is_err());
+        assert_eq!(
+            normalize_api_origin("http://api.example.test", true).expect("explicit override"),
+            "http://api.example.test"
+        );
+        assert!(normalize_api_origin("https://user:pass@api.example.test", false).is_err());
+    }
+
+    #[test]
+    fn encodes_untrusted_path_segments() {
+        let encoded = encode_path_segment("../secret/name");
+        assert!(!encoded.contains('/'));
+        assert!(encoded.contains("%2F"));
+    }
+
+    #[test]
+    fn sanitizes_and_limits_error_responses() {
+        let message = format_error_response(
+            reqwest::StatusCode::BAD_REQUEST,
+            serde_json::json!({ "error": format!("bad\u{1b}[31m{}", "x".repeat(2_000)) })
+                .to_string(),
+        );
+        assert!(!message.contains('\u{1b}'));
+        assert!(message.len() < 1_100);
     }
 
     #[test]

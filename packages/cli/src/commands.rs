@@ -1,17 +1,24 @@
+use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
 use std::io;
+use std::path::Path;
 use std::process::Command as ProcessCommand;
 use std::process::ExitCode;
 
 use clap::CommandFactory;
 use clap_complete::generate;
+use dialoguer::{theme::ColorfulTheme, Select};
 
-use crate::api::{ApiClient, CliSecretValuesResponse};
+use crate::api::{
+    ApiClient, CliChangeRequest, CliChangeRequestResponse, CliConfig, CliSecret,
+    CliSecretValuesResponse, CreateChangeRequestInput,
+};
 use crate::auth::{self, Credential};
 use crate::cli::{
-    ChangeRequestsCommand, Cli, Command, ConfigsCommand, EnvsCommand, OutputFormat,
-    ProjectsCommand, SecretPullFormat, SecretsCommand,
+    ApiKeysCommand, ChangeRequestsCommand, Cli, Command, ConfigsCommand, EnvsCommand,
+    OrganizationsCommand, OutputFormat, ProjectsCommand, SecretPullFormat, SecretsCommand,
 };
-use crate::config::ConfigStore;
+use crate::config::{atomic_write, AppConfig, ConfigStore};
 
 const EXIT_SUCCESS: u8 = 0;
 const EXIT_GENERIC_FAILURE: u8 = 1;
@@ -24,15 +31,18 @@ pub fn dispatch(cli: Cli) -> ExitCode {
         Command::Doctor => doctor(&cli),
         Command::Completion { shell } => completion(shell.clone()),
         Command::Login { token_stdin } => login(&cli, *token_stdin),
-        Command::Logout { purge_cache } => logout(*purge_cache),
+        Command::Logout { purge_cache } => logout(&cli, *purge_cache),
         Command::Whoami => whoami(&cli),
+        Command::Init { yes, package_json } => init(&cli, *yes, *package_json),
+        Command::Organizations(command) => organizations(&cli, command),
+        Command::ApiKeys(command) => api_keys(&cli, command),
         Command::Config(command) => config(command),
         Command::Projects(command) => projects(&cli, command),
         Command::Envs(command) => envs(&cli, command),
         Command::Configs(command) => configs(&cli, command),
         Command::Secrets(command) => secrets(&cli, command),
         Command::Run { command } => run(&cli, command),
-        Command::ChangeRequests(command) => change_requests(command),
+        Command::ChangeRequests(command) => change_requests(&cli, command),
     }
 }
 
@@ -98,36 +108,347 @@ fn configs(cli: &Cli, command: &ConfigsCommand) -> ExitCode {
         }
         ConfigsCommand::Create { name, slug, parent } => {
             let resolved_slug = slug.clone().unwrap_or_else(|| slugify(name));
-            println!(
-                "Config branch create is queued for API support: name=`{name}`, slug=`{resolved_slug}`, parent=`{}`.",
-                parent.as_deref().unwrap_or("selected root")
-            );
-            ExitCode::from(EXIT_SUCCESS)
+            if resolved_slug.is_empty() {
+                eprintln!("Error: config name must contain letters or numbers.");
+                return ExitCode::from(EXIT_USAGE_OR_CONFIG);
+            }
+            let context = match authenticated_project_context(cli) {
+                Ok(value) => value,
+                Err((message, code)) => {
+                    eprintln!("Error: {message}");
+                    return ExitCode::from(code);
+                }
+            };
+            let environments = match context
+                .client
+                .list_environments(&context.token, &context.project_id)
+            {
+                Ok(response) => response.environments,
+                Err(error) => return fail_api(error),
+            };
+            let Some(environment) = environments.iter().find(|environment| {
+                environment.id == context.environment || environment.slug == context.environment
+            }) else {
+                eprintln!(
+                    "Error: selected environment `{}` was not found.",
+                    context.environment
+                );
+                return ExitCode::from(EXIT_USAGE_OR_CONFIG);
+            };
+            let configs = match context
+                .client
+                .list_configs(&context.token, &context.project_id)
+            {
+                Ok(response) => response.configs,
+                Err(error) => return fail_api(error),
+            };
+            let parent_config = if let Some(parent) = parent.as_deref() {
+                configs
+                    .iter()
+                    .find(|config| config.id == parent || config.slug == parent)
+            } else {
+                configs.iter().find(|config| {
+                    config.environment_id == environment.id && config.config_type == "root"
+                })
+            };
+            let Some(parent_config) = parent_config else {
+                eprintln!(
+                    "Error: parent config was not found for `{}`.",
+                    environment.slug
+                );
+                return ExitCode::from(EXIT_USAGE_OR_CONFIG);
+            };
+            if parent_config.environment_id != environment.id {
+                eprintln!("Error: parent config belongs to another environment.");
+                return ExitCode::from(EXIT_USAGE_OR_CONFIG);
+            }
+
+            match context.client.create_config(
+                &context.token,
+                &context.project_id,
+                &environment.id,
+                name,
+                &resolved_slug,
+                Some(&parent_config.id),
+            ) {
+                Ok(response) => {
+                    if let Err(error) =
+                        update_config(|config| config.set("config", response.config.slug.clone()))
+                    {
+                        eprintln!("Warning: config created, but selection was not saved: {error}");
+                    }
+                    if wants_json(cli) {
+                        println!("{}", serde_json::to_string(&response).expect("json"));
+                    } else {
+                        println!("Created and selected config `{}`.", response.config.slug);
+                    }
+                    ExitCode::from(EXIT_SUCCESS)
+                }
+                Err(error) => fail_api(error),
+            }
         }
         ConfigsCommand::Diff { target } => {
-            println!(
-                "Config diff will compare the selected config against `{}`.",
-                target.as_deref().unwrap_or("root")
-            );
-            ExitCode::from(EXIT_SUCCESS)
+            let context = match authenticated_project_context(cli) {
+                Ok(value) => value,
+                Err((message, code)) => {
+                    eprintln!("Error: {message}");
+                    return ExitCode::from(code);
+                }
+            };
+            let Some(source_selector) = context.config.as_deref() else {
+                eprintln!("Error: select a source config before running diff.");
+                return ExitCode::from(EXIT_USAGE_OR_CONFIG);
+            };
+            let configs = match context
+                .client
+                .list_configs(&context.token, &context.project_id)
+            {
+                Ok(response) => response.configs,
+                Err(error) => return fail_api(error),
+            };
+            let Some(source) = find_config(&configs, source_selector) else {
+                eprintln!("Error: source config `{source_selector}` was not found.");
+                return ExitCode::from(EXIT_USAGE_OR_CONFIG);
+            };
+            let target_config = target
+                .as_deref()
+                .and_then(|target| find_config(&configs, target))
+                .or_else(|| {
+                    configs.iter().find(|config| {
+                        config.environment_id == source.environment_id
+                            && config.config_type == "root"
+                    })
+                });
+            let Some(target_config) = target_config else {
+                eprintln!("Error: target config was not found.");
+                return ExitCode::from(EXIT_USAGE_OR_CONFIG);
+            };
+            let source_secrets = match context.client.list_secrets(
+                &context.token,
+                &context.project_id,
+                &context.environment,
+                Some(&source.id),
+            ) {
+                Ok(response) => response.secrets,
+                Err(error) => return fail_api(error),
+            };
+            let target_secrets = match context.client.list_secrets(
+                &context.token,
+                &context.project_id,
+                &context.environment,
+                Some(&target_config.id),
+            ) {
+                Ok(response) => response.secrets,
+                Err(error) => return fail_api(error),
+            };
+            print_config_diff(cli, source, target_config, source_secrets, target_secrets)
         }
     }
 }
 
-fn change_requests(command: &ChangeRequestsCommand) -> ExitCode {
-    match command {
-        ChangeRequestsCommand::List => {
-            println!("Change request listing is available in the web console.");
+fn change_requests(cli: &Cli, command: &ChangeRequestsCommand) -> ExitCode {
+    let context = match authenticated_project_context(cli) {
+        Ok(value) => value,
+        Err((message, code)) => {
+            eprintln!("Error: {message}");
+            return ExitCode::from(code);
         }
-        ChangeRequestsCommand::Create { config, target } => {
-            println!("Change request create queued: {config} -> {target}.");
-        }
-        ChangeRequestsCommand::Approve { id } => println!("Approve change request `{id}` queued."),
-        ChangeRequestsCommand::Merge { id } => println!("Merge change request `{id}` queued."),
-        ChangeRequestsCommand::Cancel { id } => println!("Cancel change request `{id}` queued."),
-    }
+    };
 
+    match command {
+        ChangeRequestsCommand::List => match context
+            .client
+            .list_change_requests(&context.token, &context.project_id)
+        {
+            Ok(response) => {
+                if wants_json(cli) {
+                    println!("{}", serde_json::to_string(&response).expect("json"));
+                } else if response.requests.is_empty() {
+                    println!("No change requests found.");
+                } else {
+                    for request in response.requests {
+                        print_change_request(&request);
+                    }
+                }
+                ExitCode::from(EXIT_SUCCESS)
+            }
+            Err(error) => fail_api(error),
+        },
+        ChangeRequestsCommand::Create {
+            config,
+            target,
+            title,
+            description,
+            secrets,
+            all,
+        } => {
+            let configs = match context
+                .client
+                .list_configs(&context.token, &context.project_id)
+            {
+                Ok(response) => response.configs,
+                Err(error) => return fail_api(error),
+            };
+            let Some(source) = find_config(&configs, config) else {
+                eprintln!("Error: source config `{config}` was not found.");
+                return ExitCode::from(EXIT_USAGE_OR_CONFIG);
+            };
+            let Some(target_config) = find_config(&configs, target) else {
+                eprintln!("Error: target config `{target}` was not found.");
+                return ExitCode::from(EXIT_USAGE_OR_CONFIG);
+            };
+            let title = title
+                .clone()
+                .unwrap_or_else(|| format!("Merge {} into {}", source.slug, target_config.slug));
+            let all_keys = *all || secrets.is_empty();
+            match context.client.create_change_request(
+                &context.token,
+                &context.project_id,
+                CreateChangeRequestInput {
+                    source_config_id: &source.id,
+                    target_config_id: Some(&target_config.id),
+                    title: &title,
+                    description: description.as_deref(),
+                    all_keys,
+                    secret_names: secrets,
+                },
+            ) {
+                Ok(response) => print_change_request_response(cli, response),
+                Err(error) => fail_api(error),
+            }
+        }
+        ChangeRequestsCommand::Approve { id } => {
+            change_request_action(cli, &context, id, "approve")
+        }
+        ChangeRequestsCommand::Merge { id } => change_request_action(cli, &context, id, "merge"),
+        ChangeRequestsCommand::Cancel { id } => change_request_action(cli, &context, id, "cancel"),
+    }
+}
+
+fn find_config<'a>(configs: &'a [CliConfig], selector: &str) -> Option<&'a CliConfig> {
+    configs
+        .iter()
+        .find(|config| config.id == selector || config.slug == selector)
+}
+
+fn print_config_diff(
+    cli: &Cli,
+    source: &CliConfig,
+    target: &CliConfig,
+    source_secrets: Vec<CliSecret>,
+    target_secrets: Vec<CliSecret>,
+) -> ExitCode {
+    let source_by_name = source_secrets
+        .into_iter()
+        .map(|secret| (secret.name.clone(), secret))
+        .collect::<BTreeMap<_, _>>();
+    let target_by_name = target_secrets
+        .into_iter()
+        .map(|secret| (secret.name.clone(), secret))
+        .collect::<BTreeMap<_, _>>();
+    let names = source_by_name
+        .keys()
+        .chain(target_by_name.keys())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let changes = names
+        .into_iter()
+        .map(|name| {
+            let source_secret = source_by_name.get(&name);
+            let target_secret = target_by_name.get(&name);
+            let status = match (source_secret, target_secret) {
+                (Some(_), None) => "added",
+                (None, Some(_)) => "removed",
+                (Some(left), Some(right))
+                    if left.current_version_id != right.current_version_id
+                        || left.status != right.status
+                        || left.mode != right.mode =>
+                {
+                    "changed"
+                }
+                _ => "unchanged",
+            };
+            serde_json::json!({
+                "name": name,
+                "status": status,
+                "sourceVersion": source_secret.and_then(|secret| secret.version),
+                "targetVersion": target_secret.and_then(|secret| secret.version),
+            })
+        })
+        .collect::<Vec<_>>();
+
+    if wants_json(cli) {
+        println!(
+            "{}",
+            serde_json::json!({
+                "source": { "id": source.id, "slug": source.slug },
+                "target": { "id": target.id, "slug": target.slug },
+                "changes": changes,
+            })
+        );
+    } else {
+        println!("Config diff: {} -> {}", source.slug, target.slug);
+        let mut visible = 0;
+        for change in &changes {
+            let status = change["status"].as_str().unwrap_or("unchanged");
+            if status == "unchanged" {
+                continue;
+            }
+            visible += 1;
+            let marker = match status {
+                "added" => "+",
+                "removed" => "-",
+                _ => "~",
+            };
+            println!(
+                "{marker} {} ({status})",
+                change["name"].as_str().unwrap_or("unknown")
+            );
+        }
+        if visible == 0 {
+            println!("No metadata differences.");
+        } else {
+            println!("{visible} changed secret(s); values were not downloaded.");
+        }
+    }
     ExitCode::from(EXIT_SUCCESS)
+}
+
+fn change_request_action(
+    cli: &Cli,
+    context: &ProjectContext,
+    request_id: &str,
+    action: &str,
+) -> ExitCode {
+    match context.client.change_request_action(
+        &context.token,
+        &context.project_id,
+        request_id,
+        action,
+    ) {
+        Ok(response) => print_change_request_response(cli, response),
+        Err(error) => fail_api(error),
+    }
+}
+
+fn print_change_request_response(cli: &Cli, response: CliChangeRequestResponse) -> ExitCode {
+    if wants_json(cli) {
+        println!("{}", serde_json::to_string(&response).expect("json"));
+    } else {
+        print_change_request(&response.request);
+    }
+    ExitCode::from(EXIT_SUCCESS)
+}
+
+fn print_change_request(request: &CliChangeRequest) {
+    println!(
+        "{}\t{}\t{} -> {}\t{}",
+        request.id,
+        request.status,
+        request.source_config_id,
+        request.target_config_id,
+        request.title
+    );
 }
 
 fn version(cli: &Cli) -> ExitCode {
@@ -215,7 +536,7 @@ fn login_with_device_code(cli: &Cli) -> ExitCode {
             return ExitCode::from(EXIT_USAGE_OR_CONFIG);
         }
     };
-    let client = match ApiClient::new(api_url.as_deref()) {
+    let client = match ApiClient::new(api_url.as_deref(), cli.allow_insecure_http) {
         Ok(client) => client,
         Err(error) => {
             eprintln!("Error: {error}");
@@ -258,7 +579,36 @@ fn login_with_device_code(cli: &Cli) -> ExitCode {
     }
 }
 
-fn logout(purge_cache: bool) -> ExitCode {
+fn logout(cli: &Cli, purge_cache: bool) -> ExitCode {
+    let credential = match auth::effective_credential() {
+        Ok(value) => value,
+        Err(error) => {
+            eprintln!("Error: {error}");
+            return ExitCode::from(EXIT_GENERIC_FAILURE);
+        }
+    };
+
+    if matches!(credential, Some(Credential::EnvironmentToken)) {
+        eprintln!("Error: PENTAVAULT_TOKEN is active and cannot be removed by the CLI.");
+        eprintln!("Unset PENTAVAULT_TOKEN in this shell to log out.");
+        return ExitCode::from(EXIT_USAGE_OR_CONFIG);
+    }
+
+    if matches!(credential, Some(Credential::StoredToken)) {
+        if let Ok((client, token)) = authenticated_client(cli) {
+            match client.session(&token) {
+                Ok(session) => {
+                    if let Some(session_id) = session.session.id {
+                        if let Err(error) = client.revoke_cli_session(&token, &session_id) {
+                            eprintln!("Warning: remote session could not be revoked: {error}");
+                        }
+                    }
+                }
+                Err(error) => eprintln!("Warning: remote session could not be checked: {error}"),
+            }
+        }
+    }
+
     if let Err(error) = auth::delete_stored_token() {
         eprintln!("Error: {error}");
         return ExitCode::from(EXIT_GENERIC_FAILURE);
@@ -266,57 +616,447 @@ fn logout(purge_cache: bool) -> ExitCode {
 
     println!("Removed stored PentaVault credential.");
     if purge_cache {
-        println!("Encrypted cache purge will be available with M4 cache support.");
+        println!("No local secret cache exists; nothing else to purge.");
     }
 
     ExitCode::from(EXIT_SUCCESS)
 }
 
 fn whoami(cli: &Cli) -> ExitCode {
-    match auth::effective_credential() {
-        Ok(Some(Credential::EnvironmentToken)) => {
-            if cli.json {
-                println!(
-                    "{}",
-                    serde_json::json!({ "authenticated": true, "source": "environment" })
-                );
-            } else {
-                println!("Authenticated with PENTAVAULT_TOKEN.");
-            }
-            ExitCode::from(EXIT_SUCCESS)
+    let (client, token) = match authenticated_client(cli) {
+        Ok(value) => value,
+        Err((message, code)) => {
+            eprintln!("Error: {message}");
+            return ExitCode::from(code);
         }
-        Ok(Some(Credential::StoredToken)) => {
-            if cli.json {
-                println!(
-                    "{}",
-                    serde_json::json!({ "authenticated": true, "source": "credential-store" })
-                );
-            } else {
-                println!("Authenticated with the OS credential store.");
-            }
-            ExitCode::from(EXIT_SUCCESS)
-        }
-        Ok(None) => {
-            if cli.json {
-                println!("{}", serde_json::json!({ "authenticated": false }));
-            } else {
-                eprintln!("Error: not authenticated.");
-                eprintln!();
-                eprintln!(
-                    "Next: run `pv login --token-stdin` or set PENTAVAULT_TOKEN for this process."
-                );
-            }
-            ExitCode::from(EXIT_AUTH_REQUIRED)
-        }
+    };
+    let source = match auth::effective_credential() {
+        Ok(Some(Credential::EnvironmentToken)) => "environment",
+        Ok(Some(Credential::StoredToken)) => "credential-store",
+        Ok(None) => "unknown",
         Err(error) => {
             eprintln!("Error: {error}");
-            ExitCode::from(EXIT_GENERIC_FAILURE)
+            return ExitCode::from(EXIT_GENERIC_FAILURE);
+        }
+    };
+
+    match client.session(&token) {
+        Ok(session) => {
+            if wants_json(cli) {
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "authenticated": true,
+                        "source": source,
+                        "session": session.session,
+                        "user": session.user,
+                    })
+                );
+            } else {
+                let display_name = session
+                    .user
+                    .name
+                    .as_deref()
+                    .or(session.user.username.as_deref())
+                    .or(session.user.email.as_deref())
+                    .unwrap_or("PentaVault user");
+                println!("{display_name}");
+                if let Some(email) = session.user.email.as_deref() {
+                    println!("Email: {email}");
+                }
+                println!("Credential: {source}");
+                println!(
+                    "Organization: {}",
+                    session
+                        .session
+                        .active_organization_slug
+                        .as_deref()
+                        .or(session.session.active_organization_id.as_deref())
+                        .unwrap_or("not selected")
+                );
+                println!(
+                    "MFA: {}",
+                    if session.user.two_factor_enabled {
+                        "enabled"
+                    } else {
+                        "disabled"
+                    }
+                );
+            }
+            ExitCode::from(EXIT_SUCCESS)
+        }
+        Err(error) => fail_api(error),
+    }
+}
+
+fn organizations(cli: &Cli, command: &OrganizationsCommand) -> ExitCode {
+    let (client, token) = match authenticated_client(cli) {
+        Ok(value) => value,
+        Err((message, code)) => {
+            eprintln!("Error: {message}");
+            return ExitCode::from(code);
+        }
+    };
+
+    match command {
+        OrganizationsCommand::List => match client.list_organizations(&token) {
+            Ok(response) => {
+                if wants_json(cli) {
+                    println!("{}", serde_json::to_string(&response).expect("json"));
+                } else if response.organizations.is_empty() {
+                    println!("No organizations are available for this account.");
+                } else {
+                    println!("Organizations ({})", response.organizations.len());
+                    for entry in response.organizations {
+                        let marker = if entry.organization.active { "*" } else { " " };
+                        println!(
+                            "{marker} {}\t{}\t{}\t{}",
+                            entry.organization.id,
+                            entry.organization.slug,
+                            entry.membership.role,
+                            entry.organization.name
+                        );
+                    }
+                }
+                ExitCode::from(EXIT_SUCCESS)
+            }
+            Err(error) => fail_api(error),
+        },
+        OrganizationsCommand::Select { organization } => {
+            match client.set_active_organization(&token, organization) {
+                Ok(response) => {
+                    if let Err(error) =
+                        update_config(|config| config.set("organization", organization.to_owned()))
+                    {
+                        eprintln!("Warning: organization changed remotely but local config failed: {error}");
+                    }
+                    if wants_json(cli) {
+                        println!("{}", serde_json::to_string(&response).expect("json"));
+                    } else {
+                        println!(
+                            "Selected organization `{}`.",
+                            response
+                                .active_organization_slug
+                                .as_deref()
+                                .or(response.active_organization_id.as_deref())
+                                .unwrap_or(organization)
+                        );
+                    }
+                    ExitCode::from(EXIT_SUCCESS)
+                }
+                Err(error) => fail_api(error),
+            }
         }
     }
 }
 
+fn api_keys(cli: &Cli, command: &ApiKeysCommand) -> ExitCode {
+    let (client, token) = match authenticated_client(cli) {
+        Ok(value) => value,
+        Err((message, code)) => {
+            eprintln!("Error: {message}");
+            return ExitCode::from(code);
+        }
+    };
+    if token.starts_with("pvk_") {
+        eprintln!("Error: an API key cannot manage other API keys.");
+        eprintln!("Run `pv login` to use a browser-approved session, then retry.");
+        return ExitCode::from(EXIT_AUTH_REQUIRED);
+    }
+
+    match command {
+        ApiKeysCommand::List => match client.list_api_keys(&token) {
+            Ok(response) => {
+                if wants_json(cli) {
+                    println!("{}", serde_json::to_string(&response).expect("json"));
+                } else if response.api_keys.is_empty() {
+                    println!("No API keys found.");
+                } else {
+                    println!("API keys ({})", response.api_keys.len());
+                    for key in response.api_keys {
+                        println!(
+                            "{}\t{}\t{}\t{}\t{}",
+                            key.id,
+                            key.prefix
+                                .as_deref()
+                                .or(key.start.as_deref())
+                                .unwrap_or("-"),
+                            key.token_type,
+                            if key.enabled { "active" } else { "revoked" },
+                            key.name.as_deref().unwrap_or("unnamed")
+                        );
+                    }
+                }
+                ExitCode::from(EXIT_SUCCESS)
+            }
+            Err(error) => fail_api(error),
+        },
+        ApiKeysCommand::Create {
+            name,
+            r#type,
+            organization,
+        } => match client.create_api_key(
+            &token,
+            name.as_deref(),
+            r#type.as_api_value(),
+            organization.as_deref(),
+        ) {
+            Ok(response) => {
+                if wants_json(cli) {
+                    println!("{}", serde_json::to_string(&response).expect("json"));
+                } else {
+                    println!("API key created. It will be shown once.");
+                    println!("Header: {}", response.header_name);
+                    println!("Key: {}", response.key);
+                    if let Some(id) = response.api_key.id {
+                        println!("ID: {id}");
+                    }
+                    println!("Store it in your OS credential store or CI secret vault now.");
+                }
+                ExitCode::from(EXIT_SUCCESS)
+            }
+            Err(error) => fail_api(error),
+        },
+        ApiKeysCommand::Revoke { id } => match client.revoke_api_key(&token, id) {
+            Ok(response) => {
+                if wants_json(cli) {
+                    println!("{}", serde_json::to_string(&response).expect("json"));
+                } else {
+                    println!("Revoked API key `{}`.", response.api_key_id);
+                }
+                ExitCode::from(EXIT_SUCCESS)
+            }
+            Err(error) => fail_api(error),
+        },
+    }
+}
+
+fn init(cli: &Cli, yes: bool, package_json: bool) -> ExitCode {
+    let (client, token) = match authenticated_client(cli) {
+        Ok(value) => value,
+        Err((message, code)) => {
+            eprintln!("Error: {message}");
+            return ExitCode::from(code);
+        }
+    };
+    let session = match client.session(&token) {
+        Ok(value) => value,
+        Err(error) => return fail_api(error),
+    };
+    let organizations = match client.list_organizations(&token) {
+        Ok(value) if !value.organizations.is_empty() => value.organizations,
+        Ok(_) => {
+            eprintln!("Error: no organization is available for this account.");
+            return ExitCode::from(EXIT_USAGE_OR_CONFIG);
+        }
+        Err(error) => return fail_api(error),
+    };
+
+    let display_name = session
+        .user
+        .name
+        .as_deref()
+        .or(session.user.username.as_deref())
+        .or(session.user.email.as_deref())
+        .unwrap_or("king");
+    println!("PentaVault\nWelcome, {display_name}.\n");
+    println!("Organizations: {}", organizations.len());
+
+    let organization_labels = organizations
+        .iter()
+        .map(|entry| {
+            format!(
+                "{} ({}) [{}]",
+                entry.organization.name, entry.organization.slug, entry.membership.role
+            )
+        })
+        .collect::<Vec<_>>();
+    let active_organization = organizations
+        .iter()
+        .position(|entry| entry.organization.active)
+        .unwrap_or(0);
+    let organization_index = match choose(
+        "Select organization",
+        &organization_labels,
+        active_organization,
+        yes,
+    ) {
+        Ok(value) => value,
+        Err(error) => return fail_prompt(error),
+    };
+    let organization = &organizations[organization_index].organization;
+    if !organization.active {
+        if let Err(error) = client.set_active_organization(&token, &organization.id) {
+            return fail_api(error);
+        }
+    }
+
+    let projects = match client.list_projects(&token) {
+        Ok(value) if !value.projects.is_empty() => value.projects,
+        Ok(_) => {
+            eprintln!(
+                "Error: no accessible project exists in `{}`.",
+                organization.name
+            );
+            return ExitCode::from(EXIT_USAGE_OR_CONFIG);
+        }
+        Err(error) => return fail_api(error),
+    };
+    let project_labels = projects
+        .iter()
+        .map(|project| {
+            format!(
+                "{} ({}) [{}]",
+                project.name,
+                project.slug,
+                project.role.as_deref().unwrap_or("member")
+            )
+        })
+        .collect::<Vec<_>>();
+    let project_index = match choose("Select project", &project_labels, 0, yes) {
+        Ok(value) => value,
+        Err(error) => return fail_prompt(error),
+    };
+    let project = &projects[project_index];
+
+    let environments = match client.list_environments(&token, &project.id) {
+        Ok(value) if !value.environments.is_empty() => value.environments,
+        Ok(_) => {
+            eprintln!("Error: project `{}` has no environments.", project.name);
+            return ExitCode::from(EXIT_USAGE_OR_CONFIG);
+        }
+        Err(error) => return fail_api(error),
+    };
+    let environment_labels = environments
+        .iter()
+        .map(|environment| format!("{} ({})", environment.name, environment.slug))
+        .collect::<Vec<_>>();
+    let default_environment = environments
+        .iter()
+        .position(|environment| environment.is_default)
+        .unwrap_or(0);
+    let environment_index = match choose(
+        "Select environment",
+        &environment_labels,
+        default_environment,
+        yes,
+    ) {
+        Ok(value) => value,
+        Err(error) => return fail_prompt(error),
+    };
+    let environment = &environments[environment_index];
+
+    let configs = match client.list_configs(&token, &project.id) {
+        Ok(value) => value
+            .configs
+            .into_iter()
+            .filter(|config| config.environment_id == environment.id)
+            .collect::<Vec<_>>(),
+        Err(error) => return fail_api(error),
+    };
+    let selected_config = if configs.is_empty() {
+        None
+    } else {
+        let config_labels = configs
+            .iter()
+            .map(|config| format!("{} ({}) [{}]", config.name, config.slug, config.config_type))
+            .collect::<Vec<_>>();
+        let default_config = configs
+            .iter()
+            .position(|config| {
+                config.is_personal_default.unwrap_or(false) || config.config_type == "root"
+            })
+            .unwrap_or(0);
+        let index = match choose("Select config", &config_labels, default_config, yes) {
+            Ok(value) => value,
+            Err(error) => return fail_prompt(error),
+        };
+        Some(&configs[index])
+    };
+
+    let current_directory = match std::env::current_dir() {
+        Ok(value) => value,
+        Err(error) => return fail_prompt(format!("unable to resolve current directory: {error}")),
+    };
+    let store = ConfigStore::project(&current_directory);
+    let config = AppConfig {
+        api_url: resolve_api_url(cli).ok().flatten(),
+        organization: Some(organization.id.clone()),
+        project: Some(project.id.clone()),
+        environment: Some(environment.slug.clone()),
+        config: selected_config.map(|config| config.slug.clone()),
+        format: None,
+    };
+    if let Err(error) = store.save(&config) {
+        return fail_prompt(error);
+    }
+    if package_json {
+        if let Err(error) = add_package_scripts(&current_directory) {
+            return fail_prompt(error);
+        }
+    }
+
+    println!("\nConfigured {}.", store.path().display());
+    println!("Organization: {}", organization.name);
+    println!("Project: {}", project.name);
+    println!("Environment: {}", environment.slug);
+    if let Some(config) = selected_config {
+        println!("Config: {}", config.slug);
+    }
+    println!("Next: pv secrets list");
+    ExitCode::from(EXIT_SUCCESS)
+}
+
+fn choose(prompt: &str, items: &[String], default: usize, yes: bool) -> Result<usize, String> {
+    if items.is_empty() {
+        return Err(format!("{prompt} has no choices"));
+    }
+    if yes || items.len() == 1 {
+        return Ok(default.min(items.len() - 1));
+    }
+    Select::with_theme(&ColorfulTheme::default())
+        .with_prompt(prompt)
+        .items(items)
+        .default(default.min(items.len() - 1))
+        .interact()
+        .map_err(|error| format!("prompt cancelled: {error}"))
+}
+
+fn add_package_scripts(directory: &Path) -> Result<(), String> {
+    let path = directory.join("package.json");
+    if !path.is_file() {
+        return Err("--package-json was requested, but package.json was not found".to_owned());
+    }
+    let contents = fs::read_to_string(&path)
+        .map_err(|error| format!("unable to read package.json: {error}"))?;
+    let mut value = serde_json::from_str::<serde_json::Value>(&contents)
+        .map_err(|error| format!("unable to parse package.json: {error}"))?;
+    let object = value
+        .as_object_mut()
+        .ok_or_else(|| "package.json must contain an object".to_owned())?;
+    let scripts = object
+        .entry("scripts")
+        .or_insert_with(|| serde_json::json!({}))
+        .as_object_mut()
+        .ok_or_else(|| "package.json scripts must contain an object".to_owned())?;
+    scripts
+        .entry("secrets:pull")
+        .or_insert_with(|| serde_json::json!("pv secrets pull"));
+    scripts
+        .entry("secrets:run")
+        .or_insert_with(|| serde_json::json!("pv run --"));
+    let formatted = serde_json::to_string_pretty(&value)
+        .map_err(|error| format!("unable to serialize package.json: {error}"))?;
+    atomic_write(&path, format!("{formatted}\n").as_bytes())
+}
+
+fn fail_prompt(error: String) -> ExitCode {
+    eprintln!("Error: {error}");
+    ExitCode::from(EXIT_USAGE_OR_CONFIG)
+}
+
 fn config(command: &crate::cli::ConfigCommand) -> ExitCode {
-    let store = match ConfigStore::platform() {
+    let store = match ConfigStore::effective() {
         Ok(store) => store,
         Err(error) => {
             eprintln!("Error: {error}");
@@ -627,9 +1367,7 @@ fn resolve_api_url(cli: &Cli) -> Result<Option<String>, String> {
         return Ok(cli.api_url.clone());
     }
 
-    ConfigStore::platform()
-        .and_then(|store| store.load())
-        .map(|config| config.api_url)
+    ConfigStore::load_resolved().map(|config| config.api_url)
 }
 
 struct ProjectContext {
@@ -657,8 +1395,8 @@ fn authenticated_project_context(cli: &Cli) -> Result<ProjectContext, (String, u
 
 fn authenticated_client(cli: &Cli) -> Result<(ApiClient, String), (String, u8)> {
     let api_url = resolve_api_url(cli).map_err(|error| (error, EXIT_USAGE_OR_CONFIG))?;
-    let client =
-        ApiClient::new(api_url.as_deref()).map_err(|error| (error, EXIT_USAGE_OR_CONFIG))?;
+    let client = ApiClient::new(api_url.as_deref(), cli.allow_insecure_http)
+        .map_err(|error| (error, EXIT_USAGE_OR_CONFIG))?;
     let token = auth::token()
         .map_err(|error| (error, EXIT_GENERIC_FAILURE))?
         .ok_or_else(|| {
@@ -680,8 +1418,7 @@ fn resolve_project(cli: &Cli) -> Result<String, String> {
         return Ok(project.trim().to_owned());
     }
 
-    ConfigStore::platform()
-        .and_then(|store| store.load())
+    ConfigStore::load_resolved()
         .and_then(|config| {
             config
                 .project
@@ -699,8 +1436,7 @@ fn resolve_environment(cli: &Cli) -> Result<String, String> {
         return Ok(environment.trim().to_owned());
     }
 
-    let configured_environment = ConfigStore::platform()
-        .and_then(|store| store.load())
+    let configured_environment = ConfigStore::load_resolved()
         .map(|config| config.environment)
         .unwrap_or(None);
 
@@ -716,15 +1452,14 @@ fn resolve_config(cli: &Cli) -> Result<Option<String>, String> {
         return Ok(Some(config.trim().to_owned()));
     }
 
-    ConfigStore::platform()
-        .and_then(|store| store.load())
+    ConfigStore::load_resolved()
         .map(|config| config.config.filter(|value| !value.trim().is_empty()))
 }
 
 fn update_config(
     edit: impl FnOnce(&mut crate::config::AppConfig) -> Result<(), String>,
 ) -> Result<(), String> {
-    ConfigStore::platform()?.update(edit)
+    ConfigStore::effective()?.update(edit)
 }
 
 fn wants_json(cli: &Cli) -> bool {

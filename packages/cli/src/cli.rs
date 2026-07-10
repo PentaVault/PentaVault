@@ -34,6 +34,15 @@ pub struct Cli {
     #[arg(short, long, global = true, action = ArgAction::Count)]
     pub verbose: u8,
 
+    #[arg(
+        long,
+        global = true,
+        action = ArgAction::SetTrue,
+        env = "PENTAVAULT_ALLOW_INSECURE_HTTP",
+        help = "Allow plain HTTP for a non-loopback API endpoint. Unsafe outside trusted development networks."
+    )]
+    pub allow_insecure_http: bool,
+
     #[command(subcommand)]
     pub command: Command,
 }
@@ -63,6 +72,17 @@ pub enum Command {
     },
     #[command(about = "Show the current authenticated identity.")]
     Whoami,
+    #[command(about = "Configure this project with a guided terminal flow.")]
+    Init {
+        #[arg(long, help = "Choose defaults without interactive prompts.")]
+        yes: bool,
+        #[arg(long, help = "Add convenient PentaVault scripts to package.json.")]
+        package_json: bool,
+    },
+    #[command(subcommand, about = "Manage organization selection.")]
+    Organizations(OrganizationsCommand),
+    #[command(subcommand, about = "Manage account API keys.")]
+    ApiKeys(ApiKeysCommand),
     #[command(subcommand, about = "Manage project selection.")]
     Projects(ProjectsCommand),
     #[command(subcommand, about = "Manage environment selection.")]
@@ -95,6 +115,52 @@ pub enum Command {
 pub enum ProjectsCommand {
     List,
     Select { project: String },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum OrganizationsCommand {
+    List,
+    Select { organization: String },
+}
+
+#[derive(Clone, Debug, ValueEnum)]
+pub enum ApiKeyType {
+    CommandLine,
+    ServiceAccount,
+    Personal,
+    Scim,
+    Audit,
+}
+
+impl ApiKeyType {
+    pub fn as_api_value(&self) -> &'static str {
+        match self {
+            Self::CommandLine => "command-line",
+            Self::ServiceAccount => "service-account",
+            Self::Personal => "personal",
+            Self::Scim => "scim",
+            Self::Audit => "audit",
+        }
+    }
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ApiKeysCommand {
+    List,
+    Create {
+        #[arg(long)]
+        name: Option<String>,
+        #[arg(long, value_enum, default_value_t = ApiKeyType::Personal)]
+        r#type: ApiKeyType,
+        #[arg(
+            long,
+            help = "Scope the key to an organization id. Defaults to the active organization."
+        )]
+        organization: Option<String>,
+    },
+    Revoke {
+        id: String,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -157,6 +223,14 @@ pub enum ChangeRequestsCommand {
         config: String,
         #[arg(long)]
         target: String,
+        #[arg(long)]
+        title: Option<String>,
+        #[arg(long)]
+        description: Option<String>,
+        #[arg(long = "secret", value_name = "NAME")]
+        secrets: Vec<String>,
+        #[arg(long, help = "Include every secret in the source config.")]
+        all: bool,
     },
     Approve {
         id: String,
