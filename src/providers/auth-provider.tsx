@@ -17,7 +17,6 @@ import { clearClientAuthHint } from '@/lib/auth/token'
 import { clearAuthenticatedQueryCache } from '@/lib/query/cache'
 import { type AuthStore, type AuthStoreApi, createAuthStore } from '@/lib/stores/auth-store'
 import type { AuthContextValue, AuthOrganizationMembership, AuthSession } from '@/lib/types/auth'
-import { getApiErrorCode, getApiErrorStatus } from '@/lib/utils/errors'
 
 type AuthProviderProps = PropsWithChildren
 
@@ -37,19 +36,6 @@ function dedupeOrganizations(
     seen.add(entry.organization.id)
     return true
   })
-}
-
-function setOrganizationsActiveState(
-  organizations: AuthOrganizationMembership[],
-  activeOrganizationId: string
-): AuthOrganizationMembership[] {
-  return organizations.map((entry) => ({
-    ...entry,
-    organization: {
-      ...entry.organization,
-      active: entry.organization.id === activeOrganizationId,
-    },
-  }))
 }
 
 async function readSession(): Promise<AuthSession | null> {
@@ -103,48 +89,11 @@ function AuthController({ children }: AuthProviderProps) {
 
   const setActiveOrganization = useCallback(
     async (input: Parameters<AuthContextValue['setActiveOrganization']>[0]): Promise<void> => {
-      const targetOrganization =
-        (input.organizationId
-          ? organizations.find((entry) => entry.organization.id === input.organizationId)
-          : undefined) ??
-        (input.organizationSlug
-          ? organizations.find((entry) => entry.organization.slug === input.organizationSlug)
-          : undefined)
-
-      if (targetOrganization) {
-        setAuthState({
-          organizations: setOrganizationsActiveState(
-            organizations,
-            targetOrganization.organization.id
-          ),
-          session: session
-            ? {
-                ...session,
-                session: {
-                  ...session.session,
-                  activeOrganizationId: targetOrganization.organization.id,
-                  activeOrganizationSlug: targetOrganization.organization.slug,
-                },
-              }
-            : session,
-        })
-      }
-
-      try {
-        await authApi.setActiveOrganization(input)
-        await refresh()
-      } catch (error) {
-        const status = getApiErrorStatus(error)
-        const code = getApiErrorCode(error)
-        const canUseLocalFallback =
-          Boolean(targetOrganization) && status === 500 && code === 'AUTH_FAILURE'
-
-        if (!canUseLocalFallback) {
-          throw error
-        }
-      }
+      await authApi.setActiveOrganization(input)
+      clearAuthenticatedQueryCache(queryClient)
+      await refresh()
     },
-    [organizations, refresh, session, setAuthState]
+    [queryClient, refresh]
   )
 
   const clear = useCallback((): void => {
