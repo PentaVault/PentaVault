@@ -20,6 +20,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Switch, SwitchThumb } from '@/components/ui/switch'
 import { PROJECTS_PATH } from '@/lib/constants'
+import { useProjectSettings, useUpdateProjectSettings } from '@/lib/hooks/use-project-configuration'
 import { useDeleteProject, useProject, useUpdateProject } from '@/lib/hooks/use-projects'
 import { useToast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils/cn'
@@ -38,6 +39,8 @@ export default function ProjectSettingsPage() {
   const project = projectQuery.data?.project
   const effectiveRole = projectQuery.data?.effectiveRole ?? projectQuery.data?.orgRole ?? null
   const canManageSettings = effectiveRole === 'owner' || effectiveRole === 'admin'
+  const settingsQuery = useProjectSettings(projectId, canManageSettings)
+  const updateSettings = useUpdateProjectSettings(projectId)
 
   async function updateShowAllVariables(value: boolean): Promise<void> {
     if (!projectId) {
@@ -54,6 +57,15 @@ export default function ProjectSettingsPage() {
       toast.success('Project setting updated.')
     } catch (error) {
       toast.error(getApiFriendlyMessage(error, 'Unable to update this project setting right now.'))
+    }
+  }
+
+  async function updateRequiredApprovals(value: number): Promise<void> {
+    try {
+      await updateSettings.mutateAsync({ requiredChangeRequestApprovals: value })
+      toast.success('Change request approval policy updated.')
+    } catch (error) {
+      toast.error(getApiFriendlyMessage(error, 'Unable to update the approval policy right now.'))
     }
   }
 
@@ -156,6 +168,41 @@ export default function ProjectSettingsPage() {
           </p>
         </div>
       </div>
+
+      {canManageSettings ? (
+        <div className="mt-6 rounded-lg border border-border">
+          <div className="flex flex-col justify-between gap-4 px-4 py-4 sm:flex-row sm:items-center">
+            <div>
+              <p className="text-sm font-medium">Protected change approvals</p>
+              <p className="mt-0.5 max-w-2xl text-xs text-muted-foreground">
+                Require distinct project managers to approve a config change before it can merge.
+                Request authors cannot approve their own changes.
+              </p>
+            </div>
+            <select
+              aria-label="Required change request approvals"
+              className="h-9 min-w-44 rounded-md border border-border bg-background-elevated px-3 text-sm"
+              disabled={settingsQuery.isLoading || updateSettings.isPending}
+              onChange={(event) => void updateRequiredApprovals(Number(event.target.value))}
+              value={settingsQuery.data?.settings.requiredChangeRequestApprovals ?? 1}
+            >
+              {[1, 2, 3, 4, 5].map((count) => (
+                <option key={count} value={count}>
+                  {count} approval{count === 1 ? '' : 's'}
+                </option>
+              ))}
+            </select>
+          </div>
+          {settingsQuery.isError ? (
+            <p className="border-t border-border px-4 py-3 text-xs text-danger">
+              {getApiFriendlyMessage(
+                settingsQuery.error,
+                'Unable to load the protected change policy.'
+              )}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {canManageSettings ? <ProjectWebhooks projectId={projectId} /> : null}
 

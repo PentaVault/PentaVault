@@ -392,6 +392,7 @@ export interface UpdateProjectSettingsInput {
   maxRequestsPerTokenPerDay?: number
   allowPersonalSecrets?: boolean
   requireMemberApprovalForSecretAccess?: boolean
+  requiredChangeRequestApprovals?: number
 }
 
 export interface ProjectAnalyticsQuery {

@@ -439,6 +439,7 @@ export const projectSettingsSchema = z.object({
   maxRequestsPerTokenPerDay: z.number(),
   allowPersonalSecrets: z.boolean(),
   requireMemberApprovalForSecretAccess: z.boolean(),
+  requiredChangeRequestApprovals: z.number().int().min(1).max(5),
   updatedAt: z.string(),
 })
 
@@ -1256,6 +1257,7 @@ export const updateProjectSettingsInputSchema = z
     maxRequestsPerTokenPerDay: z.number().int().min(1).max(10_000_000).optional(),
     allowPersonalSecrets: z.boolean().optional(),
     requireMemberApprovalForSecretAccess: z.boolean().optional(),
+    requiredChangeRequestApprovals: z.number().int().min(1).max(5).optional(),
   })
   .refine((body) => Object.values(body).some((value) => value !== undefined), {
     message: 'Provide at least one setting to update.',

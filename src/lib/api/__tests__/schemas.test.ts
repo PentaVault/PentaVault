@@ -116,12 +116,14 @@ describe('API schema parsing', () => {
         maxRequestsPerTokenPerDay: 10000,
         allowPersonalSecrets: true,
         requireMemberApprovalForSecretAccess: false,
+        requiredChangeRequestApprovals: 2,
         updatedAt: '2026-05-02T00:00:00.000Z',
       },
     })
 
     expect(environments.environments[0]?.slug).toBe('development')
     expect(settings.settings.accessMode).toBe('both')
+    expect(settings.settings.requiredChangeRequestApprovals).toBe(2)
   })
 
   it('accepts sanitized webhook configuration and delivery responses', () => {

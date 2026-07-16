@@ -14,7 +14,7 @@ design-system code.
 | --- | --- | --- | --- |
 | Secret workspace | Environments, config branches, personal secrets, import, bulk edit/delete, encrypted versions and restore, folders, tags and workspace facets | Safe export and pagination | Partial |
 | Secret lifecycle | Version envelopes, compromise states, rotation recommendations, bounded rotation schedules, due/overdue reminders and automatic rescheduling on value replacement | Provider rotation adapters, zero-downtime overlap, leases and retention enforcement | Partial |
-| Change control | Config change requests, approvals, protected/private/shared branches | Policy templates, required reviewer rules, conflict previews | Partial |
+| Change control | Config change requests, self-approval separation, configurable one-to-five reviewer quorum, protected/private/shared branches | Policy templates and conflict previews | Partial |
 | Access control | Central project policy, org/project roles, organisation groups with additive project grants, per-secret grants and requests, optional bounded expiries with token TTL clamping, and token-level exact IP/device/request policies | Custom roles and project-wide trusted IP policies | Partial |
 | Machine identities | Scoped API keys and proxy tokens | Workload identities and cloud/Kubernetes/OIDC/JWT auth methods | Planned |
 | Authentication | Password, device flow, passkeys, MFA, sessions, invitations | SSO, SCIM, LDAP and domain enforcement | Partial |
