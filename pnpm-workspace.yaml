@@ -1,5 +1,7 @@
 packages: []
 
+minimumReleaseAge: 10080
+
 overrides:
   form-data: 4.0.6
   postcss: 8.5.10
