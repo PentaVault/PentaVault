@@ -51,7 +51,7 @@ The backend is a nested private checkout. Land backend commits first, then updat
 
 Minimum proof after rollout:
 
-1. `GET /health` and database health succeed.
+1. `GET /healthz` succeeds for liveness and `GET /readyz` reports `db: connected`.
 2. Browser login, logout, and session expiry work.
 3. Organization switch clears old organization data.
 4. CLI device login, `pv init`, `pv whoami`, and `pv secrets list` work.
