@@ -740,6 +740,23 @@ export const issueTokenResponseSchema = z.object({
   expiresAt: z.string(),
 })
 
+export const issueTokenInputSchema = z.strictObject({
+  secretId: z.string().trim().min(1),
+  environmentId: z.string().trim().min(1).optional(),
+  userId: z.string().trim().min(1).optional(),
+  mode: z.enum(['compatibility', 'gateway']),
+  expiresAt: z.iso.datetime().optional(),
+  activeSessionId: z.string().trim().min(1).optional(),
+  maxRequestsPerSecond: z.number().int().min(1).max(10_000).optional(),
+  maxRequestsTotal: z.number().int().min(1).max(1_000_000_000).optional(),
+  deviceFingerprint: z.string().trim().min(8).max(256).optional(),
+  allowedIps: z.array(z.string().trim().min(2).max(45)).max(32).optional(),
+  ttlSeconds: z.number().int().min(60).max(31_536_000).optional(),
+  rateLimitMax: z.number().int().positive().optional(),
+  rateLimitRemaining: z.number().int().min(0).optional(),
+  rateLimitResetAt: z.iso.datetime().optional(),
+})
+
 export const batchIssueTokensResponseSchema = z.object({
   tokens: z.array(
     z.object({

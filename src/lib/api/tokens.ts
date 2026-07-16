@@ -1,7 +1,9 @@
 import { apiClient } from '@/lib/api/client'
 import {
   batchIssueTokensResponseSchema,
+  issueTokenInputSchema,
   issueTokenResponseSchema,
+  parseApiInput,
   parseApiResponse,
   projectTokensResponseSchema,
   resolveBulkResponseSchema,
@@ -34,7 +36,10 @@ export const tokensApi = {
   },
 
   async issueToken(input: IssueTokenInput): Promise<IssueTokenResponse> {
-    const response = await apiClient.post<IssueTokenResponse>('/v1/tokens', input)
+    const response = await apiClient.post<IssueTokenResponse>(
+      '/v1/tokens',
+      parseApiInput(issueTokenInputSchema, input)
+    )
     return parseApiResponse(issueTokenResponseSchema, response.data)
   },
 
