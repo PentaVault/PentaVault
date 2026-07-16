@@ -299,6 +299,57 @@ export interface ProjectSettings {
   updatedAt: string
 }
 
+export type WebhookEventType =
+  | 'secrets.created'
+  | 'secrets.updated'
+  | 'secrets.deleted'
+  | 'secrets.metadata_updated'
+  | 'secrets.version_restored'
+
+export type WebhookDeliveryStatus =
+  | 'pending'
+  | 'processing'
+  | 'retry_scheduled'
+  | 'succeeded'
+  | 'dead_letter'
+
+export interface OutboundWebhook {
+  id: string
+  projectId: string
+  environmentId: string | null
+  name: string
+  endpointHost: string
+  folderPath: string
+  eventTypes: WebhookEventType[]
+  enabled: boolean
+  maxAttempts: number
+  lastStatus: WebhookDeliveryStatus | null
+  lastDeliveryAt: string | null
+  lastError: string | null
+  createdByUserId: string | null
+  createdAt: string
+  updatedAt: string
+  hasSigningSecret: boolean
+}
+
+export interface WebhookDelivery {
+  id: string
+  webhookId: string
+  projectId: string
+  eventId: string
+  eventType: string
+  payload: Record<string, unknown>
+  status: WebhookDeliveryStatus
+  attemptCount: number
+  nextAttemptAt: string | null
+  lastAttemptAt: string | null
+  deliveredAt: string | null
+  responseStatus: number | null
+  lastError: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface UserSecretAccess {
   id: string
   projectId: string

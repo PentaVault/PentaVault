@@ -11,6 +11,8 @@ import {
   sendOrgInvitationInputSchema,
   userProjectSchema,
   verifyInvitationResponseSchema,
+  webhookDeliveriesResponseSchema,
+  webhooksResponseSchema,
 } from '@/lib/api/schemas'
 import type {
   OrgInvitationResponse,
@@ -22,6 +24,8 @@ import type {
   ProjectSettingsResponse,
   PromotionRequestsResponse,
   VerifyInvitationResponse,
+  WebhookDeliveriesResponse,
+  WebhooksResponse,
 } from '@/lib/types/api'
 
 describe('API schema parsing', () => {
@@ -113,6 +117,60 @@ describe('API schema parsing', () => {
 
     expect(environments.environments[0]?.slug).toBe('development')
     expect(settings.settings.accessMode).toBe('both')
+  })
+
+  it('accepts sanitized webhook configuration and delivery responses', () => {
+    const webhooks = parseApiResponse<WebhooksResponse>(webhooksResponseSchema, {
+      webhooks: [
+        {
+          id: 'wh_123',
+          projectId: 'project_123',
+          environmentId: 'env_prod',
+          name: 'Deploy hook',
+          endpointHost: 'hooks.example.com',
+          folderPath: '/services',
+          eventTypes: ['secrets.created', 'secrets.updated'],
+          enabled: true,
+          maxAttempts: 5,
+          lastStatus: 'succeeded',
+          lastDeliveryAt: '2026-07-16T00:00:00.000Z',
+          lastError: null,
+          createdByUserId: 'user_123',
+          createdAt: '2026-07-16T00:00:00.000Z',
+          updatedAt: '2026-07-16T00:00:00.000Z',
+          hasSigningSecret: true,
+        },
+      ],
+      supportedEvents: ['secrets.created', 'secrets.updated'],
+    })
+    const deliveries = parseApiResponse<WebhookDeliveriesResponse>(
+      webhookDeliveriesResponseSchema,
+      {
+        deliveries: [
+          {
+            id: 'whd_123',
+            webhookId: 'wh_123',
+            projectId: 'project_123',
+            eventId: 'whe_123',
+            eventType: 'secrets.created',
+            payload: { data: { secretId: 'secret_123' } },
+            status: 'succeeded',
+            attemptCount: 1,
+            nextAttemptAt: null,
+            lastAttemptAt: '2026-07-16T00:00:00.000Z',
+            deliveredAt: '2026-07-16T00:00:00.000Z',
+            responseStatus: 204,
+            lastError: null,
+            createdAt: '2026-07-16T00:00:00.000Z',
+            updatedAt: '2026-07-16T00:00:00.000Z',
+          },
+        ],
+      }
+    )
+
+    expect(webhooks.webhooks[0]?.endpointHost).toBe('hooks.example.com')
+    expect(webhooks.webhooks[0]?.hasSigningSecret).toBe(true)
+    expect(deliveries.deliveries[0]?.responseStatus).toBe(204)
   })
 
   it('accepts project analytics responses', () => {

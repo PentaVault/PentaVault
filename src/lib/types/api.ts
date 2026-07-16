@@ -9,6 +9,7 @@ import type {
   AccessRequest,
   AuditEvent,
   ConfigChangeRequest,
+  OutboundWebhook,
   PersonalSecretPromotionRequest,
   Project,
   ProjectAnalyticsSummary,
@@ -30,6 +31,8 @@ import type {
   SecurityAlertStatus,
   UserProject,
   UserSecretAccess,
+  WebhookDelivery,
+  WebhookEventType,
 } from '@/lib/types/models'
 
 export interface ApiErrorResponse {
@@ -140,6 +143,45 @@ export interface ProjectEnvironmentResponse {
 
 export interface ProjectSettingsResponse {
   settings: ProjectSettings
+}
+
+export interface WebhooksResponse {
+  webhooks: OutboundWebhook[]
+  supportedEvents: readonly WebhookEventType[]
+}
+
+export interface WebhookResponse {
+  webhook: OutboundWebhook
+}
+
+export interface CreateWebhookInput {
+  name: string
+  endpointUrl: string
+  signingSecret?: string
+  environmentId?: string | null
+  folderPath: string
+  eventTypes: WebhookEventType[]
+  enabled?: boolean
+  maxAttempts?: number
+}
+
+export interface UpdateWebhookInput {
+  name?: string
+  endpointUrl?: string
+  signingSecret?: string | null
+  environmentId?: string | null
+  folderPath?: string
+  eventTypes?: WebhookEventType[]
+  enabled?: boolean
+  maxAttempts?: number
+}
+
+export interface WebhookDeliveriesResponse {
+  deliveries: WebhookDelivery[]
+}
+
+export interface WebhookDeliveryResponse {
+  delivery: WebhookDelivery
 }
 
 export interface ProjectSecretAccessResponse {

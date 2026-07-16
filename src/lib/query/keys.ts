@@ -100,6 +100,12 @@ export const queryKeys = {
     all: ['project-security-recommendations'] as const,
     list: (projectId: string | null) => ['project-security-recommendations', projectId] as const,
   },
+  projectWebhooks: {
+    all: ['project-webhooks'] as const,
+    list: (projectId: string | null) => ['project-webhooks', projectId] as const,
+    deliveries: (projectId: string | null, webhookId?: string | null) =>
+      ['project-webhooks', projectId, webhookId ?? 'all', 'deliveries'] as const,
+  },
   projectTokens: {
     all: ['project-tokens'] as const,
     list: (projectId: string | null, scope: 'all' | 'self' = 'all') =>

@@ -858,6 +858,88 @@ export const updateSecurityAlertResponseSchema = z.object({
   alert: securityAlertSchema,
 })
 
+export const webhookEventTypeSchema = z.enum([
+  'secrets.created',
+  'secrets.updated',
+  'secrets.deleted',
+  'secrets.metadata_updated',
+  'secrets.version_restored',
+])
+
+export const webhookDeliveryStatusSchema = z.enum([
+  'pending',
+  'processing',
+  'retry_scheduled',
+  'succeeded',
+  'dead_letter',
+])
+
+export const outboundWebhookSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  environmentId: nullableStringSchema,
+  name: z.string(),
+  endpointHost: z.string(),
+  folderPath: z.string(),
+  eventTypes: z.array(webhookEventTypeSchema),
+  enabled: z.boolean(),
+  maxAttempts: z.number().int(),
+  lastStatus: webhookDeliveryStatusSchema.nullable(),
+  lastDeliveryAt: nullableStringSchema,
+  lastError: nullableStringSchema,
+  createdByUserId: nullableStringSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  hasSigningSecret: z.boolean(),
+})
+
+export const webhookDeliverySchema = z.object({
+  id: z.string(),
+  webhookId: z.string(),
+  projectId: z.string(),
+  eventId: z.string(),
+  eventType: z.string(),
+  payload: metadataSchema,
+  status: webhookDeliveryStatusSchema,
+  attemptCount: z.number().int(),
+  nextAttemptAt: nullableStringSchema,
+  lastAttemptAt: nullableStringSchema,
+  deliveredAt: nullableStringSchema,
+  responseStatus: z.number().int().nullable(),
+  lastError: nullableStringSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const webhooksResponseSchema = z.object({
+  webhooks: z.array(outboundWebhookSchema),
+  supportedEvents: z.array(webhookEventTypeSchema),
+})
+
+export const webhookResponseSchema = z.object({ webhook: outboundWebhookSchema })
+export const webhookDeliveriesResponseSchema = z.object({
+  deliveries: z.array(webhookDeliverySchema),
+})
+export const webhookDeliveryResponseSchema = z.object({ delivery: webhookDeliverySchema })
+
+export const createWebhookInputSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  endpointUrl: z.string().trim().url().max(2_048),
+  signingSecret: z.string().trim().min(16).max(512).optional(),
+  environmentId: z.string().trim().min(1).nullable().optional(),
+  folderPath: z.string().trim().min(1).max(256),
+  eventTypes: z.array(webhookEventTypeSchema).min(1).max(10),
+  enabled: z.boolean().optional(),
+  maxAttempts: z.number().int().min(1).max(10).optional(),
+})
+
+export const updateWebhookInputSchema = createWebhookInputSchema
+  .partial()
+  .extend({ signingSecret: z.string().trim().min(16).max(512).nullable().optional() })
+  .refine((body) => Object.values(body).some((value) => value !== undefined), {
+    message: 'Provide at least one webhook field to update.',
+  })
+
 export const createProjectInputSchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(1),
