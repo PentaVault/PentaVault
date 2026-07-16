@@ -178,6 +178,7 @@ export const secretsApi = {
       {
         userId: input.userId,
         environmentId: input.environmentId,
+        ...(input.expiresAt !== undefined ? { expiresAt: input.expiresAt } : {}),
       }
     )
     return parseApiResponse(secretAccessResponseSchema, response.data)

@@ -230,10 +230,10 @@ describe('API schema parsing', () => {
             secretId: 'secret_123',
             environmentId: 'env_dev',
             accessLevel: 'read',
-            status: 'active',
+            status: 'expired',
             grantedBy: 'user_admin',
             revokedBy: null,
-            expiresAt: null,
+            expiresAt: '2026-05-03T00:00:00.000Z',
             grantedAt: '2026-05-02T00:00:00.000Z',
             revokedAt: null,
             createdAt: '2026-05-02T00:00:00.000Z',
@@ -266,6 +266,7 @@ describe('API schema parsing', () => {
     )
 
     expect(access.access[0]?.accessLevel).toBe('read')
+    expect(access.access[0]?.status).toBe('expired')
     expect(promotions.requests[0]?.status).toBe('pending')
   })
 

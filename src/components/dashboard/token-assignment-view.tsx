@@ -46,6 +46,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { getOrgProjectSecretsPath, getProjectSecretsPath } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useCreateSecretAccessRequest } from '@/lib/hooks/use-projects'
@@ -68,6 +75,11 @@ import {
 import type { ProjectMembership, ProxyToken, Secret, UserSecretAccess } from '@/lib/types/models'
 import { cn } from '@/lib/utils/cn'
 import { formatRelativeDate } from '@/lib/utils/format'
+import {
+  buildSecretAccessExpiry,
+  SECRET_ACCESS_DURATIONS,
+  type SecretAccessDuration,
+} from '@/lib/utils/secret-access-expiry'
 import {
   buildPendingSecretRequestsByUserFromRecords,
   type PendingSecretRequest,
@@ -348,6 +360,7 @@ export function MemberAccessDialog({
   projectId: string
   secrets: Secret[]
 }) {
+  const [accessDuration, setAccessDuration] = useState<SecretAccessDuration>('7d')
   const grantSecretAccess = useGrantSecretAccess()
   const revokeSecretAccess = useRevokeSecretAccess()
   const { toast } = useToast()
@@ -356,6 +369,15 @@ export function MemberAccessDialog({
     () =>
       new Set(
         memberAccess.filter((access) => access.status === 'active').map((access) => access.secretId)
+      ),
+    [memberAccess]
+  )
+  const assignedAccessBySecretId = useMemo(
+    () =>
+      new Map(
+        memberAccess
+          .filter((access) => access.status === 'active')
+          .map((access) => [access.secretId, access])
       ),
     [memberAccess]
   )
@@ -372,6 +394,7 @@ export function MemberAccessDialog({
           secretId: secret.id,
           userId: member.userId,
           environmentId: secret.environmentId ?? null,
+          expiresAt: buildSecretAccessExpiry(accessDuration),
         })
         toast.success(`Granted access to ${secret.name}.`)
       } else {
@@ -400,9 +423,32 @@ export function MemberAccessDialog({
             disables active proxy tokens for it.
           </DialogDescription>
 
+          <label
+            className="mt-4 block space-y-1.5 text-xs text-muted-foreground"
+            htmlFor={`member-access-duration-${member.userId}`}
+          >
+            New grants expire after
+            <Select
+              onValueChange={(value: SecretAccessDuration) => setAccessDuration(value)}
+              value={accessDuration}
+            >
+              <SelectTrigger id={`member-access-duration-${member.userId}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SECRET_ACCESS_DURATIONS.map((duration) => (
+                  <SelectItem key={duration.value} value={duration.value}>
+                    {duration.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+
           <div className="mt-4 max-h-80 divide-y divide-border overflow-y-auto rounded-md border border-border">
             {secrets.map((secret) => {
               const isAssigned = assignedSecretIds.has(secret.id)
+              const assignedAccess = assignedAccessBySecretId.get(secret.id)
               const isPending = pendingSecretIds.has(secret.id)
               const isBusy = grantSecretAccess.isPending || revokeSecretAccess.isPending
 
@@ -419,6 +465,14 @@ export function MemberAccessDialog({
                     onCheckedChange={(checked) => void toggleSecret(secret, Boolean(checked))}
                   />
                   <span className="min-w-0 flex-1 truncate font-mono text-sm">{secret.name}</span>
+                  {assignedAccess?.expiresAt ? (
+                    <span
+                      className="text-xs text-muted-foreground"
+                      title={assignedAccess.expiresAt}
+                    >
+                      Expires {formatRelativeDate(assignedAccess.expiresAt)}
+                    </span>
+                  ) : null}
                   {isPending && !isAssigned ? (
                     <span className="rounded border border-border px-2 py-1 text-xs text-muted-foreground">
                       Pending
@@ -472,7 +526,19 @@ function MemberAccessSection({
   const revokeSecretAccess = useRevokeSecretAccess()
   const { toast } = useToast()
   const assignedSecretIds = useMemo(
-    () => new Set(memberAccess.map((access) => access.secretId)),
+    () =>
+      new Set(
+        memberAccess.filter((access) => access.status === 'active').map((access) => access.secretId)
+      ),
+    [memberAccess]
+  )
+  const activeAccessBySecretId = useMemo(
+    () =>
+      new Map(
+        memberAccess
+          .filter((access) => access.status === 'active')
+          .map((access) => [access.secretId, access])
+      ),
     [memberAccess]
   )
   const tokenBySecretId = useMemo(() => {
@@ -525,6 +591,7 @@ function MemberAccessSection({
         <div className="divide-y divide-border">
           {assignedSecrets.map((secret) => {
             const token = tokenBySecretId.get(secret.id)
+            const secretAccess = activeAccessBySecretId.get(secret.id)
             const canGenerateForSelfWithoutAssignmentControls =
               canRequestVariables &&
               !canManageTokens &&
@@ -532,6 +599,7 @@ function MemberAccessSection({
 
             return token ? (
               <AssignedTokenRow
+                accessExpiresAt={secretAccess?.expiresAt ?? null}
                 canManage={canManageTokens}
                 canGenerateSelfToken={!canManageTokens}
                 key={secret.id}
@@ -547,6 +615,7 @@ function MemberAccessSection({
               />
             ) : (
               <AssignedSecretRow
+                accessExpiresAt={secretAccess?.expiresAt ?? null}
                 canGenerate={canManageTokens || canGenerateForSelfWithoutAssignmentControls}
                 canRequest={canRequestVariables && !canGenerateForSelfWithoutAssignmentControls}
                 key={secret.id}
@@ -710,6 +779,7 @@ function AddVariableAccessDialog({
   projectId: string
   secrets: Secret[]
 }) {
+  const [accessDuration, setAccessDuration] = useState<SecretAccessDuration>('7d')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const generateTokens = useGenerateTokensForMember()
   const availableSecrets = secrets.filter((secret) => !alreadyAssignedIds.has(secret.id))
@@ -719,6 +789,7 @@ function AddVariableAccessDialog({
       projectId,
       secretIds: Array.from(selectedIds),
       userId: memberId,
+      expiresAt: buildSecretAccessExpiry(accessDuration),
     })
     setSelectedIds(new Set())
     onGenerated(response.tokens)
@@ -741,6 +812,28 @@ function AddVariableAccessDialog({
           <DialogDescription className="mt-1 text-sm text-muted-foreground">
             Select which variables to grant access to. Tokens will be generated after confirmation.
           </DialogDescription>
+
+          <label
+            className="mt-4 block space-y-1.5 text-xs text-muted-foreground"
+            htmlFor={`batch-access-duration-${memberId}`}
+          >
+            Access expires after
+            <Select
+              onValueChange={(value: SecretAccessDuration) => setAccessDuration(value)}
+              value={accessDuration}
+            >
+              <SelectTrigger id={`batch-access-duration-${memberId}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SECRET_ACCESS_DURATIONS.map((duration) => (
+                  <SelectItem key={duration.value} value={duration.value}>
+                    {duration.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
 
           {availableSecrets.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">
@@ -1013,6 +1106,7 @@ function TokenRevealDialog({
 }
 
 function AssignedSecretRow({
+  accessExpiresAt = null,
   canGenerate = false,
   canRequest = false,
   onGenerateClick = undefined,
@@ -1020,6 +1114,7 @@ function AssignedSecretRow({
   onRevokeAccess = undefined,
   secret,
 }: {
+  accessExpiresAt?: string | null
   canGenerate?: boolean
   canRequest?: boolean
   onGenerateClick?: (() => void) | undefined
@@ -1029,7 +1124,14 @@ function AssignedSecretRow({
 }) {
   return (
     <div className="group flex items-center gap-4 px-4 py-2.5 transition-colors hover:bg-card-elevated">
-      <span className="min-w-0 flex-1 break-all font-mono text-sm">{secret.name}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block break-all font-mono text-sm">{secret.name}</span>
+        {accessExpiresAt ? (
+          <span className="block text-xs text-muted-foreground" title={accessExpiresAt}>
+            Access expires {formatRelativeDate(accessExpiresAt)}
+          </span>
+        ) : null}
+      </span>
       <span className="w-44 truncate font-mono text-xs text-muted-foreground">
         {(secret.scope ?? 'project') === 'personal' ? 'Personal key' : 'No active token'}
       </span>
@@ -1089,6 +1191,7 @@ function AssignedSecretRow({
 }
 
 function AssignedTokenRow({
+  accessExpiresAt,
   canManage,
   canGenerateSelfToken,
   memberId,
@@ -1099,6 +1202,7 @@ function AssignedTokenRow({
   token,
   tokenHistory,
 }: {
+  accessExpiresAt: string | null
   canManage: boolean
   canGenerateSelfToken: boolean
   memberId: string
@@ -1178,7 +1282,14 @@ function AssignedTokenRow({
         isPaused && 'text-muted-foreground'
       )}
     >
-      <span className="min-w-0 flex-1 break-all font-mono text-sm">{secretName}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block break-all font-mono text-sm">{secretName}</span>
+        {accessExpiresAt ? (
+          <span className="block text-xs text-muted-foreground" title={accessExpiresAt}>
+            Access expires {formatRelativeDate(accessExpiresAt)}
+          </span>
+        ) : null}
+      </span>
       {isPaused ? (
         <span className="w-4" />
       ) : (

@@ -44,6 +44,7 @@ export const tokensApi = {
       {
         secretIds: input.secretIds,
         ...(input.userId ? { userId: input.userId } : {}),
+        ...(input.expiresAt !== undefined ? { expiresAt: input.expiresAt } : {}),
       }
     )
     return parseApiResponse(batchIssueTokensResponseSchema, response.data)

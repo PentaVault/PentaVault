@@ -15,7 +15,7 @@ design-system code.
 | Secret workspace | Environments, config branches, personal secrets, import, bulk edit/delete, encrypted versions and restore, folders, tags and workspace facets | Safe export and pagination | Partial |
 | Secret lifecycle | Version envelopes, compromise states, rotation recommendations | Rotation policies, schedules, leases, reminders, retention enforcement | Planned |
 | Change control | Config change requests, approvals, protected/private/shared branches | Policy templates, required reviewer rules, conflict previews | Partial |
-| Access control | Central project policy, org/project roles, per-secret grants, access requests | Groups, custom roles, time-bound grants, trusted IPs | Partial |
+| Access control | Central project policy, org/project roles, per-secret grants and requests, plus optional bounded expiries with token TTL clamping | Groups, custom roles and trusted IP policies | Partial |
 | Machine identities | Scoped API keys and proxy tokens | Workload identities and cloud/Kubernetes/OIDC/JWT auth methods | Planned |
 | Authentication | Password, device flow, passkeys, MFA, sessions, invitations | SSO, SCIM, LDAP and domain enforcement | Partial |
 | Audit and activity | Project/org audit events and activity UI | Export streams, retention controls, signed reports, bounded telemetry | Partial |
@@ -37,7 +37,7 @@ design-system code.
 
 1. Strengthen the secret workspace and metadata model.
 2. Add outbound webhooks, external sharing, and sync-safe event delivery.
-3. Add groups, custom roles, workload identities, and time-bound access.
+3. Add groups, custom roles and workload identities; time-bound secret access is delivered.
 4. Add rotation automation, scanning sources, and dynamic-secret leases.
 5. Add enterprise auth, audit streams, external KMS, PKI, and PAM foundations.
 6. Finish observability, migration safety, supply-chain CI, and broad resilience coverage.

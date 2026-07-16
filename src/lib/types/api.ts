@@ -304,6 +304,7 @@ export interface GrantSecretAccessInput {
   secretId: string
   userId: string
   environmentId?: string | null
+  expiresAt?: string | null
 }
 
 export interface PersonalSecretsResponse {
@@ -600,6 +601,7 @@ export interface BatchIssueTokensInput {
   projectId: string
   secretIds: string[]
   userId?: string
+  expiresAt?: string | null
 }
 
 export interface BatchIssueTokensResponse {

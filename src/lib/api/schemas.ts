@@ -136,7 +136,7 @@ const auditOutcomeSchema = z.enum(AUDIT_OUTCOMES)
 const projectSettingsAccessModeSchema = z.enum(['proxy', 'direct', 'both'])
 const secretAccessModeSchema = z.enum(['direct', 'proxy'])
 const userSecretAccessLevelSchema = z.enum(['read'])
-const userSecretAccessStatusSchema = z.enum(['active', 'revoked'])
+const userSecretAccessStatusSchema = z.enum(['active', 'expired', 'revoked'])
 const personalSecretPromotionRequestStatusSchema = z.enum([
   'pending',
   'approved',
