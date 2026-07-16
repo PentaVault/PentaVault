@@ -320,6 +320,8 @@ export interface CreatePersonalSecretInput {
   description?: string | null
   folderPath?: string
   tags?: string[]
+  rotationIntervalDays?: number | null
+  rotationReminderDays?: number | null
   plaintext: string
   mode: SecretMode
   encryptionMode?: Secret['encryptionMode']
@@ -518,6 +520,8 @@ export interface UpdateSecretMetadataInput {
   description?: string | null
   folderPath?: string
   tags?: string[]
+  rotationIntervalDays?: number | null
+  rotationReminderDays?: number | null
 }
 
 export interface UpdateSecretMetadataResponse {

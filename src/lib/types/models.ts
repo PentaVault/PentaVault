@@ -152,6 +152,10 @@ export interface Secret {
   createdByUserId?: string | null
   promotedFromSecretId?: string | null
   version?: number
+  lastRotatedAt?: string | null
+  rotationIntervalDays?: number | null
+  rotationReminderDays?: number | null
+  nextRotationAt?: string | null
   plaintextValue?: string
   createdAt: string
   updatedAt: string

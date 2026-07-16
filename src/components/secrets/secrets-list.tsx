@@ -14,7 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import type { FormEvent } from 'react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { SpotlightCard } from '@/components/shared/spotlight-card'
 import {
   AlertDialog,
@@ -43,6 +43,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useCreateConfigChangeRequest } from '@/lib/hooks/use-project-configuration'
 import { useCreateSecretAccessRequest } from '@/lib/hooks/use-projects'
 import {
@@ -58,11 +65,15 @@ import {
 } from '@/lib/hooks/use-secrets'
 import { useProjectMembers } from '@/lib/hooks/use-team'
 import { useToast } from '@/lib/hooks/use-toast'
+import { getSecretRotationState } from '@/lib/secrets/rotation'
 import { filterSecretsForWorkspace, parseSecretTagInput } from '@/lib/secrets/workspace'
 import type { Secret, SecretAccessRequest, SecretAccessRequestStatus } from '@/lib/types/models'
 import { cn } from '@/lib/utils/cn'
 import { getApiFriendlyMessageWithRef } from '@/lib/utils/errors'
 import { formatDateTime, formatRelativeDate } from '@/lib/utils/format'
+
+const ROTATION_INTERVALS = [7, 14, 30, 60, 90, 180, 365] as const
+const ROTATION_REMINDERS = [0, 1, 3, 6, 7, 14, 30] as const
 
 export function SecretsList({
   canManage = false,
@@ -692,6 +703,7 @@ function SecretRow({
   const canRevealPlaintextValue =
     secret.encryptionMode === 'plaintext' && typeof secret.plaintextValue === 'string'
   const canOpenMenu = canManage
+  const rotationState = getSecretRotationState(secret)
 
   return (
     <div
@@ -742,7 +754,7 @@ function SecretRow({
               {secret.encryptionMode === 'plaintext' ? 'unencrypted' : null}
             </span>
           </span>
-          {secret.description || (secret.tags?.length ?? 0) > 0 ? (
+          {secret.description || (secret.tags?.length ?? 0) > 0 || rotationState !== 'disabled' ? (
             <span className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
               {secret.description ? <span className="truncate">{secret.description}</span> : null}
               {(secret.tags ?? []).slice(0, 2).map((tag) => (
@@ -750,6 +762,26 @@ function SecretRow({
                   {tag}
                 </span>
               ))}
+              {rotationState !== 'disabled' && secret.nextRotationAt ? (
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded border px-1.5 py-0.5',
+                    rotationState === 'overdue'
+                      ? 'border-danger/40 text-danger'
+                      : rotationState === 'due'
+                        ? 'border-warning/40 text-warning'
+                        : 'border-border'
+                  )}
+                  title={formatDateTime(secret.nextRotationAt)}
+                >
+                  <RotateCw className="h-3 w-3" />
+                  {rotationState === 'overdue'
+                    ? 'Rotation overdue'
+                    : rotationState === 'due'
+                      ? `Rotation due ${formatRelativeDate(secret.nextRotationAt)}`
+                      : `Rotate ${formatRelativeDate(secret.nextRotationAt)}`}
+                </span>
+              ) : null}
             </span>
           ) : null}
         </div>
@@ -880,6 +912,22 @@ function SecretMetadataDialog({
   const [description, setDescription] = useState(secret?.description ?? '')
   const [folderPath, setFolderPath] = useState(secret?.folderPath ?? '/')
   const [tags, setTags] = useState((secret?.tags ?? []).join(', '))
+  const [rotationInterval, setRotationInterval] = useState(
+    secret?.rotationIntervalDays ? String(secret.rotationIntervalDays) : 'disabled'
+  )
+  const [rotationReminder, setRotationReminder] = useState(
+    String(secret?.rotationReminderDays ?? 7)
+  )
+
+  useEffect(() => {
+    setDescription(secret?.description ?? '')
+    setFolderPath(secret?.folderPath ?? '/')
+    setTags((secret?.tags ?? []).join(', '))
+    setRotationInterval(
+      secret?.rotationIntervalDays ? String(secret.rotationIntervalDays) : 'disabled'
+    )
+    setRotationReminder(String(secret?.rotationReminderDays ?? 7))
+  }, [secret])
 
   async function save(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
@@ -896,6 +944,8 @@ function SecretMetadataDialog({
         description: description.trim() || null,
         folderPath: folderPath.trim() || '/',
         tags: normalizedTags,
+        rotationIntervalDays: rotationInterval === 'disabled' ? null : Number(rotationInterval),
+        rotationReminderDays: rotationInterval === 'disabled' ? null : Number(rotationReminder),
       })
       toast.success('Variable details updated.')
       onOpenChange(false)
@@ -915,7 +965,8 @@ function SecretMetadataDialog({
             Edit details{secret ? `: ${secret.name}` : ''}
           </DialogTitle>
           <DialogDescription className="mt-1 text-sm text-muted-foreground">
-            Organize this variable without changing its encrypted value or version history.
+            Organize this variable and schedule rotation reminders without changing its encrypted
+            value or version history.
           </DialogDescription>
 
           <form className="mt-5 space-y-4" onSubmit={(event) => void save(event)}>
@@ -956,6 +1007,63 @@ function SecretMetadataDialog({
                 placeholder="Describe where this variable is used"
                 value={description}
               />
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label
+                className="space-y-1 text-xs text-muted-foreground"
+                htmlFor="metadata-rotation-interval"
+              >
+                Rotate every
+                <Select
+                  onValueChange={(value) => {
+                    setRotationInterval(value)
+                    if (value !== 'disabled' && Number(rotationReminder) >= Number(value)) {
+                      const fallback = ROTATION_REMINDERS.filter((days) => days < Number(value)).at(
+                        -1
+                      )
+                      setRotationReminder(String(fallback ?? 0))
+                    }
+                  }}
+                  value={rotationInterval}
+                >
+                  <SelectTrigger id="metadata-rotation-interval">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="disabled">Disabled</SelectItem>
+                    {ROTATION_INTERVALS.map((days) => (
+                      <SelectItem key={days} value={String(days)}>
+                        {days} days
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+              <label
+                className="space-y-1 text-xs text-muted-foreground"
+                htmlFor="metadata-rotation-reminder"
+              >
+                Remind before
+                <Select
+                  disabled={rotationInterval === 'disabled'}
+                  onValueChange={setRotationReminder}
+                  value={rotationReminder}
+                >
+                  <SelectTrigger id="metadata-rotation-reminder">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROTATION_REMINDERS.filter(
+                      (days) => rotationInterval !== 'disabled' && days < Number(rotationInterval)
+                    ).map((days) => (
+                      <SelectItem key={days} value={String(days)}>
+                        {days === 0 ? 'On due date' : `${days} days`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">

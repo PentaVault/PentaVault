@@ -40,6 +40,10 @@ describe('API schema parsing', () => {
           description: 'Primary payment credential',
           folderPath: '/services/billing',
           tags: ['billing', 'production'],
+          lastRotatedAt: '2026-04-01T00:00:00.000Z',
+          rotationIntervalDays: 30,
+          rotationReminderDays: 7,
+          nextRotationAt: '2026-05-01T00:00:00.000Z',
           mode: 'gateway',
           status: 'active',
           currentVersionId: 'version_123',
@@ -52,6 +56,7 @@ describe('API schema parsing', () => {
     expect(parsed.secrets[0]?.name).toBe('STRIPE_API_KEY')
     expect(parsed.secrets[0]?.folderPath).toBe('/services/billing')
     expect(parsed.secrets[0]?.tags).toEqual(['billing', 'production'])
+    expect(parsed.secrets[0]?.rotationIntervalDays).toBe(30)
   })
 
   it('accepts core secrets engine metadata on secrets and tokens adjacent responses', () => {

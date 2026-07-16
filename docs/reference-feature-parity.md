@@ -13,7 +13,7 @@ design-system code.
 | Domain | Current PentaVault baseline | Next improvement | Status |
 | --- | --- | --- | --- |
 | Secret workspace | Environments, config branches, personal secrets, import, bulk edit/delete, encrypted versions and restore, folders, tags and workspace facets | Safe export and pagination | Partial |
-| Secret lifecycle | Version envelopes, compromise states, rotation recommendations | Rotation policies, schedules, leases, reminders, retention enforcement | Planned |
+| Secret lifecycle | Version envelopes, compromise states, rotation recommendations, bounded rotation schedules, due/overdue reminders and automatic rescheduling on value replacement | Provider rotation adapters, zero-downtime overlap, leases and retention enforcement | Partial |
 | Change control | Config change requests, approvals, protected/private/shared branches | Policy templates, required reviewer rules, conflict previews | Partial |
 | Access control | Central project policy, org/project roles, per-secret grants and requests, plus optional bounded expiries with token TTL clamping | Groups, custom roles and trusted IP policies | Partial |
 | Machine identities | Scoped API keys and proxy tokens | Workload identities and cloud/Kubernetes/OIDC/JWT auth methods | Planned |

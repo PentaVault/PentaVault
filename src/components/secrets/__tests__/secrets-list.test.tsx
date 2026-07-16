@@ -30,4 +30,12 @@ describe('SecretsList', () => {
     expect(source).toContain('tagFilter')
     expect(source).toContain('Edit details')
   })
+
+  it('surfaces bounded rotation schedules in the existing details workflow', () => {
+    expect(source).toContain('getSecretRotationState')
+    expect(source).toContain('Rotation overdue')
+    expect(source).toContain('metadata-rotation-interval')
+    expect(source).toContain('metadata-rotation-reminder')
+    expect(source).toContain('rotationIntervalDays')
+  })
 })

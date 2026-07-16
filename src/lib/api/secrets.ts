@@ -134,6 +134,8 @@ export const secretsApi = {
         description: input.description,
         folderPath: input.folderPath,
         tags: input.tags,
+        rotationIntervalDays: input.rotationIntervalDays,
+        rotationReminderDays: input.rotationReminderDays,
       }
     )
     return parseApiResponse(updateSecretResponseSchema, response.data)
