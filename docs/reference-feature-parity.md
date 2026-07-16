@@ -18,7 +18,7 @@ design-system code.
 | Access control | Central project policy, org/project roles, organisation groups with additive project grants, per-secret grants and requests, optional bounded expiries with token TTL clamping, and token-level exact IP/device/request policies | Custom roles and project-wide trusted IP policies | Partial |
 | Machine identities | Scoped API keys and proxy tokens | Workload identities and cloud/Kubernetes/OIDC/JWT auth methods | Planned |
 | Authentication | Password, device flow, passkeys, MFA, sessions, invitations | SSO, SCIM, LDAP and domain enforcement | Partial |
-| Audit and activity | Project/org audit events and activity UI | Export streams, retention controls, signed reports, bounded telemetry | Partial |
+| Audit and activity | Project/org audit events, activity UI, bounded sanitized CSV/JSONL exports | Retention controls, signed reports, bounded telemetry | Partial |
 | Detection | Leak signatures, alerts and rotation recommendations | Repository/data-source scanning, findings workflow, honey tokens | Partial |
 | Integrations | AI provider gateway, CLI, encrypted outbound webhooks, and encrypted GitHub Actions/Vercel deployment syncs with environment/folder scope, version-aware automation, connection tests, retries and delivery history | Reusable app connections and additional provider adapters | Partial |
 | Sharing | Config sharing plus immutable encrypted external shares with hashed fragment-only links, expiry, atomic view limits, passwords, verified-recipient/org scopes and revocation | Secret-request links, custom public-page branding and recipient email delivery | Partial |

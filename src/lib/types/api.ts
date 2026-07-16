@@ -520,6 +520,11 @@ export interface AuditListResponse {
   nextCursor: string | null
 }
 
+export interface AuditExportQuery extends Omit<AuditListQuery, 'cursor' | 'limit'> {
+  format: 'csv' | 'jsonl'
+  maxRecords?: number
+}
+
 export interface CreateSecretInput {
   id?: string
   projectId: string

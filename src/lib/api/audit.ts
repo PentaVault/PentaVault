@@ -1,9 +1,17 @@
 import { apiClient } from '@/lib/api/client'
 import { auditListResponseSchema, parseApiResponse } from '@/lib/api/schemas'
-import type { AuditListQuery, AuditListResponse } from '@/lib/types/api'
+import type { AuditExportQuery, AuditListQuery, AuditListResponse } from '@/lib/types/api'
 import { getApiErrorCode, getApiErrorStatus } from '@/lib/utils/errors'
 
 export const auditApi = {
+  async exportProjectAudit(projectId: string, query: AuditExportQuery): Promise<Blob> {
+    const response = await apiClient.get<Blob>(`/v1/projects/${projectId}/audit/export`, {
+      params: query,
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
   async listProjectAudit(
     projectId: string,
     query: AuditListQuery = {}

@@ -1,8 +1,9 @@
 'use client'
 
-import { CheckCircle2, XCircle } from 'lucide-react'
+import { CheckCircle2, Download, Loader2, XCircle } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { auditApi } from '@/lib/api/audit'
 import { getOrgProjectPath, getProjectPath } from '@/lib/constants'
 import { useAudit } from '@/lib/hooks/use-audit'
 import { useProject } from '@/lib/hooks/use-projects'
@@ -33,6 +35,7 @@ export default function ProjectAuditPage() {
   const [outcome, setOutcome] = useState<'all' | 'success' | 'failure'>('all')
   const [pageIndex, setPageIndex] = useState(0)
   const [pageCursors, setPageCursors] = useState<Array<string | null>>([null])
+  const [exportingFormat, setExportingFormat] = useState<'csv' | 'jsonl' | null>(null)
   const projectQuery = useProject(projectId)
   const effectiveRole = projectQuery.data?.effectiveRole ?? projectQuery.data?.orgRole ?? null
   const canReadAudit =
@@ -81,6 +84,33 @@ export default function ProjectAuditPage() {
   function resetPagination(): void {
     setPageIndex(0)
     setPageCursors([null])
+  }
+
+  async function exportAudit(format: 'csv' | 'jsonl'): Promise<void> {
+    if (!projectId || exportingFormat) return
+
+    setExportingFormat(format)
+    try {
+      const blob = await auditApi.exportProjectAudit(projectId, {
+        format,
+        maxRecords: 5000,
+        ...(eventType.trim() ? { eventType: eventType.trim() } : {}),
+        ...(outcome === 'all' ? {} : { outcome }),
+      })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `pentavault-audit-${projectId}.${format}`
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(url)
+      toast.success(`Audit ${format.toUpperCase()} exported.`)
+    } catch (error) {
+      toast.error(getApiFriendlyMessage(error, 'Unable to export audit events right now.'))
+    } finally {
+      setExportingFormat(null)
+    }
   }
 
   if (projectQuery.isLoading) {
@@ -135,7 +165,7 @@ export default function ProjectAuditPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <input
                 className="rounded-md border border-border bg-background-elevated px-3 py-2 text-sm"
                 onChange={(event) => {
@@ -175,6 +205,25 @@ export default function ProjectAuditPage() {
               >
                 Refresh
               </button>
+
+              <div className="flex gap-2">
+                {(['csv', 'jsonl'] as const).map((format) => (
+                  <button
+                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:border-border-strong hover:bg-card-elevated disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={exportingFormat !== null}
+                    key={format}
+                    onClick={() => void exportAudit(format)}
+                    type="button"
+                  >
+                    {exportingFormat === format ? (
+                      <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+                    ) : (
+                      <Download aria-hidden="true" className="size-4" />
+                    )}
+                    {format.toUpperCase()}
+                  </button>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
