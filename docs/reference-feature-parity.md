@@ -29,7 +29,7 @@ design-system code.
 | PKI/KMS/PAM | Envelope encryption provider abstraction | External KMS, certificate lifecycle and privileged sessions | Planned |
 | AI/MCP | Provider gateway with scoped secret resolution | Governed MCP endpoints, activity records and tool policies | Partial |
 | CLI | Secure device login, online secret workflows, config branches and release artifacts | Lease-backed cache, benchmarks and signed binaries | Partial |
-| Operations | Separate liveness and bounded database readiness probes, graceful readiness drains, Docker builds and deployment handoff | Metrics, tracing, queue telemetry and SLOs | Partial |
+| Operations | Separate liveness and bounded database readiness probes, graceful readiness drains, local-only Prometheus process/HTTP metrics, Docker builds and deployment handoff | Tracing, queue telemetry and SLOs | Partial |
 | CI/CD | Full frontend/backend/CLI gates, coverage thresholds, clean database bootstrap, immutable migration checks, dependency review, CodeQL analysis and attested release artifacts | Deployment smoke promotion | Partial |
 | Testing | Frontend unit/E2E plus backend unit/integration/contract/smoke suites with webhook, external-share and deployment-sync crypto, scope, concurrency, provider, API, proxy-header and UI coverage | Broader permission matrix, resilience, accessibility and browser coverage | In progress |
 
