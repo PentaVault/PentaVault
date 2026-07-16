@@ -106,6 +106,12 @@ export const queryKeys = {
     deliveries: (projectId: string | null, webhookId?: string | null) =>
       ['project-webhooks', projectId, webhookId ?? 'all', 'deliveries'] as const,
   },
+  projectSecretSyncs: {
+    all: ['project-secret-syncs'] as const,
+    list: (projectId: string | null) => ['project-secret-syncs', projectId] as const,
+    deliveries: (projectId: string | null, syncId?: string | null) =>
+      ['project-secret-syncs', projectId, syncId ?? 'all', 'deliveries'] as const,
+  },
   projectSecretShares: {
     all: ['project-secret-shares'] as const,
     list: (projectId: string | null) => ['project-secret-shares', projectId] as const,

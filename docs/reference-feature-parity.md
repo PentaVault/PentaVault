@@ -20,7 +20,7 @@ design-system code.
 | Authentication | Password, device flow, passkeys, MFA, sessions, invitations | SSO, SCIM, LDAP and domain enforcement | Partial |
 | Audit and activity | Project/org audit events and activity UI | Export streams, retention controls, signed reports, bounded telemetry | Partial |
 | Detection | Leak signatures, alerts and rotation recommendations | Repository/data-source scanning, findings workflow, honey tokens | Partial |
-| Integrations | AI provider gateway, CLI, encrypted outbound webhooks, scoped secret events, HMAC signing, retries and delivery history | App connections and secret sync destinations | Partial |
+| Integrations | AI provider gateway, CLI, encrypted outbound webhooks, and encrypted GitHub Actions/Vercel deployment syncs with environment/folder scope, version-aware automation, connection tests, retries and delivery history | Reusable app connections and additional provider adapters | Partial |
 | Sharing | Config sharing plus immutable encrypted external shares with hashed fragment-only links, expiry, atomic view limits, passwords, verified-recipient/org scopes and revocation | Secret-request links, custom public-page branding and recipient email delivery | Partial |
 | Dynamic secrets | Static encrypted values and proxy access tokens | Provider-issued short-lived credentials and lease revocation | Planned |
 | Notifications | In-app stream, email queue, outbound webhooks and dead-letter replay visibility | Preferences and digests | Partial |
@@ -31,7 +31,7 @@ design-system code.
 | CLI | Secure device login, online secret workflows, config branches and release artifacts | Lease-backed cache, benchmarks and signed binaries | Partial |
 | Operations | Health checks, Docker builds and deployment handoff | Readiness detail, metrics, tracing, queues, graceful drains and SLOs | Partial |
 | CI/CD | Full frontend/backend/CLI gates, coverage thresholds, clean database bootstrap, dependency review and release artifacts | Secret scanning and deployment smoke promotion | Partial |
-| Testing | Frontend unit/E2E plus backend unit/integration/contract/smoke suites with webhook and external-share crypto, scope, concurrency, API, proxy-header and UI coverage | Broader permission matrix, resilience, accessibility and browser coverage | In progress |
+| Testing | Frontend unit/E2E plus backend unit/integration/contract/smoke suites with webhook, external-share and deployment-sync crypto, scope, concurrency, provider, API, proxy-header and UI coverage | Broader permission matrix, resilience, accessibility and browser coverage | In progress |
 
 ## Delivery Order
 

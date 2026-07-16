@@ -389,6 +389,61 @@ export interface WebhookDelivery {
   updatedAt: string
 }
 
+export type SecretSyncProvider = 'github' | 'vercel'
+export type SecretSyncDeliveryStatus = WebhookDeliveryStatus
+
+export interface GitHubSecretSyncDestination {
+  scope: 'repository' | 'environment'
+  owner: string
+  repository: string
+  environment?: string
+}
+
+export interface VercelSecretSyncDestination {
+  project: string
+  teamId?: string
+  targets: Array<'production' | 'preview' | 'development'>
+  gitBranch?: string
+}
+
+export interface SecretSync {
+  id: string
+  projectId: string
+  environmentId: string | null
+  name: string
+  provider: SecretSyncProvider
+  destinationConfig: GitHubSecretSyncDestination | VercelSecretSyncDestination
+  credentialHint: string
+  credentialConfigured: true
+  folderPath: string
+  autoSyncEnabled: boolean
+  enabled: boolean
+  maxAttempts: number
+  lastStatus: SecretSyncDeliveryStatus | null
+  lastSyncedAt: string | null
+  lastError: string | null
+  createdByUserId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SecretSyncDelivery {
+  id: string
+  syncId: string
+  projectId: string
+  reason: 'manual' | 'automatic'
+  status: SecretSyncDeliveryStatus
+  attemptCount: number
+  nextAttemptAt: string | null
+  lastAttemptAt: string | null
+  completedAt: string | null
+  secretCount: number | null
+  changedCount: number | null
+  lastError: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface UserSecretAccess {
   id: string
   projectId: string

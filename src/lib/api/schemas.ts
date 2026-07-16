@@ -922,6 +922,106 @@ export const webhookDeliveriesResponseSchema = z.object({
 })
 export const webhookDeliveryResponseSchema = z.object({ delivery: webhookDeliverySchema })
 
+export const secretSyncProviderSchema = z.enum(['github', 'vercel'])
+export const githubSecretSyncDestinationSchema = z.object({
+  scope: z.enum(['repository', 'environment']),
+  owner: z.string().trim().min(1).max(100),
+  repository: z.string().trim().min(1).max(100),
+  environment: z.string().trim().min(1).max(255).optional(),
+})
+export const vercelSecretSyncDestinationSchema = z.object({
+  project: z.string().trim().min(1).max(160),
+  teamId: z.string().trim().min(1).max(160).optional(),
+  targets: z
+    .array(z.enum(['production', 'preview', 'development']))
+    .min(1)
+    .max(3),
+  gitBranch: z.string().trim().min(1).max(250).optional(),
+})
+export const secretSyncSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  environmentId: nullableStringSchema,
+  name: z.string(),
+  provider: secretSyncProviderSchema,
+  destinationConfig: z.union([
+    githubSecretSyncDestinationSchema,
+    vercelSecretSyncDestinationSchema,
+  ]),
+  credentialHint: z.string(),
+  credentialConfigured: z.literal(true),
+  folderPath: z.string(),
+  autoSyncEnabled: z.boolean(),
+  enabled: z.boolean(),
+  maxAttempts: z.number().int().min(1).max(10),
+  lastStatus: webhookDeliveryStatusSchema.nullable(),
+  lastSyncedAt: nullableStringSchema,
+  lastError: nullableStringSchema,
+  createdByUserId: nullableStringSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+export const secretSyncDeliverySchema = z.object({
+  id: z.string(),
+  syncId: z.string(),
+  projectId: z.string(),
+  reason: z.enum(['manual', 'automatic']),
+  status: webhookDeliveryStatusSchema,
+  attemptCount: z.number().int().min(0),
+  nextAttemptAt: nullableStringSchema,
+  lastAttemptAt: nullableStringSchema,
+  completedAt: nullableStringSchema,
+  secretCount: z.number().int().min(0).nullable(),
+  changedCount: z.number().int().min(0).nullable(),
+  lastError: nullableStringSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+export const secretSyncsResponseSchema = z.object({
+  syncs: z.array(secretSyncSchema),
+  supportedProviders: z.array(secretSyncProviderSchema),
+})
+export const secretSyncResponseSchema = z.object({ sync: secretSyncSchema })
+export const secretSyncDeliveriesResponseSchema = z.object({
+  deliveries: z.array(secretSyncDeliverySchema),
+})
+export const secretSyncDeliveryResponseSchema = z.object({ delivery: secretSyncDeliverySchema })
+const secretSyncCommonInputSchema = {
+  name: z.string().trim().min(1).max(120),
+  credential: z.string().trim().min(1).max(4096),
+  environmentId: z.string().trim().min(1).nullable().optional(),
+  folderPath: z.string().trim().min(1).max(256),
+  autoSyncEnabled: z.boolean().optional(),
+  enabled: z.boolean().optional(),
+  maxAttempts: z.number().int().min(1).max(10).optional(),
+}
+export const createSecretSyncInputSchema = z.discriminatedUnion('provider', [
+  z.object({
+    ...secretSyncCommonInputSchema,
+    provider: z.literal('github'),
+    destinationConfig: githubSecretSyncDestinationSchema,
+  }),
+  z.object({
+    ...secretSyncCommonInputSchema,
+    provider: z.literal('vercel'),
+    destinationConfig: vercelSecretSyncDestinationSchema,
+  }),
+])
+export const updateSecretSyncInputSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    credential: z.string().trim().min(1).max(4096).optional(),
+    destinationConfig: z
+      .union([githubSecretSyncDestinationSchema, vercelSecretSyncDestinationSchema])
+      .optional(),
+    environmentId: z.string().trim().min(1).nullable().optional(),
+    folderPath: z.string().trim().min(1).max(256).optional(),
+    autoSyncEnabled: z.boolean().optional(),
+    enabled: z.boolean().optional(),
+    maxAttempts: z.number().int().min(1).max(10).optional(),
+  })
+  .refine((value) => Object.values(value).some((field) => field !== undefined))
+
 export const secretShareAccessScopeSchema = z.enum(['anyone', 'organization', 'recipients'])
 export const secretShareStatusSchema = z.enum(['active', 'consumed', 'expired', 'revoked'])
 

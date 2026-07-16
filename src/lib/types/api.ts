@@ -9,6 +9,7 @@ import type {
   AccessRequest,
   AuditEvent,
   ConfigChangeRequest,
+  GitHubSecretSyncDestination,
   OutboundWebhook,
   PersonalSecretPromotionRequest,
   Project,
@@ -29,11 +30,15 @@ import type {
   SecretMode,
   SecretShare,
   SecretShareAccessScope,
+  SecretSync,
+  SecretSyncDelivery,
+  SecretSyncProvider,
   SecretVersion,
   SecurityAlert,
   SecurityAlertStatus,
   UserProject,
   UserSecretAccess,
+  VercelSecretSyncDestination,
   WebhookDelivery,
   WebhookEventType,
 } from '@/lib/types/models'
@@ -185,6 +190,50 @@ export interface WebhookDeliveriesResponse {
 
 export interface WebhookDeliveryResponse {
   delivery: WebhookDelivery
+}
+
+export interface SecretSyncsResponse {
+  syncs: SecretSync[]
+  supportedProviders: readonly SecretSyncProvider[]
+}
+
+export interface SecretSyncResponse {
+  sync: SecretSync
+}
+
+interface CreateSecretSyncBaseInput {
+  name: string
+  credential: string
+  environmentId?: string | null
+  folderPath: string
+  autoSyncEnabled?: boolean
+  enabled?: boolean
+  maxAttempts?: number
+}
+
+export type CreateSecretSyncInput = CreateSecretSyncBaseInput &
+  (
+    | { provider: 'github'; destinationConfig: GitHubSecretSyncDestination }
+    | { provider: 'vercel'; destinationConfig: VercelSecretSyncDestination }
+  )
+
+export interface UpdateSecretSyncInput {
+  name?: string
+  credential?: string
+  destinationConfig?: GitHubSecretSyncDestination | VercelSecretSyncDestination
+  environmentId?: string | null
+  folderPath?: string
+  autoSyncEnabled?: boolean
+  enabled?: boolean
+  maxAttempts?: number
+}
+
+export interface SecretSyncDeliveriesResponse {
+  deliveries: SecretSyncDelivery[]
+}
+
+export interface SecretSyncDeliveryResponse {
+  delivery: SecretSyncDelivery
 }
 
 export interface SecretSharesResponse {
