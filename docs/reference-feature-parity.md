@@ -30,7 +30,7 @@ design-system code.
 | AI/MCP | Provider gateway with scoped secret resolution | Governed MCP endpoints, activity records and tool policies | Partial |
 | CLI | Secure device login, online secret workflows, config branches and release artifacts | Lease-backed cache, benchmarks and signed binaries | Partial |
 | Operations | Health checks, Docker builds and deployment handoff | Readiness detail, metrics, tracing, queues, graceful drains and SLOs | Partial |
-| CI/CD | Full frontend/backend/CLI gates, coverage thresholds, clean database bootstrap, dependency review and release artifacts | Secret scanning and deployment smoke promotion | Partial |
+| CI/CD | Full frontend/backend/CLI gates, coverage thresholds, clean database bootstrap, immutable migration checks, dependency review, CodeQL analysis and attested release artifacts | Deployment smoke promotion | Partial |
 | Testing | Frontend unit/E2E plus backend unit/integration/contract/smoke suites with webhook, external-share and deployment-sync crypto, scope, concurrency, provider, API, proxy-header and UI coverage | Broader permission matrix, resilience, accessibility and browser coverage | In progress |
 
 ## Delivery Order

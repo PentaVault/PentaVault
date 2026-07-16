@@ -7,7 +7,9 @@ on:
       - "cli-v*"
 
 permissions:
+  attestations: write
   contents: read
+  id-token: write
 
 jobs:
   build:
@@ -88,3 +90,10 @@ jobs:
             dist/*.tar.gz
             dist/*.sha256
           if-no-files-found: error
+
+      - name: Attest release archive provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            dist/*.zip
+            dist/*.tar.gz
