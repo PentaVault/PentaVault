@@ -11,7 +11,8 @@
       "**/*.json",
       "**/*.jsonc",
       "**/*.css",
-      "!PentaVault-Backend"
+      "!PentaVault-Backend",
+      "!reference-app"
     ]
   },
   "vcs": {
