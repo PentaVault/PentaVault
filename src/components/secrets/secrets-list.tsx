@@ -3,6 +3,7 @@
 import {
   Eye,
   EyeOff,
+  FolderTree,
   KeyRound,
   Lock,
   MoreHorizontal,
@@ -53,9 +54,11 @@ import {
   useSecretAccessRequests,
   useSecretVersions,
   useUpdateSecret,
+  useUpdateSecretMetadata,
 } from '@/lib/hooks/use-secrets'
 import { useProjectMembers } from '@/lib/hooks/use-team'
 import { useToast } from '@/lib/hooks/use-toast'
+import { filterSecretsForWorkspace, parseSecretTagInput } from '@/lib/secrets/workspace'
 import type { Secret, SecretAccessRequest, SecretAccessRequestStatus } from '@/lib/types/models'
 import { cn } from '@/lib/utils/cn'
 import { getApiFriendlyMessageWithRef } from '@/lib/utils/errors'
@@ -68,8 +71,10 @@ export function SecretsList({
   enabled = true,
   environmentId,
   environmentSlug,
+  folderFilter = '*',
   projectId,
   search,
+  tagFilter = '*',
 }: {
   canManage?: boolean
   canRequestMerge?: boolean
@@ -77,8 +82,10 @@ export function SecretsList({
   enabled?: boolean
   environmentId?: string | null
   environmentSlug?: string
+  folderFilter?: string
   projectId: string
   search: string
+  tagFilter?: string
 }) {
   const secretsQuery = useProjectSecrets(projectId, enabled, configId)
   const accessQuery = useProjectSecretAccess(projectId, enabled)
@@ -93,6 +100,7 @@ export function SecretsList({
   const [selectedSecretIds, setSelectedSecretIds] = useState<Set<string>>(new Set())
   const [editTarget, setEditTarget] = useState<Secret | null>(null)
   const [historyTarget, setHistoryTarget] = useState<Secret | null>(null)
+  const [metadataTarget, setMetadataTarget] = useState<Secret | null>(null)
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Secret | null>(null)
   const [deleteImpactTarget, setDeleteImpactTarget] = useState<Secret | null>(null)
@@ -186,25 +194,14 @@ export function SecretsList({
     return counts
   }, [secretAccessUsers])
   const filtered = useMemo(() => {
-    const scopedSecrets = secrets.filter((secret) => {
-      if (environmentId) {
-        return secret.environmentId
-          ? secret.environmentId === environmentId
-          : environmentSlug
-            ? secret.environment === environmentSlug
-            : false
-      }
-
-      return environmentSlug ? secret.environment === environmentSlug : true
+    return filterSecretsForWorkspace(secrets, {
+      folderPath: folderFilter,
+      tag: tagFilter,
+      search,
+      ...(environmentId !== undefined ? { environmentId } : {}),
+      ...(environmentSlug !== undefined ? { environmentSlug } : {}),
     })
-
-    if (!search.trim()) {
-      return scopedSecrets
-    }
-
-    const query = search.toLowerCase()
-    return scopedSecrets.filter((secret) => secret.name.toLowerCase().includes(query))
-  }, [environmentId, environmentSlug, secrets, search])
+  }, [environmentId, environmentSlug, folderFilter, secrets, search, tagFilter])
 
   const anySelected = canManage && selectedSecretIds.size > 0
   const selectedSecrets = canManage
@@ -500,6 +497,7 @@ export function SecretsList({
             onDelete={() => setDeleteTarget(secret)}
             onEdit={() => setEditTarget(secret)}
             onHistory={() => setHistoryTarget(secret)}
+            onMetadata={() => setMetadataTarget(secret)}
             onCancelRequest={() => void handleCancelAccessRequest(secret)}
             onRequestAccess={() => void handleRequestAccess(secret)}
             onResendRequest={() => void handleResendAccessRequest(secret)}
@@ -533,6 +531,18 @@ export function SecretsList({
         open={Boolean(historyTarget)}
         projectId={projectId}
         secret={historyTarget}
+      />
+
+      <SecretMetadataDialog
+        key={metadataTarget?.id ?? 'secret-metadata'}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMetadataTarget(null)
+          }
+        }}
+        open={Boolean(metadataTarget)}
+        projectId={projectId}
+        secret={metadataTarget}
       />
 
       <AlertDialog
@@ -651,6 +661,7 @@ function SecretRow({
   onDelete,
   onEdit,
   onHistory,
+  onMetadata,
   onCancelRequest,
   onRequestAccess,
   onResendRequest,
@@ -670,6 +681,7 @@ function SecretRow({
   onDelete: () => void
   onEdit: () => void
   onHistory: () => void
+  onMetadata: () => void
   onCancelRequest: () => void
   onRequestAccess: () => void
   onResendRequest: () => void
@@ -718,19 +730,36 @@ function SecretRow({
       </div>
 
       <div className="grid min-w-0 flex-1 grid-cols-[minmax(10rem,1fr)_6.5rem_7.25rem] items-center gap-3">
-        <span className="truncate font-mono text-sm flex items-center gap-3">
-          {secret.name}
-          <span
-            className={cn(
-              'text-center font-sans text-[11px]',
-              secret.encryptionMode === 'plaintext' ? 'text-warning' : 'text-muted-foreground'
-            )}
-          >
-            {secret.encryptionMode === 'plaintext' ? 'unencrypted' : null}
+        <div className="min-w-0">
+          <span className="flex truncate font-mono text-sm items-center gap-3">
+            {secret.name}
+            <span
+              className={cn(
+                'text-center font-sans text-[11px]',
+                secret.encryptionMode === 'plaintext' ? 'text-warning' : 'text-muted-foreground'
+              )}
+            >
+              {secret.encryptionMode === 'plaintext' ? 'unencrypted' : null}
+            </span>
           </span>
-        </span>
+          {secret.description || (secret.tags?.length ?? 0) > 0 ? (
+            <span className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+              {secret.description ? <span className="truncate">{secret.description}</span> : null}
+              {(secret.tags ?? []).slice(0, 2).map((tag) => (
+                <span className="rounded border border-border px-1.5 py-0.5" key={tag}>
+                  {tag}
+                </span>
+              ))}
+            </span>
+          ) : null}
+        </div>
         <span className={cn('text-center font-sans text-[11px]', 'text-muted-foreground')}>
-          branch
+          <span className="inline-flex items-center justify-center gap-1" title={secret.folderPath}>
+            <FolderTree className="h-3 w-3" />
+            {secret.folderPath === '/' || !secret.folderPath
+              ? 'root'
+              : secret.folderPath.split('/').at(-1)}
+          </span>
         </span>
       </div>
 
@@ -819,6 +848,7 @@ function SecretRow({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={onEdit}>Edit value</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onMetadata}>Edit details</DropdownMenuItem>
               {canManage ? (
                 <DropdownMenuItem onSelect={onHistory}>Back to older version</DropdownMenuItem>
               ) : null}
@@ -831,6 +861,115 @@ function SecretRow({
         ) : null}
       </div>
     </div>
+  )
+}
+
+function SecretMetadataDialog({
+  onOpenChange,
+  open,
+  projectId,
+  secret,
+}: {
+  onOpenChange: (open: boolean) => void
+  open: boolean
+  projectId: string
+  secret: Secret | null
+}) {
+  const updateMetadata = useUpdateSecretMetadata()
+  const { toast } = useToast()
+  const [description, setDescription] = useState(secret?.description ?? '')
+  const [folderPath, setFolderPath] = useState(secret?.folderPath ?? '/')
+  const [tags, setTags] = useState((secret?.tags ?? []).join(', '))
+
+  async function save(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault()
+    if (!secret) {
+      return
+    }
+
+    const normalizedTags = parseSecretTagInput(tags)
+
+    try {
+      await updateMetadata.mutateAsync({
+        projectId,
+        secretId: secret.id,
+        description: description.trim() || null,
+        folderPath: folderPath.trim() || '/',
+        tags: normalizedTags,
+      })
+      toast.success('Variable details updated.')
+      onOpenChange(false)
+    } catch (error) {
+      toast.error(
+        getApiFriendlyMessageWithRef(error, "Unable to update this variable's details right now.")
+      )
+    }
+  }
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogPortal>
+        <DialogOverlay className="fixed inset-0 bg-black/45" />
+        <DialogContent className="fixed top-1/2 left-1/2 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-6">
+          <DialogTitle className="text-lg font-medium">
+            Edit details{secret ? `: ${secret.name}` : ''}
+          </DialogTitle>
+          <DialogDescription className="mt-1 text-sm text-muted-foreground">
+            Organize this variable without changing its encrypted value or version history.
+          </DialogDescription>
+
+          <form className="mt-5 space-y-4" onSubmit={(event) => void save(event)}>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground" htmlFor="metadata-folder-path">
+                Folder
+              </label>
+              <Input
+                id="metadata-folder-path"
+                maxLength={256}
+                onChange={(event) => setFolderPath(event.target.value)}
+                placeholder="/services/api"
+                value={folderPath}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground" htmlFor="metadata-tags">
+                Tags
+              </label>
+              <Input
+                id="metadata-tags"
+                onChange={(event) => setTags(event.target.value)}
+                placeholder="production, database"
+                value={tags}
+              />
+              <p className="text-xs text-muted-foreground">
+                Up to 20 comma-separated tags using letters, numbers, dots, underscores, or hyphens.
+              </p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground" htmlFor="metadata-description">
+                Description
+              </label>
+              <Input
+                id="metadata-description"
+                maxLength={500}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Describe where this variable is used"
+                value={description}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button onClick={() => onOpenChange(false)} size="sm" type="button" variant="outline">
+                Cancel
+              </Button>
+              <Button disabled={updateMetadata.isPending} size="sm" type="submit">
+                {updateMetadata.isPending ? 'Saving...' : 'Save details'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </DialogPortal>
+    </Dialog>
   )
 }
 

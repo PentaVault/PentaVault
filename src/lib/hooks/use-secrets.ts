@@ -98,6 +98,9 @@ export function useCreateSecrets() {
       environmentId?: string
       configId?: string
       encryptionMode?: CreateSecretInput['encryptionMode']
+      description?: string | null
+      folderPath?: string
+      tags?: string[]
       scope?: CreateSecretInput['scope']
       secrets: Array<{ key: string; value: string }>
     }) => {
@@ -109,6 +112,9 @@ export function useCreateSecrets() {
         mode: 'compatibility',
         issueTokens: false,
         secrets: Object.fromEntries(payload.secrets.map((row) => [row.key, row.value])),
+        ...(payload.description !== undefined ? { description: payload.description } : {}),
+        ...(payload.folderPath !== undefined ? { folderPath: payload.folderPath } : {}),
+        ...(payload.tags !== undefined ? { tags: payload.tags } : {}),
         ...(payload.environmentId ? { environmentId: payload.environmentId } : {}),
         ...(payload.configId ? { configId: payload.configId } : {}),
       })
@@ -273,6 +279,24 @@ export function useUpdateSecret() {
   return useMutation({
     mutationFn: secretsApi.updateSecret,
     onSuccess: async (_result, input) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.list(input.projectId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projectSecrets.personal(input.projectId),
+        }),
+      ])
+    },
+  })
+}
+
+export function useUpdateSecretMetadata() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: secretsApi.updateSecretMetadata,
+    onSuccess: async (_response, input) => {
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: queryKeys.projectSecrets.list(input.projectId),

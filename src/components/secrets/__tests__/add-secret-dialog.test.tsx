@@ -38,5 +38,8 @@ describe('AddSecretDialog', () => {
     expect(source).not.toContain('useCreatePersonalSecret')
     expect(source).not.toContain('MEMBER_DEVELOPMENT_ONLY_MESSAGE')
     expect(source).toContain('SECRET_NAME_PATTERN')
+    expect(source).toContain('secret-folder-path')
+    expect(source).toContain('secret-tags')
+    expect(source).toContain('parseSecretTagInput')
   })
 })

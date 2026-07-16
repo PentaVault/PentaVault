@@ -40,6 +40,8 @@ import type {
   SecretAccessResponse,
   SecretVersionsResponse,
   UpdateSecretInput,
+  UpdateSecretMetadataInput,
+  UpdateSecretMetadataResponse,
   UpdateSecretResponse,
 } from '@/lib/types/api'
 
@@ -118,6 +120,20 @@ export const secretsApi = {
       `/v1/projects/${input.projectId}/secrets/${input.secretId}`,
       {
         plaintext: input.plaintext,
+      }
+    )
+    return parseApiResponse(updateSecretResponseSchema, response.data)
+  },
+
+  async updateSecretMetadata(
+    input: UpdateSecretMetadataInput
+  ): Promise<UpdateSecretMetadataResponse> {
+    const response = await apiClient.patch<UpdateSecretMetadataResponse>(
+      `/v1/projects/${input.projectId}/secrets/${input.secretId}/metadata`,
+      {
+        description: input.description,
+        folderPath: input.folderPath,
+        tags: input.tags,
       }
     )
     return parseApiResponse(updateSecretResponseSchema, response.data)

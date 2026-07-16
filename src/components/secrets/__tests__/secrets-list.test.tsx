@@ -25,8 +25,9 @@ describe('SecretsList', () => {
   })
 
   it('falls back to legacy environment slugs when environment ids are missing', () => {
-    expect(source).toContain('secret.environmentId')
-    expect(source).toContain('secret.environmentId === environmentId')
-    expect(source).toContain('secret.environment === environmentSlug')
+    expect(source).toContain('filterSecretsForWorkspace')
+    expect(source).toContain('folderFilter')
+    expect(source).toContain('tagFilter')
+    expect(source).toContain('Edit details')
   })
 })

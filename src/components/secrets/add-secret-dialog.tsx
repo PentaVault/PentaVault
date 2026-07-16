@@ -2,7 +2,7 @@
 
 import { AlertTriangle, Eye, EyeOff, Plus, Upload, X } from 'lucide-react'
 import type { ChangeEvent, ClipboardEvent, FormEvent } from 'react'
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input'
 import { Switch, SwitchThumb } from '@/components/ui/switch'
 import { useCreateSecrets } from '@/lib/hooks/use-secrets'
 import { useToast } from '@/lib/hooks/use-toast'
+import { parseSecretTagInput } from '@/lib/secrets/workspace'
 import { getApiFriendlyMessage } from '@/lib/utils/errors'
 
 type SecretRowInput = {
@@ -70,6 +71,7 @@ export function AddSecretDialog({
   configId,
   environmentId,
   environmentSlug,
+  folderPath: initialFolderPath = '/',
   projectId,
   open,
   onOpenChange,
@@ -77,6 +79,7 @@ export function AddSecretDialog({
   configId?: string | null
   environmentId?: string | null
   environmentSlug?: string
+  folderPath?: string
   projectId: string
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -85,11 +88,20 @@ export function AddSecretDialog({
   const [rows, setRows] = useState<SecretRowInput[]>(() => [createEmptyRow(initialRowId)])
   const [showValues, setShowValues] = useState<Record<string, boolean>>({})
   const [encryptionMode, setEncryptionMode] = useState<'encrypted' | 'plaintext'>('encrypted')
+  const [description, setDescription] = useState('')
+  const [folderPath, setFolderPath] = useState(initialFolderPath)
+  const [tags, setTags] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   const [pendingPlaintextRows, setPendingPlaintextRows] = useState<SecretRowInput[] | null>(null)
   const createSecrets = useCreateSecrets()
   const { toast } = useToast()
   const isSaving = createSecrets.isPending
+
+  useEffect(() => {
+    if (open) {
+      setFolderPath(initialFolderPath)
+    }
+  }, [initialFolderPath, open])
 
   function handleKeyPaste(event: ClipboardEvent<HTMLInputElement>) {
     const text = event.clipboardData.getData('text')
@@ -123,6 +135,9 @@ export function AddSecretDialog({
     setRows([createEmptyRow()])
     setShowValues({})
     setEncryptionMode('encrypted')
+    setDescription('')
+    setFolderPath(initialFolderPath)
+    setTags('')
     setFormError(null)
     setPendingPlaintextRows(null)
   }
@@ -137,6 +152,9 @@ export function AddSecretDialog({
         projectId,
         environment: environmentSlug ?? 'development',
         encryptionMode,
+        description: description.trim() || null,
+        folderPath: folderPath.trim() || '/',
+        tags: parseSecretTagInput(tags),
         secrets: validRows,
         ...(environmentId ? { environmentId } : {}),
         ...(configId ? { configId } : {}),
@@ -258,6 +276,43 @@ export function AddSecretDialog({
           </DialogDescription>
 
           <form className="mt-3 pt-2" onSubmit={(event) => void handleSubmit(event)}>
+            <div className="mb-4 grid gap-3 border-b border-border pb-4 sm:grid-cols-2">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground" htmlFor="secret-folder-path">
+                  Folder
+                </label>
+                <Input
+                  id="secret-folder-path"
+                  maxLength={256}
+                  onChange={(event) => setFolderPath(event.target.value)}
+                  placeholder="/services/api"
+                  value={folderPath}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground" htmlFor="secret-tags">
+                  Tags
+                </label>
+                <Input
+                  id="secret-tags"
+                  onChange={(event) => setTags(event.target.value)}
+                  placeholder="production, database"
+                  value={tags}
+                />
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <label className="text-xs text-muted-foreground" htmlFor="secret-description">
+                  Description
+                </label>
+                <Input
+                  id="secret-description"
+                  maxLength={500}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="What uses these variables?"
+                  value={description}
+                />
+              </div>
+            </div>
             <div className="max-h-[52vh] space-y-3 overflow-y-auto p-1">
               {rows.map((row, index) => (
                 <div className="flex items-start gap-2" key={row.id}>

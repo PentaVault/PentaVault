@@ -33,6 +33,9 @@ describe('API schema parsing', () => {
           projectId: 'project_123',
           environment: 'production',
           name: 'STRIPE_API_KEY',
+          description: 'Primary payment credential',
+          folderPath: '/services/billing',
+          tags: ['billing', 'production'],
           mode: 'gateway',
           status: 'active',
           currentVersionId: 'version_123',
@@ -43,6 +46,8 @@ describe('API schema parsing', () => {
     })
 
     expect(parsed.secrets[0]?.name).toBe('STRIPE_API_KEY')
+    expect(parsed.secrets[0]?.folderPath).toBe('/services/billing')
+    expect(parsed.secrets[0]?.tags).toEqual(['billing', 'production'])
   })
 
   it('accepts core secrets engine metadata on secrets and tokens adjacent responses', () => {

@@ -138,6 +138,9 @@ export interface Secret {
   environmentId?: string | null
   configId?: string | null
   name: string
+  description?: string | null
+  folderPath?: string
+  tags?: string[]
   mode: SecretMode
   encryptionMode?: SecretEncryptionMode
   isSensitive?: boolean

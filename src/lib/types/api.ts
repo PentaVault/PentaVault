@@ -191,6 +191,9 @@ export interface CreatePersonalSecretInput {
   environmentId?: string
   configId?: string
   name: string
+  description?: string | null
+  folderPath?: string
+  tags?: string[]
   plaintext: string
   mode: SecretMode
   encryptionMode?: Secret['encryptionMode']
@@ -383,6 +386,18 @@ export interface UpdateSecretResponse {
   secret: Secret
 }
 
+export interface UpdateSecretMetadataInput {
+  projectId: string
+  secretId: string
+  description?: string | null
+  folderPath?: string
+  tags?: string[]
+}
+
+export interface UpdateSecretMetadataResponse {
+  secret: Secret
+}
+
 export interface SecretVersionsResponse {
   versions: SecretVersion[]
   retentionMonths: number
@@ -401,6 +416,9 @@ export interface ImportSecretsInput {
   mode: SecretMode
   encryptionMode?: Secret['encryptionMode']
   isSensitive?: boolean
+  description?: string | null
+  folderPath?: string
+  tags?: string[]
   scope?: Secret['scope']
   issueTokens?: boolean
   secrets: Record<string, string>

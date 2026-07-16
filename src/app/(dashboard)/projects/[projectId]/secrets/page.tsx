@@ -1,8 +1,8 @@
 'use client'
 
-import { GitBranch, Plus, Search, X } from 'lucide-react'
+import { FolderTree, GitBranch, Plus, Search, Tag, X } from 'lucide-react'
 import { useParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { ProjectAccessRequiredState } from '@/components/projects/project-access-required-state'
 import { AddSecretDialog } from '@/components/secrets/add-secret-dialog'
@@ -11,12 +11,21 @@ import { ErrorState } from '@/components/shared/error-state'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   useCreateProjectConfig,
   useDeleteProjectConfig,
   useProjectConfigs,
   useProjectEnvironments,
 } from '@/lib/hooks/use-project-configuration'
 import { useProject } from '@/lib/hooks/use-projects'
+import { useProjectSecrets } from '@/lib/hooks/use-secrets'
+import { getSecretWorkspaceFacets } from '@/lib/secrets/workspace'
 import { getApiErrorCode, getApiFriendlyMessage } from '@/lib/utils/errors'
 
 export default function ProjectSecretsPage() {
@@ -32,6 +41,8 @@ export default function ProjectSecretsPage() {
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<string | null>(null)
   const [selectedConfigId, setSelectedConfigId] = useState<string | null>(null)
   const [newBranchName, setNewBranchName] = useState('')
+  const [folderFilter, setFolderFilter] = useState('*')
+  const [tagFilter, setTagFilter] = useState('*')
 
   const environments = environmentsQuery.data?.environments ?? []
   const configs = configsQuery.data?.configs ?? []
@@ -62,6 +73,16 @@ export default function ProjectSecretsPage() {
     null
   const canEditSelectedConfig =
     Boolean(selectedConfig?.canEdit) || (canManageSecrets && selectedConfig?.type === 'root')
+  const workspaceSecretsQuery = useProjectSecrets(
+    projectId,
+    canAccessProject,
+    selectedConfig?.id ?? null
+  )
+  const workspaceSecrets = workspaceSecretsQuery.data ?? []
+  const { folders, tags } = useMemo(
+    () => getSecretWorkspaceFacets(workspaceSecrets),
+    [workspaceSecrets]
+  )
 
   useEffect(() => {
     if (!selectedEnvironmentId && selectedEnvironment?.id) {
@@ -178,6 +199,8 @@ export default function ProjectSecretsPage() {
                 onClick={() => {
                   setSelectedEnvironmentId(environment.id)
                   setSelectedConfigId(null)
+                  setFolderFilter('*')
+                  setTagFilter('*')
                 }}
                 type="button"
               >
@@ -201,7 +224,11 @@ export default function ProjectSecretsPage() {
             >
               <button
                 className="inline-flex items-center gap-2"
-                onClick={() => setSelectedConfigId(config.id)}
+                onClick={() => {
+                  setSelectedConfigId(config.id)
+                  setFolderFilter('*')
+                  setTagFilter('*')
+                }}
                 type="button"
               >
                 <GitBranch className="h-3.5 w-3.5" />
@@ -248,6 +275,57 @@ export default function ProjectSecretsPage() {
         </div>
       ) : null}
 
+      {folders.length > 0 || tags.length > 0 ? (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-border bg-card px-3 py-2">
+          <FolderTree className="h-4 w-4 text-muted-foreground" />
+          <Select onValueChange={setFolderFilter} value={folderFilter}>
+            <SelectTrigger className="h-8 w-52" aria-label="Filter by folder">
+              <SelectValue placeholder="All folders" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="*">All folders</SelectItem>
+              {folders.map((folder) => (
+                <SelectItem key={folder} value={folder}>
+                  {folder === '/' ? 'Root' : folder}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {tags.length > 0 ? (
+            <>
+              <Tag className="ml-1 h-4 w-4 text-muted-foreground" />
+              <Select onValueChange={setTagFilter} value={tagFilter}>
+                <SelectTrigger className="h-8 w-44" aria-label="Filter by tag">
+                  <SelectValue placeholder="All tags" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="*">All tags</SelectItem>
+                  {tags.map((tag) => (
+                    <SelectItem key={tag} value={tag}>
+                      {tag}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          ) : null}
+          {folderFilter !== '*' || tagFilter !== '*' ? (
+            <Button
+              className="ml-auto h-8"
+              onClick={() => {
+                setFolderFilter('*')
+                setTagFilter('*')
+              }}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              Clear filters
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
       <SecretsList
         canManage={canEditSelectedConfig}
         canRequestMerge={Boolean(
@@ -257,8 +335,10 @@ export default function ProjectSecretsPage() {
         enabled={canAccessProject}
         environmentId={selectedEnvironment?.id ?? null}
         environmentSlug={selectedEnvironment?.slug ?? 'development'}
+        folderFilter={folderFilter}
         projectId={projectId}
         search={search}
+        tagFilter={tagFilter}
       />
 
       {canCreateSecrets ? (
@@ -266,6 +346,7 @@ export default function ProjectSecretsPage() {
           configId={selectedConfig?.id ?? null}
           environmentId={selectedEnvironment?.id ?? null}
           environmentSlug={selectedEnvironment?.slug ?? 'development'}
+          folderPath={folderFilter === '*' ? '/' : folderFilter}
           open={isAddOpen}
           onOpenChange={setIsAddOpen}
           projectId={projectId}
