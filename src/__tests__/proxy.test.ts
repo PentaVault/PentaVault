@@ -28,6 +28,14 @@ describe('proxy', () => {
     ])
   })
 
+  it('prevents caching and referrer leakage on external share pages', () => {
+    const response = proxy(new NextRequest(`https://app.example.com/share#pvs_${'a'.repeat(43)}`))
+
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
+    expect(response.headers.get('referrer-policy')).toBe('no-referrer')
+    expect(response.headers.get('x-middleware-request-x-pentavault-current-path')).toBeNull()
+  })
+
   it.each([
     ['/dashboard/projects', '/projects'],
     ['/dashboard/projects/project_1', '/projects/project_1'],

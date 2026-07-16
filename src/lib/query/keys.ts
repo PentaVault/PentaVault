@@ -106,6 +106,10 @@ export const queryKeys = {
     deliveries: (projectId: string | null, webhookId?: string | null) =>
       ['project-webhooks', projectId, webhookId ?? 'all', 'deliveries'] as const,
   },
+  projectSecretShares: {
+    all: ['project-secret-shares'] as const,
+    list: (projectId: string | null) => ['project-secret-shares', projectId] as const,
+  },
   projectTokens: {
     all: ['project-tokens'] as const,
     list: (projectId: string | null, scope: 'all' | 'self' = 'all') =>

@@ -14,7 +14,7 @@ import { PasswordInput } from '@/components/ui/password-input'
 import { authApi } from '@/lib/api/auth'
 import { betterAuthClient } from '@/lib/auth/better-auth-client'
 import { getLastUsedLoginMethodLabel, isLastUsedLoginMethod } from '@/lib/auth/last-login-method'
-import { normalizeNextPath } from '@/lib/auth/paths'
+import { normalizeNextPath, preserveShareTokenFragment } from '@/lib/auth/paths'
 import { DASHBOARD_HOME_PATH, FORGOT_PASSWORD_PATH, REGISTER_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
 import { useAuth } from '@/lib/hooks/use-auth'
@@ -163,10 +163,11 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     }
 
     toast.success('Signed in successfully.')
+    const destination = invitationToken
+      ? `/invitations/${encodeURIComponent(invitationToken)}`
+      : (normalizeNextPath(nextPath) ?? DASHBOARD_HOME_PATH)
     router.replace(
-      invitationToken
-        ? `/invitations/${encodeURIComponent(invitationToken)}`
-        : (normalizeNextPath(nextPath) ?? DASHBOARD_HOME_PATH)
+      invitationToken ? destination : preserveShareTokenFragment(destination, window.location.hash)
     )
     router.refresh()
   }

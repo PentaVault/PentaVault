@@ -21,11 +21,14 @@ import type {
   ProjectRole,
   ProjectSettings,
   ProxyToken,
+  PublicSecretShare,
   RotationRecommendation,
   Secret,
   SecretAccessEvent,
   SecretAccessRequest,
   SecretMode,
+  SecretShare,
+  SecretShareAccessScope,
   SecretVersion,
   SecurityAlert,
   SecurityAlertStatus,
@@ -182,6 +185,37 @@ export interface WebhookDeliveriesResponse {
 
 export interface WebhookDeliveryResponse {
   delivery: WebhookDelivery
+}
+
+export interface SecretSharesResponse {
+  shares: SecretShare[]
+}
+
+export interface CreateSecretShareInput {
+  secretId: string
+  name?: string | null
+  expiresAt: string
+  maxViews?: number
+  password?: string | null
+  accessScope?: SecretShareAccessScope
+  authorizedEmails?: string[]
+}
+
+export interface CreateSecretShareResponse {
+  share: SecretShare
+  token: string
+}
+
+export interface SecretShareResponse {
+  share: SecretShare
+}
+
+export interface PublicSecretShareResponse {
+  share: PublicSecretShare
+}
+
+export interface AccessSecretShareResponse extends PublicSecretShareResponse {
+  value: string
 }
 
 export interface ProjectSecretAccessResponse {

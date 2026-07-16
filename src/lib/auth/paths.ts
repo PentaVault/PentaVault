@@ -26,3 +26,10 @@ export function normalizeNextPath(candidate?: string | null): string | null {
 
   return candidate
 }
+
+export function preserveShareTokenFragment(nextPath: string, fragment: string): string {
+  if (nextPath !== '/share' || !/^#pvs_[A-Za-z0-9_-]{43}$/.test(fragment)) {
+    return nextPath
+  }
+  return `${nextPath}${fragment}`
+}

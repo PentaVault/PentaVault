@@ -23,6 +23,8 @@ export type UserSecretAccessLevel = 'read'
 export type UserSecretAccessStatus = 'active' | 'revoked'
 export type PersonalSecretPromotionRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
 export type SecretAccessRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
+export type SecretShareAccessScope = 'anyone' | 'organization' | 'recipients'
+export type SecretShareStatus = 'active' | 'consumed' | 'expired' | 'revoked'
 
 export type SecretVersionState = 'active' | 'superseded' | 'compromised' | 'destroyed'
 export type TokenHashAlgorithm = 'sha256'
@@ -174,6 +176,43 @@ export interface SecretVersion {
   wrappedKeyAlgorithm?: string
   createdAt: string
 }
+
+export interface SecretShare {
+  id: string
+  projectId: string
+  organizationId: string
+  secretId: string
+  secretVersionId: string
+  secretName: string
+  name: string | null
+  tokenStart: string
+  accessScope: SecretShareAccessScope
+  authorizedEmails: string[]
+  expiresAt: string
+  maxViews: number
+  viewCount: number
+  remainingViews: number
+  lastViewedAt: string | null
+  revokedAt: string | null
+  revokedByUserId: string | null
+  createdByUserId: string | null
+  createdAt: string
+  updatedAt: string
+  passwordProtected: boolean
+  status: SecretShareStatus
+}
+
+export type PublicSecretShare = Pick<
+  SecretShare,
+  | 'id'
+  | 'name'
+  | 'secretName'
+  | 'accessScope'
+  | 'expiresAt'
+  | 'maxViews'
+  | 'remainingViews'
+  | 'passwordProtected'
+>
 
 export interface ProxyToken {
   formatVersion: number

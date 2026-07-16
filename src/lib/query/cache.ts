@@ -10,6 +10,7 @@ export function clearProjectScopedQueryCache(queryClient: QueryClient): void {
   queryClient.removeQueries({ queryKey: queryKeys.projects.detailAll })
   queryClient.removeQueries({ queryKey: queryKeys.projectMembers.all })
   queryClient.removeQueries({ queryKey: queryKeys.projectSecrets.all })
+  queryClient.removeQueries({ queryKey: queryKeys.projectSecretShares.all })
   queryClient.removeQueries({ queryKey: queryKeys.projectTokens.all })
   queryClient.removeQueries({ queryKey: queryKeys.projectAudit.all })
   queryClient.removeQueries({ queryKey: queryKeys.projectAnalytics.all })

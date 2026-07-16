@@ -922,6 +922,83 @@ export const webhookDeliveriesResponseSchema = z.object({
 })
 export const webhookDeliveryResponseSchema = z.object({ delivery: webhookDeliverySchema })
 
+export const secretShareAccessScopeSchema = z.enum(['anyone', 'organization', 'recipients'])
+export const secretShareStatusSchema = z.enum(['active', 'consumed', 'expired', 'revoked'])
+
+export const secretShareSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  organizationId: z.string(),
+  secretId: z.string(),
+  secretVersionId: z.string(),
+  secretName: z.string(),
+  name: nullableStringSchema,
+  tokenStart: z.string(),
+  accessScope: secretShareAccessScopeSchema,
+  authorizedEmails: z.array(z.email()),
+  expiresAt: z.string(),
+  maxViews: z.number().int().min(1).max(100),
+  viewCount: z.number().int().min(0),
+  remainingViews: z.number().int().min(0),
+  lastViewedAt: nullableStringSchema,
+  revokedAt: nullableStringSchema,
+  revokedByUserId: nullableStringSchema,
+  createdByUserId: nullableStringSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  passwordProtected: z.boolean(),
+  status: secretShareStatusSchema,
+})
+
+export const publicSecretShareSchema = secretShareSchema.pick({
+  id: true,
+  name: true,
+  secretName: true,
+  accessScope: true,
+  expiresAt: true,
+  maxViews: true,
+  remainingViews: true,
+  passwordProtected: true,
+})
+
+export const secretSharesResponseSchema = z.object({ shares: z.array(secretShareSchema) })
+export const createSecretShareResponseSchema = z.object({
+  share: secretShareSchema,
+  token: z.string().regex(/^pvs_[A-Za-z0-9_-]{43}$/),
+})
+export const secretShareResponseSchema = z.object({ share: secretShareSchema })
+export const publicSecretShareResponseSchema = z.object({ share: publicSecretShareSchema })
+export const accessSecretShareResponseSchema = publicSecretShareResponseSchema.extend({
+  value: z.string(),
+})
+
+export const createSecretShareInputSchema = z
+  .object({
+    secretId: z.string().trim().min(1),
+    name: z.string().trim().min(1).max(120).nullable().optional(),
+    expiresAt: z.iso.datetime(),
+    maxViews: z.number().int().min(1).max(100).default(1),
+    password: z.string().min(8).max(256).nullable().optional(),
+    accessScope: secretShareAccessScopeSchema.default('anyone'),
+    authorizedEmails: z.array(z.email()).max(50).default([]),
+  })
+  .superRefine((input, context) => {
+    if (input.accessScope === 'recipients' && input.authorizedEmails.length === 0) {
+      context.addIssue({
+        code: 'custom',
+        path: ['authorizedEmails'],
+        message: 'Add at least one recipient email.',
+      })
+    }
+    if (input.accessScope !== 'recipients' && input.authorizedEmails.length > 0) {
+      context.addIssue({
+        code: 'custom',
+        path: ['authorizedEmails'],
+        message: 'Recipient emails require recipient-only access.',
+      })
+    }
+  })
+
 export const createWebhookInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
   endpointUrl: z.string().trim().url().max(2_048),

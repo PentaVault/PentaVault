@@ -31,7 +31,11 @@ function isAuthSessionRequest(url: string | undefined): boolean {
 }
 
 function shouldSkipUnauthorizedRedirect(url: string | undefined): boolean {
-  return isAuthSessionRequest(url)
+  if (!url) {
+    return false
+  }
+  const normalizedUrl = normalizeUrlPath(url)
+  return isAuthSessionRequest(url) || normalizedUrl.startsWith('v1/public/secret-shares/')
 }
 
 function isProjectCreateRequest(url: string | undefined): boolean {

@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { ProjectAccessRequiredState } from '@/components/projects/project-access-required-state'
+import { ProjectSecretShares } from '@/components/projects/project-secret-shares'
 import { ProjectWebhooks } from '@/components/projects/project-webhooks'
 import { ErrorState } from '@/components/shared/error-state'
 import { Button } from '@/components/ui/button'
@@ -156,6 +157,8 @@ export default function ProjectSettingsPage() {
       </div>
 
       {canManageSettings ? <ProjectWebhooks projectId={projectId} /> : null}
+
+      {canManageSettings ? <ProjectSecretShares projectId={projectId} /> : null}
 
       {canManageSettings ? (
         <div className="mt-6 rounded-lg border border-danger/35 p-4">
