@@ -25,6 +25,7 @@ export type PersonalSecretPromotionRequestStatus = 'pending' | 'approved' | 'rej
 export type SecretAccessRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
 export type SecretShareAccessScope = 'anyone' | 'organization' | 'recipients'
 export type SecretShareStatus = 'active' | 'consumed' | 'expired' | 'revoked'
+export type AccessGroupProjectRole = 'admin' | 'member' | 'readonly'
 
 export type SecretVersionState = 'active' | 'superseded' | 'compromised' | 'destroyed'
 export type TokenHashAlgorithm = 'sha256'
@@ -99,9 +100,48 @@ export interface UserProject {
   canAccess: boolean
   canRequestAccess?: boolean
   effectiveRole?: ProjectRole | null
+  groupRole?: AccessGroupProjectRole | null
   pendingAccessRequest: boolean
   latestRequestStatus: AccessRequestStatus | null
   latestAccessRequest: AccessRequest | null
+}
+
+export interface AccessGroup {
+  id: string
+  organizationId: string
+  name: string
+  slug: string
+  description: string | null
+  createdByUserId: string | null
+  memberCount: number
+  projectCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AccessGroupMember {
+  id: string
+  groupId: string
+  userId: string
+  addedByUserId: string | null
+  createdAt: string
+  user: {
+    id: string
+    name: string
+    email: string
+    image: string | null
+  }
+}
+
+export interface ProjectAccessGroupGrant {
+  id: string
+  projectId: string
+  groupId: string
+  role: AccessGroupProjectRole
+  grantedByUserId: string | null
+  createdAt: string
+  updatedAt: string
+  group?: Pick<AccessGroup, 'id' | 'name' | 'slug' | 'organizationId'>
 }
 
 export interface AccessRequest {

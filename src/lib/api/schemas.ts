@@ -220,11 +220,79 @@ export const userProjectSchema = z.object({
   canAccess: z.boolean(),
   canRequestAccess: z.boolean().optional(),
   effectiveRole: projectRoleSchema.nullable().optional(),
+  groupRole: z.enum(['admin', 'member', 'readonly']).nullable().optional(),
   pendingAccessRequest: z.boolean(),
   latestRequestStatus: z
     .enum(['pending', 'approved', 'denied', 'rejected', 'cancelled'])
     .nullable(),
   latestAccessRequest: accessRequestSchema.nullable(),
+})
+
+export const accessGroupSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  description: nullableStringSchema,
+  createdByUserId: nullableStringSchema,
+  memberCount: z.number().int().nonnegative(),
+  projectCount: z.number().int().nonnegative(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const accessGroupMemberSchema = z.object({
+  id: z.string(),
+  groupId: z.string(),
+  userId: z.string(),
+  addedByUserId: nullableStringSchema,
+  createdAt: z.string(),
+  user: z.object({
+    id: z.string(),
+    name: z.string(),
+    email: z.string(),
+    image: nullableStringSchema,
+  }),
+})
+
+export const projectAccessGroupGrantSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  groupId: z.string(),
+  role: z.enum(['admin', 'member', 'readonly']),
+  grantedByUserId: nullableStringSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  group: accessGroupSchema
+    .pick({ id: true, name: true, slug: true, organizationId: true })
+    .optional(),
+})
+
+export const accessGroupsResponseSchema = z.object({ groups: z.array(accessGroupSchema) })
+export const accessGroupResponseSchema = z.object({ group: accessGroupSchema })
+export const accessGroupMembersResponseSchema = z.object({
+  members: z.array(accessGroupMemberSchema),
+})
+export const projectAccessGroupsResponseSchema = z.object({
+  groups: z.array(accessGroupSchema),
+  grants: z.array(projectAccessGroupGrantSchema),
+})
+export const projectAccessGroupGrantResponseSchema = z.object({
+  grant: projectAccessGroupGrantSchema,
+})
+export const createAccessGroupInputSchema = z.strictObject({
+  name: z.string().trim().min(1).max(80),
+  slug: z
+    .string()
+    .trim()
+    .min(1)
+    .max(80)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  description: z.string().trim().max(300).nullable().optional(),
+})
+export const updateAccessGroupInputSchema = createAccessGroupInputSchema.partial()
+export const grantProjectAccessGroupInputSchema = z.strictObject({
+  role: z.enum(['admin', 'member', 'readonly']),
 })
 
 export const listProjectsResponseSchema = z.object({

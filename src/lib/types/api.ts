@@ -6,6 +6,9 @@ import type {
   RevokeSessionRequest,
 } from '@/lib/types/auth'
 import type {
+  AccessGroup,
+  AccessGroupMember,
+  AccessGroupProjectRole,
   AccessRequest,
   AuditEvent,
   ConfigChangeRequest,
@@ -13,6 +16,7 @@ import type {
   OutboundWebhook,
   PersonalSecretPromotionRequest,
   Project,
+  ProjectAccessGroupGrant,
   ProjectAnalyticsSummary,
   ProjectConfig,
   ProjectConfigShare,
@@ -74,6 +78,38 @@ export type ProjectResponse = UserProject
 
 export interface ProjectMembersResponse {
   members: ProjectMembership[]
+}
+
+export interface AccessGroupsResponse {
+  groups: AccessGroup[]
+}
+
+export interface AccessGroupResponse {
+  group: AccessGroup
+}
+
+export interface AccessGroupMembersResponse {
+  members: AccessGroupMember[]
+}
+
+export interface ProjectAccessGroupsResponse extends AccessGroupsResponse {
+  grants: ProjectAccessGroupGrant[]
+}
+
+export interface CreateAccessGroupInput {
+  name: string
+  slug: string
+  description?: string | null
+}
+
+export type UpdateAccessGroupInput = Partial<CreateAccessGroupInput>
+
+export interface ProjectAccessGroupGrantResponse {
+  grant: ProjectAccessGroupGrant
+}
+
+export interface GrantProjectAccessGroupInput {
+  role: AccessGroupProjectRole
 }
 
 export interface ProjectSecretsResponse {

@@ -12,6 +12,13 @@ export const queryKeys = {
     all: ['organization-invitations'] as const,
     list: (organizationId: string | null) => ['organization-invitations', organizationId] as const,
   },
+  organizationAccessGroups: {
+    all: ['organization-access-groups'] as const,
+    list: (organizationId: string | null) =>
+      ['organization-access-groups', organizationId] as const,
+    members: (organizationId: string | null, groupId: string | null) =>
+      ['organization-access-groups', organizationId, groupId, 'members'] as const,
+  },
   organizations: {
     all: ['organizations'] as const,
   },
@@ -76,6 +83,10 @@ export const queryKeys = {
     list: (projectId: string | null) => ['project-members', projectId] as const,
     environmentAccess: (projectId: string | null, userId: string | null) =>
       ['project-members', projectId, userId, 'environment-access'] as const,
+  },
+  projectAccessGroups: {
+    all: ['project-access-groups'] as const,
+    list: (projectId: string | null) => ['project-access-groups', projectId] as const,
   },
   projectSecrets: {
     all: ['project-secrets'] as const,

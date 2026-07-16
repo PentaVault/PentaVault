@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { type ReactNode, useEffect } from 'react'
 
+import { OrganizationAccessGroups } from '@/components/settings/organization-access-groups'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch, SwitchThumb } from '@/components/ui/switch'
 import { organizationsApi } from '@/lib/api/organizations'
@@ -156,6 +157,8 @@ export default function OrgAccessControlPage() {
           </SettingRow>
         </CardContent>
       </Card>
+
+      {org ? <OrganizationAccessGroups organizationId={org.id} /> : null}
     </div>
   )
 }

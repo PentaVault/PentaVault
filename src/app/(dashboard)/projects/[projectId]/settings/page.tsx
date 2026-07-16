@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
-
+import { ProjectAccessGroups } from '@/components/projects/project-access-groups'
 import { ProjectAccessRequiredState } from '@/components/projects/project-access-required-state'
 import { ProjectSecretShares } from '@/components/projects/project-secret-shares'
 import { ProjectSecretSyncs } from '@/components/projects/project-secret-syncs'
@@ -158,6 +158,8 @@ export default function ProjectSettingsPage() {
       </div>
 
       {canManageSettings ? <ProjectWebhooks projectId={projectId} /> : null}
+
+      {canManageSettings ? <ProjectAccessGroups projectId={projectId} /> : null}
 
       {canManageSettings ? <ProjectSecretShares projectId={projectId} /> : null}
 

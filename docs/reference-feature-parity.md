@@ -15,7 +15,7 @@ design-system code.
 | Secret workspace | Environments, config branches, personal secrets, import, bulk edit/delete, encrypted versions and restore, folders, tags and workspace facets | Safe export and pagination | Partial |
 | Secret lifecycle | Version envelopes, compromise states, rotation recommendations, bounded rotation schedules, due/overdue reminders and automatic rescheduling on value replacement | Provider rotation adapters, zero-downtime overlap, leases and retention enforcement | Partial |
 | Change control | Config change requests, approvals, protected/private/shared branches | Policy templates, required reviewer rules, conflict previews | Partial |
-| Access control | Central project policy, org/project roles, per-secret grants and requests, plus optional bounded expiries with token TTL clamping | Groups, custom roles and trusted IP policies | Partial |
+| Access control | Central project policy, org/project roles, organisation groups with additive project grants, per-secret grants and requests, plus optional bounded expiries with token TTL clamping | Custom roles and trusted IP policies | Partial |
 | Machine identities | Scoped API keys and proxy tokens | Workload identities and cloud/Kubernetes/OIDC/JWT auth methods | Planned |
 | Authentication | Password, device flow, passkeys, MFA, sessions, invitations | SSO, SCIM, LDAP and domain enforcement | Partial |
 | Audit and activity | Project/org audit events and activity UI | Export streams, retention controls, signed reports, bounded telemetry | Partial |
@@ -24,7 +24,7 @@ design-system code.
 | Sharing | Config sharing plus immutable encrypted external shares with hashed fragment-only links, expiry, atomic view limits, passwords, verified-recipient/org scopes and revocation | Secret-request links, custom public-page branding and recipient email delivery | Partial |
 | Dynamic secrets | Static encrypted values and proxy access tokens | Provider-issued short-lived credentials and lease revocation | Planned |
 | Notifications | In-app stream, email queue, outbound webhooks and dead-letter replay visibility | Preferences and digests | Partial |
-| Organization admin | Members, invitations, billing, API keys and sessions | Groups, org roles, sub-organizations and product policies | Partial |
+| Organization admin | Members, invitations, access groups, billing, API keys and sessions | Custom org roles, sub-organizations and product policies | Partial |
 | Project administration | Team, settings, environments, analytics and access requests | Templates, archival recovery and asynchronous cleanup | Partial |
 | PKI/KMS/PAM | Envelope encryption provider abstraction | External KMS, certificate lifecycle and privileged sessions | Planned |
 | AI/MCP | Provider gateway with scoped secret resolution | Governed MCP endpoints, activity records and tool policies | Partial |

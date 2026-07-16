@@ -27,6 +27,12 @@ vi.mock('@/lib/api/organizations', () => ({
   },
 }))
 
+vi.mock('@/components/settings/organization-access-groups', () => ({
+  OrganizationAccessGroups: ({ organizationId }: { organizationId: string }) => (
+    <div data-testid="access-groups">Groups for {organizationId}</div>
+  ),
+}))
+
 vi.mock('@/lib/hooks/use-auth', () => ({
   useAuth: () => ({
     status: 'authenticated',
@@ -68,6 +74,7 @@ describe('OrgAccessControlPage', () => {
 
     expect(screen.getByText('Members can see all projects')).toBeInTheDocument()
     expect(screen.getByText('Members can request project access')).toBeInTheDocument()
+    expect(screen.getByTestId('access-groups')).toHaveTextContent('org_123')
   })
 
   it('hides project access requests when all-project visibility is disabled', () => {
