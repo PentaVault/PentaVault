@@ -102,6 +102,7 @@ describe('API schema parsing', () => {
             slug: 'development',
             color: '#22c55e',
             isDefault: true,
+            expiresAt: null,
             createdAt: '2026-05-02T00:00:00.000Z',
           },
         ],

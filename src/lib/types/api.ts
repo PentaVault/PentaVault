@@ -179,6 +179,7 @@ export interface CreateProjectEnvironmentInput {
   slug: string
   color?: string | null
   isDefault?: boolean
+  expiresAt?: string | null
 }
 
 export interface ProjectEnvironmentResponse {

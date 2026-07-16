@@ -295,6 +295,7 @@ export interface ProjectEnvironment {
   slug: string
   color: string | null
   isDefault: boolean
+  expiresAt: string | null
   createdAt: string
 }
 

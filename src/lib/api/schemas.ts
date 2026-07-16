@@ -310,6 +310,7 @@ export const projectEnvironmentSchema = z.object({
   slug: z.string(),
   color: nullableStringSchema,
   isDefault: z.boolean(),
+  expiresAt: nullableStringSchema,
   createdAt: z.string(),
 })
 
@@ -1233,6 +1234,7 @@ export const createProjectEnvironmentInputSchema = z.object({
     .nullable()
     .optional(),
   isDefault: z.boolean().optional(),
+  expiresAt: z.string().datetime({ offset: true }).nullable().optional(),
 })
 
 export const createProjectConfigInputSchema = z.object({

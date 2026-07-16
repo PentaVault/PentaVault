@@ -25,7 +25,7 @@ design-system code.
 | Dynamic secrets | Static encrypted values and proxy access tokens | Provider-issued short-lived credentials and lease revocation | Planned |
 | Notifications | In-app stream, email queue, outbound webhooks and dead-letter replay visibility | Preferences and digests | Partial |
 | Organization admin | Members, invitations, access groups, billing, API keys and sessions | Custom org roles, sub-organizations and product policies | Partial |
-| Project administration | Team, settings, environments, analytics and access requests | Templates, archival recovery and asynchronous cleanup | Partial |
+| Project administration | Team, settings, permanent and self-expiring preview environments, analytics and access requests | Templates, archival recovery and generalized asynchronous cleanup | Partial |
 | PKI/KMS/PAM | Envelope encryption provider abstraction | External KMS, certificate lifecycle and privileged sessions | Planned |
 | AI/MCP | Provider gateway with scoped secret resolution | Governed MCP endpoints, activity records and tool policies | Partial |
 | CLI | Secure device login, online secret workflows, config branches and release artifacts | Lease-backed cache, benchmarks and signed binaries | Partial |
