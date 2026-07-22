@@ -33,6 +33,12 @@ vi.mock('@/components/settings/organization-access-groups', () => ({
   ),
 }))
 
+vi.mock('@/components/settings/organization-app-connections', () => ({
+  OrganizationAppConnections: ({ organizationId }: { organizationId: string }) => (
+    <div data-testid="app-connections">Connections for {organizationId}</div>
+  ),
+}))
+
 vi.mock('@/lib/hooks/use-auth', () => ({
   useAuth: () => ({
     status: 'authenticated',

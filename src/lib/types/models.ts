@@ -478,6 +478,27 @@ export interface SecretSnapshot {
   createdAt: string
 }
 
+export type AppConnectionProvider =
+  | 'github'
+  | 'vercel'
+  | 'aws'
+  | 'gcp'
+  | 'openai'
+  | 'anthropic'
+  | 'generic'
+
+export interface AppConnection {
+  id: string
+  organizationId: string
+  name: string
+  provider: AppConnectionProvider
+  hasCredential: boolean
+  metadata: Record<string, unknown>
+  createdByUserId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface AuditLogStream {
   id: string
   projectId: string

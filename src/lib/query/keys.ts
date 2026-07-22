@@ -136,6 +136,11 @@ export const queryKeys = {
     all: ['project-audit-log-streams'] as const,
     list: (projectId: string | null) => ['project-audit-log-streams', projectId] as const,
   },
+  organizationAppConnections: {
+    all: ['organization-app-connections'] as const,
+    list: (organizationId: string | null) =>
+      ['organization-app-connections', organizationId] as const,
+  },
   projectSecretShares: {
     all: ['project-secret-shares'] as const,
     list: (projectId: string | null) => ['project-secret-shares', projectId] as const,

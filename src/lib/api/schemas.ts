@@ -1329,6 +1329,50 @@ export const updateAuditLogStreamInputSchema = createAuditLogStreamInputSchema
     message: 'Provide at least one field to update.',
   })
 
+export const appConnectionProviderSchema = z.enum([
+  'github',
+  'vercel',
+  'aws',
+  'gcp',
+  'openai',
+  'anthropic',
+  'generic',
+])
+
+export const appConnectionSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  name: z.string(),
+  provider: appConnectionProviderSchema,
+  hasCredential: z.boolean(),
+  metadata: z.record(z.string(), z.unknown()),
+  createdByUserId: nullableStringSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const appConnectionsResponseSchema = z.object({
+  connections: z.array(appConnectionSchema),
+})
+export const appConnectionResponseSchema = z.object({ connection: appConnectionSchema })
+
+export const createAppConnectionInputSchema = z.object({
+  name: z.string().trim().min(1).max(64),
+  provider: appConnectionProviderSchema,
+  credential: z.record(z.string(), z.unknown()),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+})
+
+export const updateAppConnectionInputSchema = z
+  .object({
+    name: z.string().trim().min(1).max(64).optional(),
+    credential: z.record(z.string(), z.unknown()).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  })
+  .refine((body) => Object.values(body).some((value) => value !== undefined), {
+    message: 'Provide at least one field to update.',
+  })
+
 export const createProjectInputSchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(1),

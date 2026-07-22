@@ -10,6 +10,8 @@ import type {
   AccessGroupMember,
   AccessGroupProjectRole,
   AccessRequest,
+  AppConnection,
+  AppConnectionProvider,
   AuditEvent,
   AuditLogStream,
   ConfigChangeRequest,
@@ -299,6 +301,27 @@ export interface UpdateAuditLogStreamInput {
   endpointUrl?: string
   authToken?: string | null
   enabled?: boolean
+}
+
+export interface AppConnectionsResponse {
+  connections: AppConnection[]
+}
+
+export interface AppConnectionResponse {
+  connection: AppConnection
+}
+
+export interface CreateAppConnectionInput {
+  name: string
+  provider: AppConnectionProvider
+  credential: Record<string, unknown>
+  metadata?: Record<string, unknown>
+}
+
+export interface UpdateAppConnectionInput {
+  name?: string
+  credential?: Record<string, unknown>
+  metadata?: Record<string, unknown>
 }
 
 export interface SecretSyncsResponse {
