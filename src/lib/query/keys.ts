@@ -141,6 +141,12 @@ export const queryKeys = {
     list: (organizationId: string | null) =>
       ['organization-app-connections', organizationId] as const,
   },
+  projectDynamicSecrets: {
+    all: ['project-dynamic-secrets'] as const,
+    list: (projectId: string | null) => ['project-dynamic-secrets', projectId] as const,
+    leases: (projectId: string | null, dynamicSecretId: string | null) =>
+      ['project-dynamic-secrets', projectId, dynamicSecretId ?? 'all', 'leases'] as const,
+  },
   projectSecretShares: {
     all: ['project-secret-shares'] as const,
     list: (projectId: string | null) => ['project-secret-shares', projectId] as const,

@@ -515,6 +515,34 @@ export interface AuditLogStream {
   updatedAt: string
 }
 
+export type DynamicSecretLeaseStatus = 'active' | 'revoked' | 'expired'
+
+export interface DynamicSecret {
+  id: string
+  projectId: string
+  environmentId: string | null
+  name: string
+  provider: 'generated'
+  config: Record<string, unknown>
+  defaultTtlSeconds: number
+  maxTtlSeconds: number
+  enabled: boolean
+  createdByUserId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface DynamicSecretLease {
+  id: string
+  dynamicSecretId: string
+  projectId: string
+  status: DynamicSecretLeaseStatus
+  expiresAt: string
+  revokedAt: string | null
+  createdByUserId: string | null
+  createdAt: string
+}
+
 export type SecretSyncProvider = 'github' | 'vercel'
 export type SecretSyncDeliveryStatus = WebhookDeliveryStatus
 

@@ -1373,6 +1373,66 @@ export const updateAppConnectionInputSchema = z
     message: 'Provide at least one field to update.',
   })
 
+export const dynamicSecretLeaseStatusSchema = z.enum(['active', 'revoked', 'expired'])
+
+export const dynamicSecretSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  environmentId: nullableStringSchema,
+  name: z.string(),
+  provider: z.literal('generated'),
+  config: z.record(z.string(), z.unknown()),
+  defaultTtlSeconds: z.number().int(),
+  maxTtlSeconds: z.number().int(),
+  enabled: z.boolean(),
+  createdByUserId: nullableStringSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const dynamicSecretLeaseSchema = z.object({
+  id: z.string(),
+  dynamicSecretId: z.string(),
+  projectId: z.string(),
+  status: dynamicSecretLeaseStatusSchema,
+  expiresAt: z.string(),
+  revokedAt: nullableStringSchema,
+  createdByUserId: nullableStringSchema,
+  createdAt: z.string(),
+})
+
+export const dynamicSecretsResponseSchema = z.object({
+  dynamicSecrets: z.array(dynamicSecretSchema),
+})
+export const dynamicSecretResponseSchema = z.object({ dynamicSecret: dynamicSecretSchema })
+export const dynamicSecretLeasesResponseSchema = z.object({
+  leases: z.array(dynamicSecretLeaseSchema),
+})
+export const dynamicSecretLeaseResponseSchema = z.object({ lease: dynamicSecretLeaseSchema })
+export const issueDynamicSecretLeaseResponseSchema = z.object({
+  lease: dynamicSecretLeaseSchema,
+  credential: z.string(),
+})
+
+export const createDynamicSecretInputSchema = z.object({
+  name: z.string().trim().min(1).max(64),
+  environmentId: z.string().trim().min(1).nullable().optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
+  defaultTtlSeconds: z.number().int().min(60).max(2_592_000).optional(),
+  maxTtlSeconds: z.number().int().min(60).max(2_592_000).optional(),
+  enabled: z.boolean().optional(),
+})
+
+export const updateDynamicSecretInputSchema = createDynamicSecretInputSchema
+  .partial()
+  .refine((body) => Object.values(body).some((value) => value !== undefined), {
+    message: 'Provide at least one field to update.',
+  })
+
+export const issueDynamicSecretLeaseInputSchema = z.object({
+  ttlSeconds: z.number().int().min(60).max(2_592_000).optional(),
+})
+
 export const createProjectInputSchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(1),

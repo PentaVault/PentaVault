@@ -15,6 +15,8 @@ import type {
   AuditEvent,
   AuditLogStream,
   ConfigChangeRequest,
+  DynamicSecret,
+  DynamicSecretLease,
   GitHubSecretSyncDestination,
   OutboundWebhook,
   PersonalSecretPromotionRequest,
@@ -322,6 +324,49 @@ export interface UpdateAppConnectionInput {
   name?: string
   credential?: Record<string, unknown>
   metadata?: Record<string, unknown>
+}
+
+export interface DynamicSecretsResponse {
+  dynamicSecrets: DynamicSecret[]
+}
+
+export interface DynamicSecretResponse {
+  dynamicSecret: DynamicSecret
+}
+
+export interface DynamicSecretLeasesResponse {
+  leases: DynamicSecretLease[]
+}
+
+export interface IssueDynamicSecretLeaseResponse {
+  lease: DynamicSecretLease
+  credential: string
+}
+
+export interface DynamicSecretLeaseResponse {
+  lease: DynamicSecretLease
+}
+
+export interface CreateDynamicSecretInput {
+  name: string
+  environmentId?: string | null
+  config?: Record<string, unknown>
+  defaultTtlSeconds?: number
+  maxTtlSeconds?: number
+  enabled?: boolean
+}
+
+export interface UpdateDynamicSecretInput {
+  name?: string
+  environmentId?: string | null
+  config?: Record<string, unknown>
+  defaultTtlSeconds?: number
+  maxTtlSeconds?: number
+  enabled?: boolean
+}
+
+export interface IssueDynamicSecretLeaseInput {
+  ttlSeconds?: number
 }
 
 export interface SecretSyncsResponse {
