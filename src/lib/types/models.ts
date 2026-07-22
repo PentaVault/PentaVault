@@ -459,6 +459,25 @@ export interface SecretValidationRule {
   updatedAt: string
 }
 
+export interface SecretSnapshotEntry {
+  secretId: string
+  versionId: string
+  name: string
+}
+
+export interface SecretSnapshot {
+  id: string
+  projectId: string
+  configId: string | null
+  environmentId: string | null
+  folderPath: string
+  label: string | null
+  entries: SecretSnapshotEntry[]
+  secretCount: number
+  createdByUserId: string | null
+  createdAt: string
+}
+
 export type SecretSyncProvider = 'github' | 'vercel'
 export type SecretSyncDeliveryStatus = WebhookDeliveryStatus
 

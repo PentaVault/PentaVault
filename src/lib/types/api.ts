@@ -34,6 +34,7 @@ import type {
   SecretMode,
   SecretShare,
   SecretShareAccessScope,
+  SecretSnapshot,
   SecretSync,
   SecretSyncDelivery,
   SecretSyncProvider,
@@ -255,6 +256,26 @@ export interface UpdateSecretValidationRuleInput {
   namePattern?: string | null
   constraints?: SecretValueConstraint[]
   enabled?: boolean
+}
+
+export interface SecretSnapshotsResponse {
+  snapshots: SecretSnapshot[]
+}
+
+export interface SecretSnapshotResponse {
+  snapshot: SecretSnapshot
+}
+
+export interface CreateSecretSnapshotInput {
+  configId: string
+  environmentId?: string | null
+  folderPath?: string
+  label?: string | null
+}
+
+export interface RestoreSecretSnapshotResponse {
+  restored: number
+  skipped: Array<{ secretId: string; name: string }>
 }
 
 export interface SecretSyncsResponse {

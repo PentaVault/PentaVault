@@ -127,6 +127,11 @@ export const queryKeys = {
     all: ['project-secret-validation-rules'] as const,
     list: (projectId: string | null) => ['project-secret-validation-rules', projectId] as const,
   },
+  projectSecretSnapshots: {
+    all: ['project-secret-snapshots'] as const,
+    list: (projectId: string | null, configId?: string | null) =>
+      ['project-secret-snapshots', projectId, configId ?? 'all'] as const,
+  },
   projectSecretShares: {
     all: ['project-secret-shares'] as const,
     list: (projectId: string | null) => ['project-secret-shares', projectId] as const,

@@ -1260,6 +1260,41 @@ export const updateSecretValidationRuleInputSchema = createSecretValidationRuleI
     message: 'Provide at least one field to update.',
   })
 
+export const secretSnapshotEntrySchema = z.object({
+  secretId: z.string(),
+  versionId: z.string(),
+  name: z.string(),
+})
+
+export const secretSnapshotSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  configId: nullableStringSchema,
+  environmentId: nullableStringSchema,
+  folderPath: z.string(),
+  label: nullableStringSchema,
+  entries: z.array(secretSnapshotEntrySchema),
+  secretCount: z.number().int(),
+  createdByUserId: nullableStringSchema,
+  createdAt: z.string(),
+})
+
+export const secretSnapshotsResponseSchema = z.object({
+  snapshots: z.array(secretSnapshotSchema),
+})
+export const secretSnapshotResponseSchema = z.object({ snapshot: secretSnapshotSchema })
+export const restoreSecretSnapshotResponseSchema = z.object({
+  restored: z.number().int(),
+  skipped: z.array(z.object({ secretId: z.string(), name: z.string() })),
+})
+
+export const createSecretSnapshotInputSchema = z.object({
+  configId: z.string().trim().min(1),
+  environmentId: z.string().trim().min(1).nullable().optional(),
+  folderPath: z.string().trim().min(1).max(256).optional(),
+  label: z.string().trim().min(1).max(120).nullable().optional(),
+})
+
 export const createProjectInputSchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(1),
