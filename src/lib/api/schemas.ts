@@ -1433,6 +1433,25 @@ export const issueDynamicSecretLeaseInputSchema = z.object({
   ttlSeconds: z.number().int().min(60).max(2_592_000).optional(),
 })
 
+export const secretScanFindingSchema = z.object({
+  ruleId: z.string(),
+  description: z.string(),
+  severity: z.enum(['low', 'medium', 'high', 'critical']),
+  line: z.number().int(),
+  column: z.number().int(),
+  redactedMatch: z.string(),
+})
+
+export const secretScanResponseSchema = z.object({
+  findings: z.array(secretScanFindingSchema),
+  scanned: z.object({ bytes: z.number().int(), findingCount: z.number().int() }),
+})
+
+export const secretScanInputSchema = z.object({
+  content: z.string().min(1).max(1_000_000),
+  source: z.string().trim().min(1).max(256).optional(),
+})
+
 export const createProjectInputSchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(1),

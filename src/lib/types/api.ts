@@ -37,6 +37,7 @@ import type {
   SecretAccessEvent,
   SecretAccessRequest,
   SecretMode,
+  SecretScanFinding,
   SecretShare,
   SecretShareAccessScope,
   SecretSnapshot,
@@ -367,6 +368,16 @@ export interface UpdateDynamicSecretInput {
 
 export interface IssueDynamicSecretLeaseInput {
   ttlSeconds?: number
+}
+
+export interface SecretScanResponse {
+  findings: SecretScanFinding[]
+  scanned: { bytes: number; findingCount: number }
+}
+
+export interface SecretScanInput {
+  content: string
+  source?: string
 }
 
 export interface SecretSyncsResponse {

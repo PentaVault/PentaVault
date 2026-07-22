@@ -6,6 +6,7 @@ import { useEffect } from 'react'
 import { CreateProbableLeakAlertForm } from '@/components/dashboard/create-probable-leak-alert-form'
 import { SecurityAlertStatusSelect } from '@/components/dashboard/security-alert-status-select'
 import { PageWrapper } from '@/components/layout/page-wrapper'
+import { ProjectSecretScanner } from '@/components/projects/project-secret-scanner'
 import { StatusBadge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { getOrgProjectPath, getProjectPath } from '@/lib/constants'
@@ -198,6 +199,8 @@ export default function ProjectSecurityPage() {
             )}
           </CardContent>
         </Card>
+
+        <ProjectSecretScanner projectId={projectId} />
       </div>
     </PageWrapper>
   )

@@ -515,6 +515,17 @@ export interface AuditLogStream {
   updatedAt: string
 }
 
+export type SecretScanSeverity = 'low' | 'medium' | 'high' | 'critical'
+
+export interface SecretScanFinding {
+  ruleId: string
+  description: string
+  severity: SecretScanSeverity
+  line: number
+  column: number
+  redactedMatch: string
+}
+
 export type DynamicSecretLeaseStatus = 'active' | 'revoked' | 'expired'
 
 export interface DynamicSecret {
