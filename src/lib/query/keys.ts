@@ -132,6 +132,10 @@ export const queryKeys = {
     list: (projectId: string | null, configId?: string | null) =>
       ['project-secret-snapshots', projectId, configId ?? 'all'] as const,
   },
+  projectAuditLogStreams: {
+    all: ['project-audit-log-streams'] as const,
+    list: (projectId: string | null) => ['project-audit-log-streams', projectId] as const,
+  },
   projectSecretShares: {
     all: ['project-secret-shares'] as const,
     list: (projectId: string | null) => ['project-secret-shares', projectId] as const,

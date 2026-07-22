@@ -478,6 +478,22 @@ export interface SecretSnapshot {
   createdAt: string
 }
 
+export interface AuditLogStream {
+  id: string
+  projectId: string
+  name: string
+  endpointUrl: string
+  endpointHost: string
+  hasToken: boolean
+  enabled: boolean
+  lastStatus: number | null
+  lastDeliveryAt: string | null
+  lastError: string | null
+  createdByUserId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export type SecretSyncProvider = 'github' | 'vercel'
 export type SecretSyncDeliveryStatus = WebhookDeliveryStatus
 

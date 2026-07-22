@@ -1295,6 +1295,40 @@ export const createSecretSnapshotInputSchema = z.object({
   label: z.string().trim().min(1).max(120).nullable().optional(),
 })
 
+export const auditLogStreamSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  name: z.string(),
+  endpointUrl: z.string(),
+  endpointHost: z.string(),
+  hasToken: z.boolean(),
+  enabled: z.boolean(),
+  lastStatus: z.number().int().nullable(),
+  lastDeliveryAt: nullableStringSchema,
+  lastError: nullableStringSchema,
+  createdByUserId: nullableStringSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const auditLogStreamsResponseSchema = z.object({
+  streams: z.array(auditLogStreamSchema),
+})
+export const auditLogStreamResponseSchema = z.object({ stream: auditLogStreamSchema })
+
+export const createAuditLogStreamInputSchema = z.object({
+  name: z.string().trim().min(1).max(64),
+  endpointUrl: z.string().trim().url().max(2_048),
+  authToken: z.string().trim().min(1).max(1_024).nullable().optional(),
+  enabled: z.boolean().optional(),
+})
+
+export const updateAuditLogStreamInputSchema = createAuditLogStreamInputSchema
+  .partial()
+  .refine((body) => Object.values(body).some((value) => value !== undefined), {
+    message: 'Provide at least one field to update.',
+  })
+
 export const createProjectInputSchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(1),

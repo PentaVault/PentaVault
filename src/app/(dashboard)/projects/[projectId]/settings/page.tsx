@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { ProjectAccessGroups } from '@/components/projects/project-access-groups'
 import { ProjectAccessRequiredState } from '@/components/projects/project-access-required-state'
+import { ProjectAuditLogStreams } from '@/components/projects/project-audit-log-streams'
 import { ProjectEnvironments } from '@/components/projects/project-environments'
 import { ProjectSecretShares } from '@/components/projects/project-secret-shares'
 import { ProjectSecretSnapshots } from '@/components/projects/project-secret-snapshots'
@@ -220,6 +221,8 @@ export default function ProjectSettingsPage() {
       {canManageSettings ? <ProjectSecretValidationRules projectId={projectId} /> : null}
 
       {canManageSettings ? <ProjectSecretSnapshots projectId={projectId} /> : null}
+
+      {canManageSettings ? <ProjectAuditLogStreams projectId={projectId} /> : null}
 
       {canManageSettings ? (
         <div className="mt-6 rounded-lg border border-danger/35 p-4">

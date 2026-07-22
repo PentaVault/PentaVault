@@ -11,6 +11,7 @@ import type {
   AccessGroupProjectRole,
   AccessRequest,
   AuditEvent,
+  AuditLogStream,
   ConfigChangeRequest,
   GitHubSecretSyncDestination,
   OutboundWebhook,
@@ -276,6 +277,28 @@ export interface CreateSecretSnapshotInput {
 export interface RestoreSecretSnapshotResponse {
   restored: number
   skipped: Array<{ secretId: string; name: string }>
+}
+
+export interface AuditLogStreamsResponse {
+  streams: AuditLogStream[]
+}
+
+export interface AuditLogStreamResponse {
+  stream: AuditLogStream
+}
+
+export interface CreateAuditLogStreamInput {
+  name: string
+  endpointUrl: string
+  authToken?: string | null
+  enabled?: boolean
+}
+
+export interface UpdateAuditLogStreamInput {
+  name?: string
+  endpointUrl?: string
+  authToken?: string | null
+  enabled?: boolean
 }
 
 export interface SecretSyncsResponse {
