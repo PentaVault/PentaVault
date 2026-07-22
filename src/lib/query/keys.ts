@@ -123,6 +123,10 @@ export const queryKeys = {
     deliveries: (projectId: string | null, syncId?: string | null) =>
       ['project-secret-syncs', projectId, syncId ?? 'all', 'deliveries'] as const,
   },
+  projectSecretValidationRules: {
+    all: ['project-secret-validation-rules'] as const,
+    list: (projectId: string | null) => ['project-secret-validation-rules', projectId] as const,
+  },
   projectSecretShares: {
     all: ['project-secret-shares'] as const,
     list: (projectId: string | null) => ['project-secret-shares', projectId] as const,

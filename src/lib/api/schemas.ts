@@ -1208,6 +1208,58 @@ export const updateWebhookInputSchema = createWebhookInputSchema
     message: 'Provide at least one webhook field to update.',
   })
 
+export const secretValueConstraintSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('regex'),
+    pattern: z.string().trim().min(1).max(512),
+    description: z.string().trim().max(200).optional(),
+  }),
+  z.object({ type: z.literal('min_length'), value: z.number().int().min(1).max(8192) }),
+  z.object({ type: z.literal('max_length'), value: z.number().int().min(1).max(8192) }),
+  z.object({ type: z.literal('disallow_whitespace') }),
+  z.object({
+    type: z.literal('allowed_values'),
+    values: z.array(z.string().min(1).max(1024)).min(1).max(64),
+  }),
+  z.object({ type: z.literal('prevent_value_reuse'), versions: z.number().int().min(1).max(20) }),
+])
+
+export const secretValidationRuleSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  name: z.string(),
+  environmentId: nullableStringSchema,
+  folderPath: z.string(),
+  namePattern: nullableStringSchema,
+  constraints: z.array(secretValueConstraintSchema),
+  enabled: z.boolean(),
+  createdByUserId: nullableStringSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const secretValidationRulesResponseSchema = z.object({
+  rules: z.array(secretValidationRuleSchema),
+})
+export const secretValidationRuleResponseSchema = z.object({
+  rule: secretValidationRuleSchema,
+})
+
+export const createSecretValidationRuleInputSchema = z.object({
+  name: z.string().trim().min(1).max(64),
+  environmentId: z.string().trim().min(1).nullable().optional(),
+  folderPath: z.string().trim().min(1).max(256).optional(),
+  namePattern: z.string().trim().min(1).max(512).nullable().optional(),
+  constraints: z.array(secretValueConstraintSchema).min(1).max(12),
+  enabled: z.boolean().optional(),
+})
+
+export const updateSecretValidationRuleInputSchema = createSecretValidationRuleInputSchema
+  .partial()
+  .refine((body) => Object.values(body).some((value) => value !== undefined), {
+    message: 'Provide at least one field to update.',
+  })
+
 export const createProjectInputSchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(1),

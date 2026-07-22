@@ -435,6 +435,30 @@ export interface WebhookDelivery {
   updatedAt: string
 }
 
+export type SecretValueConstraint =
+  | { type: 'regex'; pattern: string; description?: string }
+  | { type: 'min_length'; value: number }
+  | { type: 'max_length'; value: number }
+  | { type: 'disallow_whitespace' }
+  | { type: 'allowed_values'; values: string[] }
+  | { type: 'prevent_value_reuse'; versions: number }
+
+export type SecretValueConstraintType = SecretValueConstraint['type']
+
+export interface SecretValidationRule {
+  id: string
+  projectId: string
+  name: string
+  environmentId: string | null
+  folderPath: string
+  namePattern: string | null
+  constraints: SecretValueConstraint[]
+  enabled: boolean
+  createdByUserId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export type SecretSyncProvider = 'github' | 'vercel'
 export type SecretSyncDeliveryStatus = WebhookDeliveryStatus
 

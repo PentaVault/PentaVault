@@ -7,6 +7,7 @@ import { ProjectAccessRequiredState } from '@/components/projects/project-access
 import { ProjectEnvironments } from '@/components/projects/project-environments'
 import { ProjectSecretShares } from '@/components/projects/project-secret-shares'
 import { ProjectSecretSyncs } from '@/components/projects/project-secret-syncs'
+import { ProjectSecretValidationRules } from '@/components/projects/project-secret-validation-rules'
 import { ProjectWebhooks } from '@/components/projects/project-webhooks'
 import { ErrorState } from '@/components/shared/error-state'
 import { Button } from '@/components/ui/button'
@@ -214,6 +215,8 @@ export default function ProjectSettingsPage() {
       {canManageSettings ? <ProjectSecretShares projectId={projectId} /> : null}
 
       {canManageSettings ? <ProjectSecretSyncs projectId={projectId} /> : null}
+
+      {canManageSettings ? <ProjectSecretValidationRules projectId={projectId} /> : null}
 
       {canManageSettings ? (
         <div className="mt-6 rounded-lg border border-danger/35 p-4">

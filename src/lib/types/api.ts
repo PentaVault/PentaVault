@@ -37,6 +37,8 @@ import type {
   SecretSync,
   SecretSyncDelivery,
   SecretSyncProvider,
+  SecretValidationRule,
+  SecretValueConstraint,
   SecretVersion,
   SecurityAlert,
   SecurityAlertStatus,
@@ -227,6 +229,32 @@ export interface WebhookDeliveriesResponse {
 
 export interface WebhookDeliveryResponse {
   delivery: WebhookDelivery
+}
+
+export interface SecretValidationRulesResponse {
+  rules: SecretValidationRule[]
+}
+
+export interface SecretValidationRuleResponse {
+  rule: SecretValidationRule
+}
+
+export interface CreateSecretValidationRuleInput {
+  name: string
+  environmentId?: string | null
+  folderPath?: string
+  namePattern?: string | null
+  constraints: SecretValueConstraint[]
+  enabled?: boolean
+}
+
+export interface UpdateSecretValidationRuleInput {
+  name?: string
+  environmentId?: string | null
+  folderPath?: string
+  namePattern?: string | null
+  constraints?: SecretValueConstraint[]
+  enabled?: boolean
 }
 
 export interface SecretSyncsResponse {
