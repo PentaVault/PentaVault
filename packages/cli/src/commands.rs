@@ -16,8 +16,8 @@ use crate::api::{
 use crate::auth::{self, Credential};
 use crate::cli::{
     AccessCommand, ApiKeysCommand, ChangeRequestsCommand, Cli, Command, ConfigsCommand,
-    EnvsCommand, OrganizationsCommand, OutputFormat, ProjectsCommand, SecretPullFormat,
-    SecretsCommand,
+    EnvsCommand, IdentityCommand, OrganizationsCommand, OutputFormat, ProjectsCommand,
+    SecretPullFormat, SecretsCommand,
 };
 use crate::config::{atomic_write, AppConfig, ConfigStore};
 
@@ -45,6 +45,7 @@ pub fn dispatch(cli: Cli) -> ExitCode {
         Command::Run { command } => run(&cli, command),
         Command::ChangeRequests(command) => change_requests(&cli, command),
         Command::Access(command) => access(&cli, command),
+        Command::Identity(command) => identity(&cli, command),
     }
 }
 
@@ -1186,6 +1187,117 @@ fn add_package_scripts(directory: &Path) -> Result<(), String> {
     let formatted = serde_json::to_string_pretty(&value)
         .map_err(|error| format!("unable to serialize package.json: {error}"))?;
     atomic_write(&path, format!("{formatted}\n").as_bytes())
+}
+
+/// Reads a federated assertion from a file, stdin, or an environment variable.
+///
+/// Never from an argument: a command line is visible to every process on the
+/// host and is routinely captured in CI logs and shell history.
+fn read_assertion(
+    assertion_file: Option<&str>,
+    assertion_env: Option<&str>,
+) -> Result<String, String> {
+    let raw = match (assertion_file, assertion_env) {
+        (Some("-"), _) => {
+            let mut buffer = String::new();
+            io::Read::read_to_string(&mut io::stdin(), &mut buffer)
+                .map_err(|error| format!("unable to read the assertion from stdin: {error}"))?;
+            buffer
+        }
+        (Some(path), _) => fs::read_to_string(path)
+            .map_err(|error| format!("unable to read the assertion from `{path}`: {error}"))?,
+        (None, Some(name)) => {
+            std::env::var(name).map_err(|_| format!("environment variable `{name}` is not set"))?
+        }
+        (None, None) => return Err(
+            "provide the assertion with --assertion-file (use `-` for stdin) or --assertion-env"
+                .to_owned(),
+        ),
+    };
+
+    let assertion = raw.trim().to_owned();
+    if assertion.is_empty() {
+        return Err("the assertion is empty".to_owned());
+    }
+    Ok(assertion)
+}
+
+fn identity(cli: &Cli, command: &IdentityCommand) -> ExitCode {
+    let api_url = match resolve_api_url(cli) {
+        Ok(value) => value,
+        Err(error) => return fail_prompt(error),
+    };
+    let client = match ApiClient::new(api_url.as_deref(), cli.allow_insecure_http) {
+        Ok(value) => value,
+        Err(error) => return fail_prompt(error),
+    };
+
+    match command {
+        IdentityCommand::Login {
+            organization,
+            name,
+            assertion_file,
+            assertion_env,
+            token_only,
+        } => {
+            let assertion =
+                match read_assertion(assertion_file.as_deref(), assertion_env.as_deref()) {
+                    Ok(value) => value,
+                    Err(error) => return fail_prompt(error),
+                };
+
+            match client.identity_login(organization, name, &assertion) {
+                Ok(response) => {
+                    if *token_only {
+                        println!("{}", response.access_token);
+                    } else if wants_json(cli) {
+                        println!("{}", serde_json::to_string(&response).expect("json"));
+                    } else {
+                        // The token goes to stdout and nowhere else. It expires in
+                        // minutes and belongs to this process, so writing it to the
+                        // credential store would outlive its usefulness while
+                        // leaving a usable credential on disk.
+                        println!("{}", response.access_token);
+                        eprintln!("Identity: {}", response.identity_id);
+                        eprintln!("Expires:  {}", response.expires_at);
+                        eprintln!("Projects: {}", response.project_ids.join(", "));
+                    }
+                    ExitCode::from(EXIT_SUCCESS)
+                }
+                Err(error) => fail_api(error),
+            }
+        }
+        IdentityCommand::Whoami { token } => {
+            let token = match token
+                .clone()
+                .or_else(|| std::env::var("PENTAVAULT_TOKEN").ok())
+                .map(|value| value.trim().to_owned())
+                .filter(|value| !value.is_empty())
+            {
+                Some(value) => value,
+                None => {
+                    return fail_prompt(
+                        "provide an identity token with --token or PENTAVAULT_TOKEN".to_owned(),
+                    )
+                }
+            };
+
+            match client.identity_context(&token) {
+                Ok(response) => {
+                    if wants_json(cli) {
+                        println!("{}", serde_json::to_string(&response).expect("json"));
+                    } else {
+                        println!("Identity: {}", response.identity_id);
+                        println!("Subject:  {}", response.subject);
+                        println!("Expires:  {}", response.expires_at);
+                        println!("Projects: {}", response.project_ids.join(", "));
+                    }
+                    ExitCode::from(EXIT_SUCCESS)
+                }
+                Err(error) => fail_api(error),
+            }
+        }
+    }
 }
 
 fn fail_prompt(error: String) -> ExitCode {

@@ -314,3 +314,181 @@ fn init_persists_only_project_routing_metadata() {
     assert!(config.contains("environment = \"development\""));
     assert!(!config.contains("session_secret"));
 }
+
+#[test]
+fn identity_login_sends_the_assertion_and_prints_only_the_token_on_stdout() {
+    let server = serve_once(
+        r#"{"accessToken":"pv_mid_test_token","expiresAt":"2026-07-28T12:15:00.000Z","identityId":"identity_1","projectIds":["project_123"]}"#,
+    );
+
+    pv().args([
+        "--api-url",
+        &server.url,
+        "identity",
+        "login",
+        "--organization",
+        "org_123",
+        "--name",
+        "ci-deploy",
+        "--assertion-env",
+        "TEST_OIDC_ASSERTION",
+    ])
+    .env("TEST_OIDC_ASSERTION", "header.payload.signature")
+    .assert()
+    .success()
+    // The token is the only thing on stdout, so `$(pv identity login ...)`
+    // captures a usable value and nothing else.
+    .stdout(predicate::str::contains("pv_mid_test_token"))
+    .stdout(predicate::str::contains("identity_1").not())
+    .stderr(predicate::str::contains("identity_1"));
+
+    let request = server.request.recv().expect("captured request");
+    assert!(request.starts_with("POST /api/v1/identities/login "));
+    assert!(request.contains("header.payload.signature"));
+    // Login is unauthenticated: the assertion is the credential, so no stored
+    // session token may be attached.
+    assert!(!request.to_lowercase().contains("authorization:"));
+}
+
+#[test]
+fn identity_login_reads_the_assertion_from_stdin() {
+    let server = serve_once(
+        r#"{"accessToken":"pv_mid_test_token","expiresAt":"2026-07-28T12:15:00.000Z","identityId":"identity_1","projectIds":[]}"#,
+    );
+
+    pv().args([
+        "--api-url",
+        &server.url,
+        "identity",
+        "login",
+        "--organization",
+        "org_123",
+        "--name",
+        "ci-deploy",
+        "--assertion-file",
+        "-",
+        "--token-only",
+    ])
+    .write_stdin("header.payload.signature\n")
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("pv_mid_test_token"));
+
+    let request = server.request.recv().expect("captured request");
+    assert!(request.contains("header.payload.signature"));
+}
+
+#[test]
+fn identity_login_requires_an_assertion_source() {
+    // Accepting the assertion as a bare argument would expose it in the process
+    // list and in CI logs, so there is deliberately no such flag.
+    pv().args([
+        "identity",
+        "login",
+        "--organization",
+        "org_123",
+        "--name",
+        "ci-deploy",
+    ])
+    .assert()
+    .failure()
+    .stderr(predicate::str::contains("--assertion-file"));
+}
+
+#[test]
+fn identity_login_rejects_an_empty_assertion() {
+    pv().args([
+        "identity",
+        "login",
+        "--organization",
+        "org_123",
+        "--name",
+        "ci-deploy",
+        "--assertion-env",
+        "TEST_OIDC_ASSERTION",
+    ])
+    .env("TEST_OIDC_ASSERTION", "   ")
+    .assert()
+    .failure()
+    .stderr(predicate::str::contains("assertion is empty"));
+}
+
+#[test]
+fn identity_whoami_reports_the_grant_without_echoing_the_token() {
+    let server = serve_once(
+        r#"{"identityId":"identity_1","subject":"repo:acme/api:ref:refs/heads/main","expiresAt":"2026-07-28T12:15:00.000Z","projectIds":["project_123"]}"#,
+    );
+
+    pv().args(["--api-url", &server.url, "identity", "whoami"])
+        .env("PENTAVAULT_TOKEN", "pv_mid_test_token")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("repo:acme/api"))
+        .stdout(predicate::str::contains("project_123"))
+        .stdout(predicate::str::contains("pv_mid_test_token").not());
+
+    let request = server.request.recv().expect("captured request");
+    assert!(request.starts_with("GET /api/v1/identity/context "));
+    assert!(request.contains("authorization: Bearer pv_mid_test_token"));
+}
+
+#[test]
+fn identity_whoami_fails_closed_without_a_token() {
+    pv().args(["identity", "whoami"])
+        .env_remove("PENTAVAULT_TOKEN")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("PENTAVAULT_TOKEN"));
+}
+
+#[test]
+fn secrets_pull_uses_the_workload_route_for_a_machine_identity_token() {
+    let server = serve_once(
+        r#"{"projectId":"project_123","environment":"production","environmentId":"env_prod","values":{"DATABASE_URL":"postgres://example"}}"#,
+    );
+
+    pv().args([
+        "--api-url",
+        &server.url,
+        "--project",
+        "project_123",
+        "--env",
+        "production",
+        "secrets",
+        "pull",
+    ])
+    .env("PENTAVAULT_TOKEN", "pv_mid_test_token")
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("DATABASE_URL=postgres://example"))
+    .stdout(predicate::str::contains("pv_mid_test_token").not());
+
+    let request = server.request.recv().expect("captured request");
+    // A workload token must not be sent to the human CLI route, whose
+    // authorization model assumes a session user.
+    assert!(request.starts_with(
+        "GET /api/v1/identity/projects/project_123/secrets/values?environment=production "
+    ));
+}
+
+#[test]
+fn secrets_pull_refuses_a_config_branch_for_a_machine_identity() {
+    // Ignoring --config would quietly return production values instead of the
+    // branch the caller asked for.
+    pv().args([
+        "--api-url",
+        "http://127.0.0.1:1",
+        "--project",
+        "project_123",
+        "--env",
+        "production",
+        "--config",
+        "feature-branch",
+        "secrets",
+        "pull",
+    ])
+    .env("PENTAVAULT_TOKEN", "pv_mid_test_token")
+    .assert()
+    .failure()
+    .stderr(predicate::str::contains("machine identity"));
+}

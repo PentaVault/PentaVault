@@ -102,6 +102,11 @@ pub enum Command {
     ChangeRequests(ChangeRequestsCommand),
     #[command(subcommand, about = "Request and track project access.")]
     Access(AccessCommand),
+    #[command(
+        subcommand,
+        about = "Authenticate a workload with a federated assertion."
+    )]
+    Identity(IdentityCommand),
     #[command(about = "Run local diagnostics for the CLI environment.")]
     Doctor,
     #[command(about = "Generate shell completion scripts.")]
@@ -305,6 +310,47 @@ pub enum AccessCommand {
     },
     Cancel {
         id: String,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum IdentityCommand {
+    #[command(
+        about = "Exchange an OIDC assertion for a short-lived pv_mid_ access token.",
+        long_about = "Exchange an OIDC assertion for a short-lived pv_mid_ access token.
+
+            The assertion is the credential, so no stored login is used or required. The token             is printed rather than saved: it expires in minutes and belongs to the process that             requested it, not to the machine."
+    )]
+    Login {
+        #[arg(long, help = "Organization that owns the identity.")]
+        organization: String,
+        #[arg(long, help = "Identity name to authenticate as.")]
+        name: String,
+        #[arg(
+            long,
+            help = "Read the assertion from this file. Use `-` for stdin.",
+            conflicts_with = "assertion_env"
+        )]
+        assertion_file: Option<String>,
+        #[arg(
+            long,
+            help = "Read the assertion from this environment variable (e.g. ACTIONS_ID_TOKEN).",
+            conflicts_with = "assertion_file"
+        )]
+        assertion_env: Option<String>,
+        #[arg(
+            long,
+            help = "Print only the token, for `export PENTAVAULT_TOKEN=$(pv identity login ... --token-only)`."
+        )]
+        token_only: bool,
+    },
+    #[command(about = "Show what a pv_mid_ token resolves to.")]
+    Whoami {
+        #[arg(
+            long,
+            help = "Identity token to inspect. Defaults to PENTAVAULT_TOKEN."
+        )]
+        token: Option<String>,
     },
 }
 

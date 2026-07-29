@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 const CLIENT_ID: &str = "pentavault-cli";
+const MACHINE_IDENTITY_TOKEN_PREFIX: &str = "pv_mid_";
 const DEVICE_GRANT_TYPE: &str = "urn:ietf:params:oauth:grant-type:device_code";
 const DEFAULT_API_ORIGIN: &str = "http://localhost:3001";
 const DEFAULT_DEVICE_CODE_EXPIRES_IN_SECONDS: u64 = 600;
@@ -58,6 +59,28 @@ struct DeviceTokenResponse {
     access_token: Option<String>,
     error: Option<String>,
     error_description: Option<String>,
+}
+
+/// Result of exchanging a federated assertion for a `pv_mid_` access token.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IdentityLoginResponse {
+    pub access_token: String,
+    pub expires_at: String,
+    pub identity_id: String,
+    #[serde(default)]
+    pub project_ids: Vec<String>,
+}
+
+/// What a `pv_mid_` token resolves to. Carries no secret material.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IdentityContextResponse {
+    pub identity_id: String,
+    pub subject: String,
+    pub expires_at: String,
+    #[serde(default)]
+    pub project_ids: Vec<String>,
 }
 
 pub struct ApiClient {
@@ -761,6 +784,11 @@ impl ApiClient {
         )
     }
 
+    /// Reads secret values, routing to the workload surface when the caller
+    /// holds a machine-identity token. The two responses have the same shape;
+    /// what differs is the authorization model behind them, so the path is
+    /// chosen from the credential rather than from a flag the user could get
+    /// wrong.
     pub fn get_secret_values(
         &self,
         token: &str,
@@ -769,6 +797,26 @@ impl ApiClient {
         config: Option<&str>,
         purpose: &str,
     ) -> Result<CliSecretValuesResponse, String> {
+        if is_machine_identity_token(token) {
+            if config.is_some() {
+                // Config branches are a human review workflow. Silently ignoring
+                // the flag would hand back production values instead.
+                return Err(
+                    "config branches are not available to a machine identity; omit --config"
+                        .to_owned(),
+                );
+            }
+
+            return self.get_json(
+                token,
+                &format!(
+                    "/api/v1/identity/projects/{}/secrets/values",
+                    encode_path_segment(project_id)
+                ),
+                &[("environment", environment)],
+            );
+        }
+
         let mut query = vec![("environment", environment), ("purpose", purpose)];
         if let Some(config) = config {
             query.push(("config", config));
@@ -781,6 +829,43 @@ impl ApiClient {
             ),
             &query,
         )
+    }
+
+    /// Exchanges a federated assertion for a short-lived identity access token.
+    /// Unauthenticated by design: the assertion *is* the credential, so no
+    /// stored session token is read or sent.
+    pub fn identity_login(
+        &self,
+        organization_id: &str,
+        identity_name: &str,
+        jwt: &str,
+    ) -> Result<IdentityLoginResponse, String> {
+        let response = self
+            .http
+            .post(self.url("/api/v1/identities/login"))
+            .json(&json!({
+                "organizationId": organization_id,
+                "identityName": identity_name,
+                "jwt": jwt,
+            }))
+            .send()
+            .map_err(|error| format!("request failed: {error}"))?;
+        let status = response.status();
+
+        if !status.is_success() {
+            return Err(format_error_response(
+                status,
+                response.text().unwrap_or_default(),
+            ));
+        }
+
+        response
+            .json::<IdentityLoginResponse>()
+            .map_err(|error| format!("unable to parse identity login response: {error}"))
+    }
+
+    pub fn identity_context(&self, token: &str) -> Result<IdentityContextResponse, String> {
+        self.get_json(token, "/api/v1/identity/context", &[])
     }
 
     pub fn display_url(&self, value: &str) -> String {
@@ -871,6 +956,12 @@ impl ApiClient {
             .json::<T>()
             .map_err(|error| format!("unable to parse API response: {error}"))
     }
+}
+
+/// A `pv_mid_` token authenticates a workload rather than a person, and the two
+/// are served by different routes with different authorization rules.
+pub fn is_machine_identity_token(token: &str) -> bool {
+    token.trim().starts_with(MACHINE_IDENTITY_TOKEN_PREFIX)
 }
 
 fn auth_headers(token: &str) -> Result<HeaderMap, String> {
