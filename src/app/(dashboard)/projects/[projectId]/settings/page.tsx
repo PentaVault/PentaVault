@@ -4,9 +4,11 @@ import { useParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { ProjectAccessGroups } from '@/components/projects/project-access-groups'
 import { ProjectAccessRequiredState } from '@/components/projects/project-access-required-state'
+import { ProjectApprovalPolicies } from '@/components/projects/project-approval-policies'
 import { ProjectAuditLogStreams } from '@/components/projects/project-audit-log-streams'
 import { ProjectDynamicSecrets } from '@/components/projects/project-dynamic-secrets'
 import { ProjectEnvironments } from '@/components/projects/project-environments'
+import { ProjectFolderHistory } from '@/components/projects/project-folder-history'
 import { ProjectSecretShares } from '@/components/projects/project-secret-shares'
 import { ProjectSecretSnapshots } from '@/components/projects/project-secret-snapshots'
 import { ProjectSecretSyncs } from '@/components/projects/project-secret-syncs'
@@ -209,6 +211,8 @@ export default function ProjectSettingsPage() {
         </div>
       ) : null}
 
+      {canManageSettings ? <ProjectApprovalPolicies projectId={projectId} /> : null}
+
       {canManageSettings ? <ProjectWebhooks projectId={projectId} /> : null}
 
       {canManageSettings ? <ProjectEnvironments projectId={projectId} /> : null}
@@ -220,6 +224,10 @@ export default function ProjectSettingsPage() {
       {canManageSettings ? <ProjectSecretSyncs projectId={projectId} /> : null}
 
       {canManageSettings ? <ProjectSecretValidationRules projectId={projectId} /> : null}
+
+      {/* Names secrets but never their values, so it follows project access
+          rather than management rights — the backend allows the same. */}
+      <ProjectFolderHistory projectId={projectId} />
 
       {canManageSettings ? <ProjectSecretSnapshots projectId={projectId} /> : null}
 
