@@ -10,11 +10,14 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
+      // Ratchet: set just under the measured level so coverage cannot regress
+      // silently. Raise these as coverage climbs rather than lowering them to
+      // make a red build pass.
       thresholds: {
-        statements: 55,
-        branches: 45,
-        functions: 50,
-        lines: 55,
+        statements: 60,
+        branches: 50,
+        functions: 53,
+        lines: 61,
       },
     },
   },
