@@ -123,6 +123,29 @@ export const queryKeys = {
     deliveries: (projectId: string | null, syncId?: string | null) =>
       ['project-secret-syncs', projectId, syncId ?? 'all', 'deliveries'] as const,
   },
+  projectFolderCommits: {
+    all: ['project-folder-commits'] as const,
+    list: (projectId: string | null, folderPath: string) =>
+      ['project-folder-commits', projectId, folderPath] as const,
+    diff: (projectId: string | null, from: string, to: string) =>
+      ['project-folder-commits', projectId, 'diff', from, to] as const,
+  },
+  scimTokens: {
+    all: ['scim-tokens'] as const,
+    list: () => ['scim-tokens'] as const,
+  },
+  organizationEncryptionKeys: {
+    all: ['organization-encryption-keys'] as const,
+    list: () => ['organization-encryption-keys'] as const,
+  },
+  ssoConnections: {
+    all: ['sso-connections'] as const,
+    list: () => ['sso-connections'] as const,
+  },
+  projectApprovalPolicies: {
+    all: ['project-approval-policies'] as const,
+    list: (projectId: string | null) => ['project-approval-policies', projectId] as const,
+  },
   projectSecretValidationRules: {
     all: ['project-secret-validation-rules'] as const,
     list: (projectId: string | null) => ['project-secret-validation-rules', projectId] as const,
@@ -155,6 +178,13 @@ export const queryKeys = {
     all: ['project-tokens'] as const,
     list: (projectId: string | null, scope: 'all' | 'self' = 'all') =>
       ['project-tokens', projectId, scope] as const,
+  },
+  platform: {
+    all: ['platform'] as const,
+    context: ['platform', 'context'] as const,
+    flags: ['platform', 'flags'] as const,
+    announcements: ['platform', 'announcements'] as const,
+    stats: ['platform', 'stats'] as const,
   },
   userSearchAll: ['user-search'] as const,
   userSearch: (organizationId: string | null, query: string) =>

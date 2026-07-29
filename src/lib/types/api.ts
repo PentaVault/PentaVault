@@ -1093,3 +1093,361 @@ export interface UsageAvailability {
 }
 
 export type TokenRecord = ProxyToken
+
+export type FeatureFlagStatus = 'disabled' | 'enabled' | 'rollout'
+
+export interface FeatureFlagTargeting {
+  organizationIds?: string[]
+  projectIds?: string[]
+  userIds?: string[]
+  deniedUserIds?: string[]
+}
+
+export interface FeatureFlag {
+  id: string
+  key: string
+  description: string | null
+  status: FeatureFlagStatus
+  rolloutPercentage: number
+  targeting: FeatureFlagTargeting
+  createdByUserId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface FeatureFlagResponse {
+  flag: FeatureFlag
+}
+
+export interface FeatureFlagsResponse {
+  flags: FeatureFlag[]
+}
+
+export interface CreateFeatureFlagInput {
+  key: string
+  description?: string | null
+  status?: FeatureFlagStatus
+  rolloutPercentage?: number
+  targeting?: FeatureFlagTargeting
+}
+
+export interface UpdateFeatureFlagInput {
+  description?: string | null
+  status?: FeatureFlagStatus
+  rolloutPercentage?: number
+  targeting?: FeatureFlagTargeting
+}
+
+export type AnnouncementSeverity = 'info' | 'warning' | 'critical' | 'maintenance'
+export type AnnouncementAudience = 'all' | 'authenticated' | 'anonymous'
+
+export interface Announcement {
+  id: string
+  title: string
+  body: string | null
+  severity: AnnouncementSeverity
+  audience: AnnouncementAudience
+  organizationId: string | null
+  active: boolean
+  startsAt: string | null
+  endsAt: string | null
+  dismissible: boolean
+  linkUrl: string | null
+  linkLabel: string | null
+  createdByUserId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AnnouncementResponse {
+  announcement: Announcement
+}
+
+export interface AnnouncementsResponse {
+  announcements: Announcement[]
+}
+
+export interface CreateAnnouncementInput {
+  title: string
+  body?: string | null
+  severity?: AnnouncementSeverity
+  audience?: AnnouncementAudience
+  organizationId?: string | null
+  active?: boolean
+  startsAt?: string | null
+  endsAt?: string | null
+  dismissible?: boolean
+  linkUrl?: string | null
+  linkLabel?: string | null
+}
+
+export type UpdateAnnouncementInput = Partial<CreateAnnouncementInput>
+
+export interface PlatformContextResponse {
+  flags: Record<string, boolean>
+  announcements: Announcement[]
+  isPlatformAdmin: boolean
+}
+
+export interface InstanceStats {
+  organizations: number
+  users: number
+  projects: number
+  activeProjects: number
+  secrets: number
+  machineIdentities: number
+  activeProxyTokens: number
+  collectedAt: string
+}
+
+export interface InstanceStatsResponse {
+  stats: InstanceStats | null
+}
+
+export type ApprovalPolicyScope = 'secret_change' | 'access_request'
+
+export interface ApprovalPolicy {
+  id: string
+  projectId: string
+  name: string
+  scope: ApprovalPolicyScope
+  environmentId: string | null
+  secretPath: string
+  requiredApprovals: number
+  approverUserIds: string[]
+  approverGroupIds: string[]
+  allowSelfApproval: boolean
+  enabled: boolean
+  createdByUserId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ApprovalPolicyResponse {
+  policy: ApprovalPolicy
+}
+
+export interface ApprovalPoliciesResponse {
+  policies: ApprovalPolicy[]
+}
+
+export interface CreateApprovalPolicyInput {
+  name: string
+  scope?: ApprovalPolicyScope
+  environmentId?: string | null
+  secretPath?: string
+  requiredApprovals: number
+  approverUserIds?: string[]
+  approverGroupIds?: string[]
+  allowSelfApproval?: boolean
+  enabled?: boolean
+}
+
+export type UpdateApprovalPolicyInput = Partial<CreateApprovalPolicyInput>
+
+export interface ScimToken {
+  id: string
+  organizationId: string
+  label: string
+  lastUsedAt: string | null
+  revokedAt: string | null
+  createdByUserId: string | null
+  createdAt: string
+}
+
+export interface ScimTokensResponse {
+  tokens: ScimToken[]
+}
+
+/** The plaintext token is present only in the create response. */
+export interface CreateScimTokenResponse {
+  token: string
+  scimToken: ScimToken
+}
+
+export type OrganizationKeyRewrapState = 'pending' | 'running' | 'complete' | 'failed'
+
+export interface OrganizationEncryptionKey {
+  id: string
+  organizationId: string
+  provider: 'aws-kms'
+  keyRef: string
+  region: string
+  endpoint: string | null
+  /** False stops new wraps but keeps the key available for unwrapping. */
+  active: boolean
+  rewrapState: OrganizationKeyRewrapState
+  rewrapCompletedAt: string | null
+  createdByUserId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface OrganizationEncryptionKeysResponse {
+  keys: OrganizationEncryptionKey[]
+}
+
+export interface OrganizationEncryptionKeyResponse {
+  key: OrganizationEncryptionKey
+}
+
+export interface OrganizationKeyRewrapResponse {
+  state: OrganizationKeyRewrapState
+  progress: { scanned: number; rewrapped: number; skipped: number; failed: number }
+}
+
+export interface CreateOrganizationEncryptionKeyInput {
+  keyRef: string
+  region: string
+  endpoint?: string
+}
+
+export type FolderCommitOperation = 'create' | 'update' | 'delete'
+
+export interface FolderCommitChange {
+  secretId: string
+  secretName: string
+  operation: FolderCommitOperation
+  previousVersionId: string | null
+  nextVersionId: string | null
+}
+
+export interface FolderCommit {
+  id: string
+  projectId: string
+  configId: string | null
+  environmentId: string | null
+  folderPath: string
+  /** Monotonic per folder, starting at 1. */
+  sequence: number
+  parentCommitId: string | null
+  actorUserId: string | null
+  message: string | null
+  changes: FolderCommitChange[]
+  createdAt: string
+}
+
+export interface FolderCommitsResponse {
+  commits: FolderCommit[]
+}
+
+export interface FolderDiffEntry {
+  secretId: string
+  secretName: string
+  operation: FolderCommitOperation
+  fromVersionId: string | null
+  toVersionId: string | null
+}
+
+export interface FolderDiff {
+  fromSequence: number
+  toSequence: number
+  entries: FolderDiffEntry[]
+}
+
+export interface FolderDiffResponse {
+  diff: FolderDiff
+}
+
+export interface FolderCommitListParams {
+  folderPath?: string
+  configId?: string
+  environmentId?: string
+  limit?: number
+}
+
+export type SsoProviderType = 'oidc' | 'saml'
+
+interface SsoConnectionBase {
+  id: string
+  organizationId: string
+  label: string
+  allowedEmailDomains: string[]
+  justInTimeProvisioning: boolean
+  emailClaim: string
+  nameClaim: string
+  enabled: boolean
+  createdByUserId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface OidcSsoConnection extends SsoConnectionBase {
+  provider: 'oidc'
+  issuer: string
+  jwksUri: string
+  clientId: string
+  authorizationEndpoint: string
+  tokenEndpoint: string
+}
+
+export interface SamlSsoConnection extends SsoConnectionBase {
+  provider: 'saml'
+  entryPoint: string
+  idpCert: string
+  spEntityId: string
+}
+
+/** A connection is one protocol or the other, never a mix of both. */
+export type SsoConnection = OidcSsoConnection | SamlSsoConnection
+
+export interface SsoConnectionResponse {
+  connection: SsoConnection
+}
+
+export interface SsoConnectionsResponse {
+  connections: SsoConnection[]
+}
+
+interface CreateSsoConnectionShared {
+  label: string
+  allowedEmailDomains: string[]
+  justInTimeProvisioning?: boolean
+  emailClaim?: string
+  nameClaim?: string
+  enabled?: boolean
+}
+
+export interface CreateOidcSsoConnectionInput extends CreateSsoConnectionShared {
+  provider?: 'oidc'
+  issuer: string
+  jwksUri: string
+  clientId: string
+  authorizationEndpoint: string
+  tokenEndpoint: string
+}
+
+export interface CreateSamlSsoConnectionInput extends CreateSsoConnectionShared {
+  provider: 'saml'
+  entryPoint: string
+  idpCert: string
+  spEntityId: string
+}
+
+export type CreateSsoConnectionInput = CreateOidcSsoConnectionInput | CreateSamlSsoConnectionInput
+
+export type UpdateSsoConnectionInput = Partial<Omit<CreateOidcSsoConnectionInput, 'provider'>> &
+  Partial<Omit<CreateSamlSsoConnectionInput, 'provider'>>
+
+/** Outcome of an admin testing a connection against a real ID token. */
+export interface SsoVerificationDecision {
+  subject: string
+  email: string
+  name: string | null
+  organizationId: string
+  shouldProvision: boolean
+}
+
+/** Identity only — discovery runs before anyone has authenticated. */
+export interface SsoDiscoveredConnection {
+  id: string
+  label: string
+}
+
+export interface SsoDiscoveryResponse {
+  connections: SsoDiscoveredConnection[]
+}
+
+export interface SsoVerificationResponse {
+  decision: SsoVerificationDecision
+}

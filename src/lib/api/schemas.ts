@@ -1513,3 +1513,375 @@ export const sendOrgInvitationInputSchema = z.object({
   email: z.string().trim().email(),
   role: canonicalOrgRoleSchema,
 })
+
+export const featureFlagStatusSchema = z.enum(['disabled', 'enabled', 'rollout'])
+
+export const featureFlagTargetingSchema = z.object({
+  organizationIds: z.array(z.string()).optional(),
+  projectIds: z.array(z.string()).optional(),
+  userIds: z.array(z.string()).optional(),
+  deniedUserIds: z.array(z.string()).optional(),
+})
+
+export const featureFlagSchema = z.object({
+  id: z.string(),
+  key: z.string(),
+  description: z.string().nullable(),
+  status: featureFlagStatusSchema,
+  rolloutPercentage: z.number(),
+  targeting: featureFlagTargetingSchema,
+  createdByUserId: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const featureFlagResponseSchema = z.object({ flag: featureFlagSchema })
+export const featureFlagsResponseSchema = z.object({ flags: z.array(featureFlagSchema) })
+
+export const createFeatureFlagInputSchema = z.object({
+  key: z
+    .string()
+    .trim()
+    .min(3)
+    .max(64)
+    .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/),
+  description: z.string().trim().max(500).nullable().optional(),
+  status: featureFlagStatusSchema.optional(),
+  rolloutPercentage: z.number().int().min(0).max(100).optional(),
+  targeting: featureFlagTargetingSchema.optional(),
+})
+
+export const updateFeatureFlagInputSchema = z
+  .object({
+    description: z.string().trim().max(500).nullable().optional(),
+    status: featureFlagStatusSchema.optional(),
+    rolloutPercentage: z.number().int().min(0).max(100).optional(),
+    targeting: featureFlagTargetingSchema.optional(),
+  })
+  .refine((body) => Object.values(body).some((value) => value !== undefined), {
+    message: 'Provide at least one field to update.',
+  })
+
+export const announcementSeveritySchema = z.enum(['info', 'warning', 'critical', 'maintenance'])
+export const announcementAudienceSchema = z.enum(['all', 'authenticated', 'anonymous'])
+
+export const announcementSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  body: z.string().nullable(),
+  severity: announcementSeveritySchema,
+  audience: announcementAudienceSchema,
+  organizationId: z.string().nullable(),
+  active: z.boolean(),
+  startsAt: z.string().nullable(),
+  endsAt: z.string().nullable(),
+  dismissible: z.boolean(),
+  linkUrl: z.string().nullable(),
+  linkLabel: z.string().nullable(),
+  createdByUserId: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const announcementResponseSchema = z.object({ announcement: announcementSchema })
+export const announcementsResponseSchema = z.object({
+  announcements: z.array(announcementSchema),
+})
+
+export const createAnnouncementInputSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  body: z.string().trim().max(2_000).nullable().optional(),
+  severity: announcementSeveritySchema.optional(),
+  audience: announcementAudienceSchema.optional(),
+  organizationId: z.string().trim().min(1).nullable().optional(),
+  active: z.boolean().optional(),
+  startsAt: z.string().datetime().nullable().optional(),
+  endsAt: z.string().datetime().nullable().optional(),
+  dismissible: z.boolean().optional(),
+  linkUrl: z.string().trim().url().max(2_048).nullable().optional(),
+  linkLabel: z.string().trim().max(80).nullable().optional(),
+})
+
+export const updateAnnouncementInputSchema = createAnnouncementInputSchema
+  .partial()
+  .refine((body) => Object.values(body).some((value) => value !== undefined), {
+    message: 'Provide at least one field to update.',
+  })
+
+/** Flags resolve to plain booleans, keyed by flag key. */
+export const platformContextResponseSchema = z.object({
+  flags: z.record(z.string(), z.boolean()),
+  announcements: z.array(announcementSchema),
+  isPlatformAdmin: z.boolean(),
+})
+
+export const instanceStatsSchema = z.object({
+  organizations: z.number(),
+  users: z.number(),
+  projects: z.number(),
+  activeProjects: z.number(),
+  secrets: z.number(),
+  machineIdentities: z.number(),
+  activeProxyTokens: z.number(),
+  collectedAt: z.string(),
+})
+
+export const instanceStatsResponseSchema = z.object({
+  stats: instanceStatsSchema.nullable(),
+})
+
+export const approvalPolicyScopeSchema = z.enum(['secret_change', 'access_request'])
+
+export const approvalPolicySchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  name: z.string(),
+  scope: approvalPolicyScopeSchema,
+  environmentId: z.string().nullable(),
+  secretPath: z.string(),
+  requiredApprovals: z.number(),
+  approverUserIds: z.array(z.string()),
+  approverGroupIds: z.array(z.string()),
+  allowSelfApproval: z.boolean(),
+  enabled: z.boolean(),
+  createdByUserId: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const approvalPolicyResponseSchema = z.object({ policy: approvalPolicySchema })
+export const approvalPoliciesResponseSchema = z.object({
+  policies: z.array(approvalPolicySchema),
+})
+
+export const createApprovalPolicyInputSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  scope: approvalPolicyScopeSchema.optional(),
+  environmentId: z.string().trim().min(1).nullable().optional(),
+  secretPath: z.string().trim().max(256).optional(),
+  requiredApprovals: z.number().int().min(1).max(10),
+  approverUserIds: z.array(z.string().trim().min(1)).max(200).optional(),
+  approverGroupIds: z.array(z.string().trim().min(1)).max(200).optional(),
+  allowSelfApproval: z.boolean().optional(),
+  enabled: z.boolean().optional(),
+})
+
+export const updateApprovalPolicyInputSchema = createApprovalPolicyInputSchema
+  .partial()
+  .refine((body) => Object.values(body).some((value) => value !== undefined), {
+    message: 'Provide at least one field to update.',
+  })
+
+const httpsUrlSchema = z
+  .string()
+  .trim()
+  .url()
+  .max(2048)
+  // The backend refuses plaintext too; catching it here turns a 400 into an
+  // inline field error the admin can act on.
+  .refine((value) => value.startsWith('https://'), { message: 'Must use https.' })
+
+export const scimTokenSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  label: z.string(),
+  lastUsedAt: z.string().nullable(),
+  revokedAt: z.string().nullable(),
+  createdByUserId: z.string().nullable(),
+  createdAt: z.string(),
+})
+
+export const scimTokensResponseSchema = z.object({ tokens: z.array(scimTokenSchema) })
+
+export const createScimTokenResponseSchema = z.object({
+  token: z.string(),
+  scimToken: scimTokenSchema,
+})
+
+export const organizationEncryptionKeySchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  provider: z.literal('aws-kms'),
+  keyRef: z.string(),
+  region: z.string(),
+  endpoint: z.string().nullable(),
+  active: z.boolean(),
+  rewrapState: z.enum(['pending', 'running', 'complete', 'failed']),
+  rewrapCompletedAt: z.string().nullable(),
+  createdByUserId: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const organizationEncryptionKeysResponseSchema = z.object({
+  keys: z.array(organizationEncryptionKeySchema),
+})
+
+export const organizationEncryptionKeyResponseSchema = z.object({
+  key: organizationEncryptionKeySchema,
+})
+
+export const organizationKeyRewrapResponseSchema = z.object({
+  state: z.enum(['pending', 'running', 'complete', 'failed']),
+  progress: z.object({
+    scanned: z.number(),
+    rewrapped: z.number(),
+    skipped: z.number(),
+    failed: z.number(),
+  }),
+})
+
+export const createOrganizationEncryptionKeyInputSchema = z.object({
+  keyRef: z.string().trim().min(1).max(512),
+  region: z.string().trim().min(1).max(64),
+  endpoint: z.string().trim().url().max(2048).optional(),
+})
+
+export const folderCommitOperationSchema = z.enum(['create', 'update', 'delete'])
+
+export const folderCommitSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  configId: z.string().nullable(),
+  environmentId: z.string().nullable(),
+  folderPath: z.string(),
+  sequence: z.number(),
+  parentCommitId: z.string().nullable(),
+  actorUserId: z.string().nullable(),
+  message: z.string().nullable(),
+  changes: z.array(
+    z.object({
+      secretId: z.string(),
+      secretName: z.string(),
+      operation: folderCommitOperationSchema,
+      previousVersionId: z.string().nullable(),
+      nextVersionId: z.string().nullable(),
+    })
+  ),
+  createdAt: z.string(),
+})
+
+export const folderCommitsResponseSchema = z.object({
+  commits: z.array(folderCommitSchema),
+})
+
+export const folderDiffResponseSchema = z.object({
+  diff: z.object({
+    fromSequence: z.number(),
+    toSequence: z.number(),
+    entries: z.array(
+      z.object({
+        secretId: z.string(),
+        secretName: z.string(),
+        operation: folderCommitOperationSchema,
+        fromVersionId: z.string().nullable(),
+        toVersionId: z.string().nullable(),
+      })
+    ),
+  }),
+})
+
+export const ssoProviderTypeSchema = z.enum(['oidc', 'saml'])
+
+const ssoConnectionSharedSchema = {
+  id: z.string(),
+  organizationId: z.string(),
+  label: z.string(),
+  allowedEmailDomains: z.array(z.string()),
+  justInTimeProvisioning: z.boolean(),
+  emailClaim: z.string(),
+  nameClaim: z.string(),
+  enabled: z.boolean(),
+  createdByUserId: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+}
+
+export const ssoConnectionSchema = z.union([
+  z.object({
+    ...ssoConnectionSharedSchema,
+    provider: z.literal('saml'),
+    entryPoint: z.string(),
+    idpCert: z.string(),
+    spEntityId: z.string(),
+  }),
+  z.object({
+    ...ssoConnectionSharedSchema,
+    provider: z.literal('oidc'),
+    issuer: z.string(),
+    jwksUri: z.string(),
+    clientId: z.string(),
+    authorizationEndpoint: z.string(),
+    tokenEndpoint: z.string(),
+  }),
+])
+
+export const ssoConnectionResponseSchema = z.object({ connection: ssoConnectionSchema })
+export const ssoConnectionsResponseSchema = z.object({
+  connections: z.array(ssoConnectionSchema),
+})
+
+const createSsoConnectionSharedSchema = {
+  label: z.string().trim().min(1).max(120),
+  // At least one domain is mandatory: an empty allowlist would let anyone with
+  // an account at the provider join the organisation.
+  allowedEmailDomains: z.array(z.string().trim().min(1).max(253)).min(1).max(50),
+  justInTimeProvisioning: z.boolean().optional(),
+  emailClaim: z.string().trim().min(1).max(256).optional(),
+  nameClaim: z.string().trim().min(1).max(256).optional(),
+  enabled: z.boolean().optional(),
+}
+
+export const createSsoConnectionInputSchema = z.union([
+  z.object({
+    ...createSsoConnectionSharedSchema,
+    provider: z.literal('saml'),
+    entryPoint: httpsUrlSchema,
+    idpCert: z.string().trim().min(1).max(16384),
+    spEntityId: z.string().trim().min(1).max(512),
+  }),
+  z.object({
+    ...createSsoConnectionSharedSchema,
+    provider: z.literal('oidc').optional(),
+    issuer: httpsUrlSchema,
+    jwksUri: httpsUrlSchema,
+    clientId: z.string().trim().min(1).max(512),
+    authorizationEndpoint: httpsUrlSchema,
+    tokenEndpoint: httpsUrlSchema,
+  }),
+])
+
+export const updateSsoConnectionInputSchema = z
+  .object({
+    label: z.string().trim().min(1).max(120).optional(),
+    issuer: httpsUrlSchema.optional(),
+    jwksUri: httpsUrlSchema.optional(),
+    clientId: z.string().trim().min(1).max(512).optional(),
+    authorizationEndpoint: httpsUrlSchema.optional(),
+    tokenEndpoint: httpsUrlSchema.optional(),
+    entryPoint: httpsUrlSchema.optional(),
+    idpCert: z.string().trim().min(1).max(16384).optional(),
+    spEntityId: z.string().trim().min(1).max(512).optional(),
+    allowedEmailDomains: z.array(z.string().trim().min(1).max(253)).min(1).max(50).optional(),
+    justInTimeProvisioning: z.boolean().optional(),
+    emailClaim: z.string().trim().min(1).max(256).optional(),
+    nameClaim: z.string().trim().min(1).max(256).optional(),
+    enabled: z.boolean().optional(),
+  })
+  .refine((body) => Object.values(body).some((value) => value !== undefined), {
+    message: 'Provide at least one field to update.',
+  })
+
+export const ssoDiscoveryResponseSchema = z.object({
+  connections: z.array(z.object({ id: z.string(), label: z.string() })),
+})
+
+export const ssoVerificationResponseSchema = z.object({
+  decision: z.object({
+    subject: z.string(),
+    email: z.string(),
+    name: z.string().nullable(),
+    organizationId: z.string(),
+    shouldProvision: z.boolean(),
+  }),
+})
