@@ -39,6 +39,18 @@ vi.mock('@/components/settings/organization-app-connections', () => ({
   ),
 }))
 
+vi.mock('@/components/settings/organization-encryption-keys', () => ({
+  OrganizationEncryptionKeys: () => <div data-testid="encryption-keys">Keys</div>,
+}))
+
+vi.mock('@/components/settings/organization-scim', () => ({
+  OrganizationScim: () => <div data-testid="scim">SCIM</div>,
+}))
+
+vi.mock('@/components/settings/organization-sso', () => ({
+  OrganizationSso: () => <div data-testid="sso-connections">SSO</div>,
+}))
+
 vi.mock('@/lib/hooks/use-auth', () => ({
   useAuth: () => ({
     status: 'authenticated',

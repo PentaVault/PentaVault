@@ -5,6 +5,9 @@ import { type ReactNode, useEffect } from 'react'
 
 import { OrganizationAccessGroups } from '@/components/settings/organization-access-groups'
 import { OrganizationAppConnections } from '@/components/settings/organization-app-connections'
+import { OrganizationEncryptionKeys } from '@/components/settings/organization-encryption-keys'
+import { OrganizationScim } from '@/components/settings/organization-scim'
+import { OrganizationSso } from '@/components/settings/organization-sso'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch, SwitchThumb } from '@/components/ui/switch'
 import { organizationsApi } from '@/lib/api/organizations'
@@ -160,6 +163,15 @@ export default function OrgAccessControlPage() {
       </Card>
 
       {org ? <OrganizationAccessGroups organizationId={org.id} /> : null}
+
+      {org ? <OrganizationSso /> : null}
+
+      {/* Owner-only on the server: a SCIM token can add and remove members. */}
+      {org && role === 'owner' ? <OrganizationScim /> : null}
+
+      {/* Owner-only on the server; an admin sees a 403 rather than a form that
+          silently fails. */}
+      {org && role === 'owner' ? <OrganizationEncryptionKeys /> : null}
 
       {org ? <OrganizationAppConnections organizationId={org.id} /> : null}
     </div>
