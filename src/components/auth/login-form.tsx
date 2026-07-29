@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import QRCode from 'qrcode'
 import type { FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
+import { SsoSignInButton } from '@/components/auth/sso-sign-in-button'
 import { TurnstileWidget, type TurnstileWidgetHandle } from '@/components/auth/turnstile-widget'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -904,6 +905,8 @@ export function LoginForm({ nextPath }: LoginFormProps) {
           {isPasskeyPending ? 'Checking passkey...' : 'Sign in with passkey'}
         </Button>
       ) : null}
+
+      <SsoSignInButton email={email} nextPath={nextPath} />
 
       {env.mockAuthEnabled ? (
         <p className="text-xs text-muted-foreground">
