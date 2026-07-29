@@ -4,12 +4,15 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { HomeCta } from '@/components/home/home-cta'
+import { AnnouncementStrip } from '@/components/layout/announcement-strip'
 import { BrandMark } from '@/components/shared/brand-mark'
 import { APP_NAME } from '@/lib/constants'
 import { cn } from '@/lib/utils/cn'
 
 const NAV_LINKS = [
-  { label: 'Features', href: '/home#features' },
+  { label: 'How it works', href: '/home#how-it-works' },
+  { label: 'Developers', href: '/home#developers' },
+  { label: 'Security', href: '/home#security' },
   { label: 'Pricing', href: '/home#pricing' },
 ]
 
@@ -57,6 +60,8 @@ export function MarketingHeader() {
 
         <HomeCta variant="header" />
       </div>
+
+      <AnnouncementStrip />
     </header>
   )
 }
