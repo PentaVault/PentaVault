@@ -15,6 +15,7 @@ import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 
+import { AnnouncementStrip } from '@/components/layout/announcement-strip'
 import { DashboardNavLink } from '@/components/layout/dashboard-nav-link'
 import { NotificationPanel } from '@/components/layout/notification-panel'
 import { OrgSwitcher } from '@/components/layout/org-switcher'
@@ -131,6 +132,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
           </div>
         </div>
       </header>
+
+      <AnnouncementStrip />
 
       <Dialog onOpenChange={setIsCreateOrgOpen} open={isCreateOrgOpen}>
         <DialogPortal>

@@ -4,6 +4,7 @@ import type { PropsWithChildren } from 'react'
 
 import { Toaster } from '@/components/shared/toaster'
 import { AuthProvider } from '@/providers/auth-provider'
+import { PlatformProvider } from '@/providers/platform-provider'
 import { QueryProvider } from '@/providers/query-provider'
 import { ThemeProvider } from '@/providers/theme-provider'
 
@@ -18,8 +19,10 @@ export function AppProviders({ children, nonce }: AppProvidersProps) {
     <QueryProvider>
       <ThemeProvider {...themeProviderProps}>
         <AuthProvider>
-          {children}
-          <Toaster />
+          <PlatformProvider>
+            {children}
+            <Toaster />
+          </PlatformProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryProvider>

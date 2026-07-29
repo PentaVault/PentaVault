@@ -1,6 +1,14 @@
 'use client'
 
-import { Building2, ChevronLeft, CreditCard, Settings, ShieldCheck, Users } from 'lucide-react'
+import {
+  Building2,
+  ChevronLeft,
+  CreditCard,
+  Settings,
+  ShieldCheck,
+  SlidersHorizontal,
+  Users,
+} from 'lucide-react'
 import Link from 'next/link'
 
 import { DashboardNavLink } from '@/components/layout/dashboard-nav-link'
@@ -10,11 +18,14 @@ import {
   SETTINGS_ORGANIZATION_BILLING_PATH,
   SETTINGS_ORGANIZATION_MEMBERS_PATH,
   SETTINGS_ORGANIZATION_PATH,
+  SETTINGS_PLATFORM_PATH,
 } from '@/lib/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useIsPlatformAdmin } from '@/providers/platform-provider'
 
 export default function OrgSettingsLayout({ children }: { children: React.ReactNode }) {
   const { activeOrganization } = useAuth()
+  const isPlatformAdmin = useIsPlatformAdmin()
   const activeOrg = activeOrganization?.organization
   const role = activeOrganization?.membership.role
   const canManageAccess = role === 'owner' || role === 'admin'
@@ -26,6 +37,10 @@ export default function OrgSettingsLayout({ children }: { children: React.ReactN
       ? [{ href: SETTINGS_ORGANIZATION_ACCESS_PATH, label: 'Access control', icon: ShieldCheck }]
       : []),
     { href: SETTINGS_ORGANIZATION_BILLING_PATH, label: 'Billing', icon: CreditCard },
+    // Instance-wide, not org-scoped: only operators ever see this entry.
+    ...(isPlatformAdmin
+      ? [{ href: SETTINGS_PLATFORM_PATH, label: 'Platform', icon: SlidersHorizontal }]
+      : []),
   ]
 
   return (

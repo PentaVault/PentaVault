@@ -18,6 +18,7 @@ export const SETTINGS_ORGANIZATION_MEMBERS_PATH = '/settings/organization/member
 export const SETTINGS_ORGANIZATION_ACCESS_PATH = '/settings/organization/access'
 export const SETTINGS_ORGANIZATION_BILLING_PATH = '/settings/organization/billing'
 export const SETTINGS_ORGANIZATION_BILLING_PLANS_PATH = '/settings/organization/billing/plans'
+export const SETTINGS_PLATFORM_PATH = '/settings/platform'
 export const SETTINGS_ACCOUNT_PATH = '/settings/account'
 export const SETTINGS_ACCOUNT_SECURITY_PATH = '/settings/account/security'
 export const SETTINGS_ACCOUNT_SESSIONS_PATH = '/settings/account/sessions'
