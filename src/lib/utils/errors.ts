@@ -38,6 +38,9 @@ const API_ERROR_MESSAGES_BY_CODE: Record<string, string> = {
   AUTH_MFA_DISABLE_FAILURE: 'Unable to update MFA right now. Please try again.',
   AUTH_PASSWORD_INVALID: 'The password you entered is incorrect.',
   UNAUTHORIZED: 'Your session has expired. Please sign in again.',
+  // Only reached when the confirmation dialog could not be shown — normally the
+  // API client handles this code by prompting and replaying the request.
+  AUTH_SESSION_NOT_FRESH: 'Confirm your password to continue.',
   AUTH_FAILURE: 'Authentication service is temporarily unavailable. Please try again.',
   SESSION_NOT_FOUND: 'Session not found. It may have already expired or been revoked.',
   SESSION_REVOKE_FAILURE: 'Unable to revoke this session. Please try again.',

@@ -1,5 +1,6 @@
-import axios, { AxiosHeaders } from 'axios'
+import axios, { AxiosHeaders, type InternalAxiosRequestConfig } from 'axios'
 
+import { requestFreshSession } from '@/lib/api/reauthentication'
 import { clearClientAuthHint } from '@/lib/auth/token'
 import { AUTH_SESSION_PATH, DEVICE_PATH, LOGIN_PATH, REGISTER_PATH } from '@/lib/constants'
 import { env } from '@/lib/env'
@@ -286,12 +287,33 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
+/** Marks a request that has already been retried, so a refusal cannot loop. */
+type RetryableRequestConfig = InternalAxiosRequestConfig & { pvFreshSessionRetry?: boolean }
+
 apiClient.interceptors.response.use(
   (response) => response,
-  (error: unknown) => {
+  async (error: unknown) => {
     if (!axios.isAxiosError(error)) {
       console.error('[Unexpected Error]', error)
       return Promise.reject(error)
+    }
+
+    /**
+     * A valid session that is too old for a sensitive operation. Recoverable
+     * without signing out: confirm the password, then replay the request the user
+     * actually made, so their click is not silently discarded.
+     */
+    if (error.response?.status === 403 && isBrowser) {
+      const payload = error.response.data as { code?: unknown } | undefined
+      const config = error.config as RetryableRequestConfig | undefined
+
+      if (payload?.code === 'AUTH_SESSION_NOT_FRESH' && config && !config.pvFreshSessionRetry) {
+        const refreshed = await requestFreshSession()
+        if (refreshed) {
+          config.pvFreshSessionRetry = true
+          return apiClient.request(config)
+        }
+      }
     }
 
     if (!error.response) {

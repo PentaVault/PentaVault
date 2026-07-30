@@ -10,7 +10,12 @@ import {
 } from '@/lib/api/schemas'
 import { createMockSession, isMockAuthEnabled, isMockCredential } from '@/lib/auth/mock-auth'
 import { clearClientAuthHint, hasAuthCookieHint, setClientAuthHint } from '@/lib/auth/token'
-import { AUTH_REVOKE_SESSION_PATH, AUTH_SESSION_PATH, AUTH_SESSIONS_PATH } from '@/lib/constants'
+import {
+  AUTH_REAUTHENTICATE_PATH,
+  AUTH_REVOKE_SESSION_PATH,
+  AUTH_SESSION_PATH,
+  AUTH_SESSIONS_PATH,
+} from '@/lib/constants'
 import { env } from '@/lib/env'
 import type {
   AuthApiKeyListResponse,
@@ -315,6 +320,32 @@ export const authApi = {
 
     const response = await apiClient.get<AuthSessionListApiResponse>(AUTH_SESSIONS_PATH)
     return parseApiResponse(sessionListResponseSchema, response.data)
+  },
+
+  /**
+   * Confirms the signed-in user's password to make the session fresh again.
+   *
+   * Only the password is sent. The account is taken from the session server-side,
+   * so this cannot be aimed at another user — it is a confirmation, not a login.
+   *
+   * Resolves true when the session is fresh, false when the password was wrong.
+   * Anything else throws, because a network failure is not a wrong password and
+   * should not be reported as one.
+   */
+  async reauthenticate(password: string): Promise<boolean> {
+    if (isMockAuthEnabled()) {
+      return true
+    }
+
+    try {
+      await apiClient.post(AUTH_REAUTHENTICATE_PATH, { password })
+      return true
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        return false
+      }
+      throw error
+    }
   },
 
   async listOrganizations(): Promise<AuthOrganizationsResponse> {

@@ -6,6 +6,7 @@ export const API_V1_PREFIX = '/v1'
 export const AUTH_SESSION_PATH = `${API_V1_PREFIX}/auth/session`
 export const AUTH_SESSIONS_PATH = `${API_V1_PREFIX}/auth/sessions`
 export const AUTH_REVOKE_SESSION_PATH = `${API_V1_PREFIX}/auth/sessions/revoke`
+export const AUTH_REAUTHENTICATE_PATH = `${API_V1_PREFIX}/auth/reauthenticate`
 
 export const DASHBOARD_HOME_PATH = '/dashboard'
 export const HOME_PATH = '/home'
