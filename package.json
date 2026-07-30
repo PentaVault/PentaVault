@@ -27,7 +27,8 @@
     "cli:build": "cargo build --manifest-path packages/cli/Cargo.toml",
     "cli:lint": "cargo clippy --manifest-path packages/cli/Cargo.toml -- -D warnings",
     "cli:test": "cargo test --manifest-path packages/cli/Cargo.toml",
-    "prepare": "husky"
+    "prepare": "husky",
+    "check:commitlint": "node scripts/check-commitlint-parity.mjs"
   },
   "dependencies": {
     "@better-auth/passkey": "^1.6.23",

@@ -42,17 +42,23 @@ Rust CLI (repo root):
 - `pnpm run cli:test` (`cargo test`), `pnpm run cli:lint` (`cargo clippy -D warnings`)
 
 ## Commit message format
-Conventional Commits, validated by commitlint (`commitlint.config.js`):
-- **Allowed types:** `feat`, `fix`, `perf`, `security`, `refactor`, `style`,
-  `test`, `docs`, `chore`, `deps`, `revert`.
+Conventional Commits, validated by commitlint. The frontend rules live in
+`commitlint.config.js`, the backend's in `PentaVault-Backend/.commitlintrc.json`,
+and `pnpm run check:commitlint` fails if the two disagree — so the same message
+is valid in either repository.
+- **Allowed types (both repositories):** `feat`, `fix`, `perf`, `security`,
+  `refactor`, `style`, `test`, `docs`, `chore`, `deps`, `build`, `ci`, `revert`.
 - Format: `type(scope): subject` — scope is optional but preferred
   (e.g. `cli`, `secrets`, `team`, `auth`, `change-requests`, `project-config`).
 - Subject: imperative mood, lower-case, no trailing period.
 - Header length and subject case are unrestricted, but keep the subject concise.
 - **Body wraps at 200 chars/line** (commitlint `body-max-line-length`). Explain
   the *why*, not just the *what*. Use bullet points for multi-part changes.
-- End every commit body with the trailer:
-  `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`
+- End every commit body with a `Co-Authored-By` trailer naming **the model that
+  actually wrote the commit**, e.g.
+  `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
+  Do not copy a model name from this file if you are a different model —
+  attribution has to be true.
 
 Write multi-line messages with a heredoc so the body formats correctly:
 
@@ -65,7 +71,7 @@ Why this change and what it does, at a high level.
 - bullet for each distinct part
 - another part
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
 EOF
 ```
 

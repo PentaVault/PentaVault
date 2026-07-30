@@ -49,6 +49,9 @@ jobs:
       - name: Lint and format check
         run: pnpm run lint
 
+      - name: Check commit-type parity across repositories
+        run: pnpm run check:commitlint
+
       - name: Type check
         run: pnpm run type-check
 

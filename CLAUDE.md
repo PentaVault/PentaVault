@@ -88,12 +88,18 @@ redirected to canonical routes in `src/proxy.ts`.
 
 ## Conventions
 
-- Commits: Conventional Commits enforced by commitlint (`commitlint.config.js`);
-  types include `feat`, `fix`, `perf`, `security`, `refactor`, `style`, `test`,
-  `docs`, `chore`, `deps`, `revert`. Small, scoped commits; stage explicitly (no
-  `git add .`); end bodies with the `Co-Authored-By` trailer. A `commit` skill
-  in `.claude/skills/commit/` captures the full workflow. Never push to `main`;
-  never use destructive git commands unless asked.
+- Commits: Conventional Commits enforced by commitlint. **Both repositories
+  accept exactly the same types** — `feat`, `fix`, `perf`, `security`,
+  `refactor`, `style`, `test`, `docs`, `chore`, `deps`, `build`, `ci`, `revert`.
+  The lists live in two files because the repositories are separate
+  (`commitlint.config.js` at the root, `PentaVault-Backend/.commitlintrc.json`),
+  and `pnpm run check:commitlint` fails the build if they drift apart or if this
+  list stops matching them. Change all three together. Bodies wrap at 200
+  chars/line in both.
+  Small, scoped commits; stage explicitly (no `git add .`); end bodies with the
+  `Co-Authored-By` trailer naming the model that actually wrote the commit. A
+  `commit` skill in `.claude/skills/commit/` captures the full workflow. Never
+  push to `main`; never use destructive git commands unless asked.
 - Tooling: Biome is the formatter/linter of record; markdownlint for docs. Do
   not reintroduce Jest/ESLint/Prettier. Keep frontend tests under
   `src/**/__tests__/**`, backend tests under `PentaVault-Backend/tests/`.
