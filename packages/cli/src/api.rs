@@ -8,6 +8,8 @@ use reqwest::redirect::Policy;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+use crate::aws::SignedRequest;
+
 const CLIENT_ID: &str = "pentavault-cli";
 const MACHINE_IDENTITY_TOKEN_PREFIX: &str = "pv_mid_";
 const DEVICE_GRANT_TYPE: &str = "urn:ietf:params:oauth:grant-type:device_code";
@@ -840,14 +842,43 @@ impl ApiClient {
         identity_name: &str,
         jwt: &str,
     ) -> Result<IdentityLoginResponse, String> {
+        self.post_identity_login(json!({
+            "organizationId": organization_id,
+            "identityName": identity_name,
+            "jwt": jwt,
+        }))
+    }
+
+    /// Presents a locally signed `sts:GetCallerIdentity` request. The signature
+    /// is the credential; the server replays the request and asks AWS who made
+    /// it, so nothing secret is transmitted that AWS would not already accept.
+    pub fn identity_login_aws(
+        &self,
+        organization_id: &str,
+        identity_name: &str,
+        signed: &SignedRequest,
+    ) -> Result<IdentityLoginResponse, String> {
+        self.post_identity_login(json!({
+            "organizationId": organization_id,
+            "identityName": identity_name,
+            "credential": {
+                "kind": "aws-signed-request",
+                "method": signed.method,
+                "url": signed.url,
+                "headers": signed.headers,
+                "body": signed.body,
+            },
+        }))
+    }
+
+    fn post_identity_login(
+        &self,
+        body: serde_json::Value,
+    ) -> Result<IdentityLoginResponse, String> {
         let response = self
             .http
             .post(self.url("/api/v1/identities/login"))
-            .json(&json!({
-                "organizationId": organization_id,
-                "identityName": identity_name,
-                "jwt": jwt,
-            }))
+            .json(&body)
             .send()
             .map_err(|error| format!("request failed: {error}"))?;
         let status = response.status();

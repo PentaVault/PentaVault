@@ -379,6 +379,90 @@ fn identity_login_reads_the_assertion_from_stdin() {
 }
 
 #[test]
+fn identity_login_signs_an_aws_request_instead_of_reading_an_assertion() {
+    let server = serve_once(
+        r#"{"accessToken":"pv_mid_aws_token","expiresAt":"2026-08-13T12:15:00.000Z","identityId":"identity_1","projectIds":[]}"#,
+    );
+
+    pv().args([
+        "--api-url",
+        &server.url,
+        "identity",
+        "login",
+        "--organization",
+        "org_123",
+        "--name",
+        "ci-deploy",
+        "--method",
+        "aws",
+        "--audience",
+        "pentavault",
+        "--token-only",
+    ])
+    .env("AWS_ACCESS_KEY_ID", "AKIDEXAMPLE")
+    .env(
+        "AWS_SECRET_ACCESS_KEY",
+        "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+    )
+    .env("AWS_SESSION_TOKEN", "session-token")
+    .env("AWS_REGION", "eu-west-1")
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("pv_mid_aws_token"));
+
+    let request = server.request.recv().expect("captured request");
+    assert!(request.starts_with("POST /api/v1/identities/login "));
+    assert!(request.contains("aws-signed-request"));
+    assert!(request.contains("https://sts.eu-west-1.amazonaws.com/"));
+    assert!(request.contains("x-pentavault-audience"));
+    assert!(request.contains("Action=GetCallerIdentity"));
+    // The secret key signs the request; it is never part of it.
+    assert!(!request.contains("wJalrXUtnFEMI"));
+}
+
+#[test]
+fn identity_login_requires_an_audience_for_aws() {
+    // Without it the signature would not be bound to PentaVault, so there is no
+    // default that would be safe to pick.
+    pv().args([
+        "identity",
+        "login",
+        "--organization",
+        "org_123",
+        "--name",
+        "ci-deploy",
+        "--method",
+        "aws",
+    ])
+    .env("AWS_ACCESS_KEY_ID", "AKIDEXAMPLE")
+    .env("AWS_SECRET_ACCESS_KEY", "secret")
+    .assert()
+    .failure()
+    .stderr(predicate::str::contains("--audience"));
+}
+
+#[test]
+fn identity_login_reports_missing_aws_credentials_plainly() {
+    pv().args([
+        "identity",
+        "login",
+        "--organization",
+        "org_123",
+        "--name",
+        "ci-deploy",
+        "--method",
+        "aws",
+        "--audience",
+        "pentavault",
+    ])
+    .env_remove("AWS_ACCESS_KEY_ID")
+    .env_remove("AWS_SECRET_ACCESS_KEY")
+    .assert()
+    .failure()
+    .stderr(predicate::str::contains("AWS_ACCESS_KEY_ID"));
+}
+
+#[test]
 fn identity_login_requires_an_assertion_source() {
     // Accepting the assertion as a bare argument would expose it in the process
     // list and in CI logs, so there is deliberately no such flag.

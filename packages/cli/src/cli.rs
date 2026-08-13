@@ -313,19 +313,35 @@ pub enum AccessCommand {
     },
 }
 
+/// How the workload proves who it is.
+#[derive(Clone, Debug, Default, PartialEq, Eq, ValueEnum)]
+pub enum IdentityMethod {
+    /// Present a JWT the provider issued — OIDC, Google, Azure, Kubernetes.
+    #[default]
+    Jwt,
+    /// Sign an sts:GetCallerIdentity request with local AWS credentials.
+    Aws,
+}
+
 #[derive(Debug, Subcommand)]
 pub enum IdentityCommand {
     #[command(
-        about = "Exchange an OIDC assertion for a short-lived pv_mid_ access token.",
-        long_about = "Exchange an OIDC assertion for a short-lived pv_mid_ access token.
+        about = "Exchange a workload credential for a short-lived pv_mid_ access token.",
+        long_about = "Exchange a workload credential for a short-lived pv_mid_ access token.
 
-            The assertion is the credential, so no stored login is used or required. The token             is printed rather than saved: it expires in minutes and belongs to the process that             requested it, not to the machine."
+            With `--method jwt` (the default) the assertion is the credential: an OIDC token, a             Google identity token, an Azure managed-identity token, or a Kubernetes projected             service-account token.
+
+            With `--method aws` no assertion is read at all. The CLI signs an             sts:GetCallerIdentity request with the AWS credentials already in the environment and             PentaVault replays it, so AWS itself reports who called. Nothing is stored on either             side.
+
+            Either way no stored PentaVault login is used or required, and the token is printed             rather than saved: it expires in minutes and belongs to the process that requested it,             not to the machine."
     )]
     Login {
         #[arg(long, help = "Organization that owns the identity.")]
         organization: String,
         #[arg(long, help = "Identity name to authenticate as.")]
         name: String,
+        #[arg(long, value_enum, default_value_t = IdentityMethod::Jwt, help = "How to prove the workload's identity.")]
+        method: IdentityMethod,
         #[arg(
             long,
             help = "Read the assertion from this file. Use `-` for stdin.",
@@ -338,6 +354,17 @@ pub enum IdentityCommand {
             conflicts_with = "assertion_file"
         )]
         assertion_env: Option<String>,
+        #[arg(
+            long,
+            help = "AWS only: the audience configured on the auth method. Signed into the request, so it cannot be replayed elsewhere."
+        )]
+        audience: Option<String>,
+        #[arg(
+            long,
+            help = "AWS only: regional STS endpoint to sign against. Defaults to the global endpoint.",
+            env = "AWS_REGION"
+        )]
+        sts_region: Option<String>,
         #[arg(
             long,
             help = "Print only the token, for `export PENTAVAULT_TOKEN=$(pv identity login ... --token-only)`."

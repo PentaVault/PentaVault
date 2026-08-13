@@ -14,10 +14,11 @@ use crate::api::{
     CliSecretValuesResponse, CreateChangeRequestInput,
 };
 use crate::auth::{self, Credential};
+use crate::aws::{sign_get_caller_identity, AwsCredentials};
 use crate::cli::{
     AccessCommand, ApiKeysCommand, ChangeRequestsCommand, Cli, Command, ConfigsCommand,
-    EnvsCommand, IdentityCommand, OrganizationsCommand, OutputFormat, ProjectsCommand,
-    SecretPullFormat, SecretsCommand,
+    EnvsCommand, IdentityCommand, IdentityMethod, OrganizationsCommand, OutputFormat,
+    ProjectsCommand, SecretPullFormat, SecretsCommand,
 };
 use crate::config::{atomic_write, AppConfig, ConfigStore};
 
@@ -1236,17 +1237,51 @@ fn identity(cli: &Cli, command: &IdentityCommand) -> ExitCode {
         IdentityCommand::Login {
             organization,
             name,
+            method,
             assertion_file,
             assertion_env,
+            audience,
+            sts_region,
             token_only,
         } => {
-            let assertion =
-                match read_assertion(assertion_file.as_deref(), assertion_env.as_deref()) {
-                    Ok(value) => value,
-                    Err(error) => return fail_prompt(error),
-                };
+            let outcome = match method {
+                IdentityMethod::Jwt => {
+                    match read_assertion(assertion_file.as_deref(), assertion_env.as_deref()) {
+                        Ok(assertion) => client.identity_login(organization, name, &assertion),
+                        Err(error) => return fail_prompt(error),
+                    }
+                }
+                IdentityMethod::Aws => {
+                    let audience = match audience.as_deref().map(str::trim).filter(|v| !v.is_empty())
+                    {
+                        Some(value) => value,
+                        None => {
+                            return fail_prompt(
+                                "--audience is required with --method aws; it must match the value configured on the auth method"
+                                    .to_owned(),
+                            )
+                        }
+                    };
+                    // The region is only ever read from the flag or AWS_REGION,
+                    // never inferred: signing for the wrong region produces a
+                    // signature the server refuses before it reaches AWS.
+                    let region = sts_region
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|value| !value.is_empty());
 
-            match client.identity_login(organization, name, &assertion) {
+                    let credentials = match AwsCredentials::from_env() {
+                        Ok(value) => value,
+                        Err(error) => return fail_prompt(error),
+                    };
+                    match sign_get_caller_identity(&credentials, region, audience) {
+                        Ok(signed) => client.identity_login_aws(organization, name, &signed),
+                        Err(error) => return fail_prompt(error),
+                    }
+                }
+            };
+
+            match outcome {
                 Ok(response) => {
                     if *token_only {
                         println!("{}", response.access_token);

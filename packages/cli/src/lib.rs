@@ -1,5 +1,6 @@
 mod api;
 mod auth;
+mod aws;
 pub mod cli;
 mod commands;
 mod config;

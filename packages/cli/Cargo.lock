@@ -802,6 +802,7 @@ dependencies = [
  "percent-encoding",
  "predicates",
  "reqwest",
+ "ring",
  "serde",
  "serde_json",
  "tempfile",
