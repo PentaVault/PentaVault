@@ -55,6 +55,10 @@ vi.mock('@/components/settings/organization-sso', () => ({
   OrganizationSso: () => <div data-testid="sso-connections">SSO</div>,
 }))
 
+vi.mock('@/components/settings/organization-trusted-ips', () => ({
+  OrganizationTrustedIps: () => <div data-testid="trusted-ips">Trusted IPs</div>,
+}))
+
 vi.mock('@/lib/hooks/use-auth', () => ({
   useAuth: () => ({
     status: 'authenticated',
