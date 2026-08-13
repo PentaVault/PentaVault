@@ -9,6 +9,7 @@ import { OrganizationEncryptionKeys } from '@/components/settings/organization-e
 import { OrganizationMachineIdentities } from '@/components/settings/organization-machine-identities'
 import { OrganizationScim } from '@/components/settings/organization-scim'
 import { OrganizationSso } from '@/components/settings/organization-sso'
+import { OrganizationTrustedIps } from '@/components/settings/organization-trusted-ips'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch, SwitchThumb } from '@/components/ui/switch'
 import { organizationsApi } from '@/lib/api/organizations'
@@ -166,6 +167,9 @@ export default function OrgAccessControlPage() {
       {org ? <OrganizationAccessGroups organizationId={org.id} /> : null}
 
       {org ? <OrganizationSso /> : null}
+
+      {/* Owner or admin on the server too; an ordinary member sees a 403. */}
+      {org ? <OrganizationTrustedIps organizationId={org.id} /> : null}
 
       {/* Org-wide credentials, so owner or admin on the server too. */}
       {org ? <OrganizationMachineIdentities /> : null}
