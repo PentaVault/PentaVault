@@ -16,7 +16,7 @@ design-system code.
 | Secret lifecycle | Version envelopes, compromise states, rotation recommendations, bounded rotation schedules, due/overdue reminders, automatic rescheduling on value replacement, plus persisted `#rotation` schedules swept server-side with a project-scoped management API, a generated/provider strategy discriminator enforced by a database check constraint, and a routing executor that refuses to rotate a provider secret when no adapter is registered rather than overwriting it with a generated value, with bounded rollback windows, destroy-before-rotate priority, irreversible ciphertext destruction once the window closes, and no automatic retry after failure | Rotation UI, concrete provider adapters (Stripe/AWS/GitHub), leases and retention enforcement | Partial |
 | Change control | Config change requests, self-approval separation, configurable one-to-five reviewer quorum, protected/private/shared branches, plus a per-path approval-policy engine (`#policy`) enforced on merge, with environment scoping, named user/group approvers, unreachable-quorum guards a project-scoped CRUD API, and a management panel in project settings | A first-class rejection status; policy templates and conflict previews | Partial |
 | Access control | Central project policy, org/project roles, organisation groups with additive project grants, per-secret grants and requests, optional bounded expiries with token TTL clamping, and token-level exact IP/device/request policies | Custom roles and project-wide trusted IP policies | Partial |
-| Machine identities | Scoped API keys and proxy tokens, plus end-to-end OIDC/JWT workload federation: in-repo JWT verification, JWKS caching with rotation refresh, mandatory claim binding, SSRF-guarded JWKS fetch, org-admin management API, hashed `pv_mid_` access tokens that revoke on identity disable and resolve project grants live, secret-value reads on the workload surface (project-scope active secrets only — never personal-scope), and `pv identity login` so a CI job authenticates with its provider's assertion instead of a human API key | AWS/GCP/Azure/Kubernetes native auth methods; lease-backed local caching | Partial |
+| Machine identities | Scoped API keys and proxy tokens, plus workload federation over **five** authentication methods — generic OIDC/JWT, **AWS IAM, Google Cloud, Azure managed identity and Kubernetes** — behind one verifier registry: in-repo JWT verification, JWKS caching with rotation refresh, mandatory workload allowlists that refuse a cluster-wide or tenant-wide trust, SSRF-guarded JWKS fetch, org-admin management API and settings UI, hashed `pv_mid_` access tokens that revoke on identity disable and resolve project grants live, secret-value reads on the workload surface (project-scope active secrets only — never personal-scope), and `pv identity login --method aws\|jwt`. AWS delegates verification to AWS itself: the workload signs `sts:GetCallerIdentity` locally and PentaVault replays it after checking endpoint, action, freshness and a signed audience binding, so it cannot become an outbound request forwarder and no AWS credential is ever stored | Lease-backed local caching; a per-method test button in the UI | Partial |
 | Authentication | Password, device flow, passkeys, MFA, sessions, invitations, organisation single sign-on over **OIDC, SAML and LDAP**, and **SCIM 2.0 directory sync**. OIDC: authorization-code flow with PKCE S256, single-use state, mandatory nonce, `email_verified` enforcement. SAML: verification delegated entirely to `@node-saml/node-saml`, mandatory assertion signature, audience pinned to the SP entity ID. LDAP: TLS required, RFC 4515 filter escaping, empty-password binds refused before the directory is contacted. SCIM: owner-issued org-scoped bearer tokens stored hashed, `/scim/v2/Users` create/list/patch/delete, deprovisioning that revokes project tokens and memberships rather than only flagging a row | Group-to-role mapping from the directory | Partial |
 | Audit and activity | Project/org audit events, activity UI, bounded sanitized CSV/JSONL exports | Retention controls, signed reports, bounded telemetry | Partial |
 | Detection | Leak signatures, alerts and rotation recommendations | Repository/data-source scanning, findings workflow, honey tokens | Partial |
@@ -29,7 +29,7 @@ design-system code.
 | Project administration | Team, settings, permanent and self-expiring preview environments, analytics and access requests | Templates, archival recovery and generalized asynchronous cleanup | Partial |
 | KMS | Envelope encryption abstraction; an external-KMS provider that fails closed with no local fallback; a concrete AWS KMS client binding every wrapped key to a PentaVault encryption context; a key registry that routes unwrapping by the provider and key reference on each envelope, including keys resolved at runtime so adopting one needs no restart; **per-organisation BYOK** (owner-only, verified by a wrap/unwrap probe before storing, retired rather than deleted so no data is stranded); and a resumable re-wrap migration covering every envelope-bearing table — secret versions, app connections, dynamic secret leases, webhooks, external shares and LDAP bind passwords — that moves data onto a new key without ever decrypting a value | GCP/Azure/KMIP clients; running the re-wrap automatically on adoption rather than by request | Partial |
 | AI/MCP | Provider gateway with scoped secret resolution | Governed MCP endpoints, activity records and tool policies | Partial |
-| CLI | Secure device login, online secret workflows, config branches, release artifacts, and `pv identity login`/`pv identity whoami` for workload authentication — the assertion is read from a file, stdin or an environment variable (never an argument, which would leak it into the process list and CI logs), and the resulting short-lived `pv_mid_` token is printed rather than written to the credential store | Lease-backed cache, benchmarks and signed binaries | Partial |
+| CLI | Secure device login, online secret workflows, config branches, release artifacts, and `pv identity login`/`pv identity whoami` for workload authentication — the assertion is read from a file, stdin or an environment variable (never an argument, which would leak it into the process list and CI logs), and the resulting short-lived `pv_mid_` token is printed rather than written to the credential store. `--method aws` reads no assertion at all: it signs `sts:GetCallerIdentity` locally with SigV4 (using `ring`, already present beneath rustls, so no new dependency) and sends the signed request for replay, with the secret key never leaving the machine | Instance-metadata credential fallback, lease-backed cache, benchmarks and signed binaries | Partial |
 | Operations | Separate liveness and bounded database readiness probes, graceful readiness drains, local-only Prometheus process/HTTP metrics, Docker builds and deployment handoff | Tracing, queue telemetry and SLOs | Partial |
 | Runtime configuration | Feature flags with org/project/user targeting and deterministic percentage rollouts, cached in-process with stale-snapshot fallback; operator console at `/settings/platform` | Flag audit history and scheduled auto-expiry | Delivered |
 | Operator announcements | Severity-ranked strip beneath the header with scheduled windows, audience and org scoping, and per-revision dismissal | Rich content and per-user targeting | Delivered |
@@ -81,6 +81,30 @@ Choices worth knowing:
   the directory's to decide.
 
 Still outstanding: mapping directory groups onto PentaVault roles.
+
+## Workload identity: notes
+
+The five machine-identity authentication methods sit behind one verifier
+registry, so the signature check and the JWKS cache have exactly one
+implementation and each provider contributes only the claims that identify its
+workloads. Three design points are worth knowing; the full reasoning is in
+`PentaVault-Backend/docs/security/workload-identity.md`.
+
+- **Every cloud method demands an allowlist.** A genuine token is not enough:
+  Google signs tokens for every service account, and a cluster issuer signs one
+  for every pod. A configuration that would trust a whole tenant, cluster or
+  Google project is refused rather than accepted with a warning.
+- **AWS is delegated, not verified.** There is no publicly verifiable AWS
+  workload assertion, so the workload signs `sts:GetCallerIdentity` and
+  PentaVault replays it. The request is validated first — endpoint, action,
+  freshness, SigV4 scope, header allowlist — and must carry a *signed*
+  `x-pentavault-audience` header, without which any captured `GetCallerIdentity`
+  signature could be replayed here.
+- **Kubernetes TokenReview is deliberately absent.** It would mean reaching an
+  API server on a private network, which is what the outbound SSRF policy exists
+  to prevent. Verification runs against the cluster's public OIDC issuer
+  instead — the same mechanism EKS IRSA, GKE Workload Identity and AKS
+  federation already use.
 
 Every capability must include backend authorization, audit behavior, tests, API contracts, frontend
 UX where applicable, and documentation before this ledger is marked complete.
