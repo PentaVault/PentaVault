@@ -2002,3 +2002,38 @@ export const ssoVerificationResponseSchema = z.object({
     shouldProvision: z.boolean(),
   }),
 })
+
+export const networkPolicyModeSchema = z.enum(['disabled', 'monitor', 'enforce'])
+
+export const trustedIpRuleSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  cidr: z.string(),
+  description: z.string().nullable(),
+  enabled: z.boolean(),
+  createdByUserId: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const organizationNetworkPolicyResponseSchema = z.object({
+  policy: z.object({
+    organizationId: z.string(),
+    mode: networkPolicyModeSchema,
+    updatedByUserId: z.string().nullable(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+    rules: z.array(trustedIpRuleSchema),
+  }),
+  requesterIp: z.string().nullable(),
+})
+
+export const trustedIpRuleResponseSchema = z.object({
+  rule: trustedIpRuleSchema,
+})
+
+export const createTrustedIpRuleInputSchema = z.object({
+  cidr: z.string().trim().min(1).max(64),
+  description: z.string().trim().max(200).nullable().optional(),
+  enabled: z.boolean().optional(),
+})

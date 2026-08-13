@@ -1622,3 +1622,53 @@ export interface SsoDiscoveryResponse {
 export interface SsoVerificationResponse {
   decision: SsoVerificationDecision
 }
+
+/**
+ * `monitor` records the denials `enforce` would have produced without applying
+ * them, so an allowlist can be checked against real traffic before it starts
+ * refusing anyone.
+ */
+export type NetworkPolicyMode = 'disabled' | 'monitor' | 'enforce'
+
+export interface TrustedIpRule {
+  id: string
+  organizationId: string
+  /** Canonical CIDR with host bits cleared, e.g. `203.0.113.0/24`. */
+  cidr: string
+  description: string | null
+  enabled: boolean
+  createdByUserId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface OrganizationNetworkPolicy {
+  organizationId: string
+  mode: NetworkPolicyMode
+  updatedByUserId: string | null
+  createdAt: string
+  updatedAt: string
+  rules: TrustedIpRule[]
+}
+
+export interface OrganizationNetworkPolicyResponse {
+  policy: OrganizationNetworkPolicy
+  /** The address the server sees, which is what an allowlist is matched against. */
+  requesterIp: string | null
+}
+
+export interface TrustedIpRuleResponse {
+  rule: TrustedIpRule
+}
+
+export interface CreateTrustedIpRuleInput {
+  cidr: string
+  description?: string | null
+  enabled?: boolean
+}
+
+export interface UpdateTrustedIpRuleInput {
+  cidr?: string
+  description?: string | null
+  enabled?: boolean
+}

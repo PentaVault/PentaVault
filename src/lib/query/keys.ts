@@ -154,6 +154,11 @@ export const queryKeys = {
     all: ['project-secret-replications'] as const,
     list: (projectId: string | null) => ['project-secret-replications', projectId] as const,
   },
+  organizationNetworkPolicy: {
+    all: ['organization-network-policy'] as const,
+    detail: (organizationId: string | null) =>
+      ['organization-network-policy', organizationId] as const,
+  },
   projectApprovalPolicies: {
     all: ['project-approval-policies'] as const,
     list: (projectId: string | null) => ['project-approval-policies', projectId] as const,
