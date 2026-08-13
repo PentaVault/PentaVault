@@ -9,6 +9,7 @@ import { ProjectAuditLogStreams } from '@/components/projects/project-audit-log-
 import { ProjectDynamicSecrets } from '@/components/projects/project-dynamic-secrets'
 import { ProjectEnvironments } from '@/components/projects/project-environments'
 import { ProjectFolderHistory } from '@/components/projects/project-folder-history'
+import { ProjectSecretReplication } from '@/components/projects/project-secret-replication'
 import { ProjectSecretShares } from '@/components/projects/project-secret-shares'
 import { ProjectSecretSnapshots } from '@/components/projects/project-secret-snapshots'
 import { ProjectSecretSyncs } from '@/components/projects/project-secret-syncs'
@@ -212,6 +213,10 @@ export default function ProjectSettingsPage() {
       ) : null}
 
       {canManageSettings ? <ProjectApprovalPolicies projectId={projectId} /> : null}
+
+      {/* Manager-only on the server too: a link decides which values land in
+          an environment. */}
+      {canManageSettings ? <ProjectSecretReplication projectId={projectId} /> : null}
 
       {canManageSettings ? <ProjectWebhooks projectId={projectId} /> : null}
 

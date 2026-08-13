@@ -1681,6 +1681,59 @@ const httpsUrlSchema = z
   // inline field error the admin can act on.
   .refine((value) => value.startsWith('https://'), { message: 'Must use https.' })
 
+export const secretReplicationStatusSchema = z.enum([
+  'pending',
+  'succeeded',
+  'conflicted',
+  'failed',
+])
+
+export const secretReplicationSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  sourceConfigId: z.string(),
+  sourceFolderPath: z.string(),
+  targetConfigId: z.string(),
+  targetFolderPath: z.string(),
+  enabled: z.boolean(),
+  lastSyncedAt: z.string().nullable(),
+  lastSyncStatus: secretReplicationStatusSchema,
+  lastSyncError: z.string().nullable(),
+  managedSecretCount: z.number(),
+  createdByUserId: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const secretReplicationsResponseSchema = z.object({
+  replications: z.array(secretReplicationSchema),
+})
+
+export const secretReplicationResponseSchema = z.object({
+  replication: secretReplicationSchema,
+})
+
+export const secretReplicationSyncResponseSchema = z.object({
+  result: z.object({
+    replicationId: z.string(),
+    status: secretReplicationStatusSchema,
+    created: z.number(),
+    updated: z.number(),
+    removed: z.number(),
+    conflicted: z.number(),
+    conflictingNames: z.array(z.string()),
+    syncedAt: z.string(),
+  }),
+})
+
+export const createSecretReplicationInputSchema = z.object({
+  sourceConfigId: z.string().trim().min(1),
+  sourceFolderPath: z.string().trim().min(1).max(256).optional(),
+  targetConfigId: z.string().trim().min(1),
+  targetFolderPath: z.string().trim().min(1).max(256).optional(),
+  enabled: z.boolean().optional(),
+})
+
 export const machineIdentityAuthMethodTypeSchema = z.enum([
   'oidc',
   'aws-iam',

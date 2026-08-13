@@ -1361,6 +1361,61 @@ export interface CreateMachineIdentityAuthMethodInput {
   enabled?: boolean
 }
 
+/**
+ * `conflicted` is not a failure: the sync ran, but a secret in the target
+ * folder is owned by something else and was left alone.
+ */
+export type SecretReplicationStatus = 'pending' | 'succeeded' | 'conflicted' | 'failed'
+
+export interface SecretReplication {
+  id: string
+  projectId: string
+  sourceConfigId: string
+  sourceFolderPath: string
+  targetConfigId: string
+  targetFolderPath: string
+  enabled: boolean
+  lastSyncedAt: string | null
+  lastSyncStatus: SecretReplicationStatus
+  lastSyncError: string | null
+  managedSecretCount: number
+  createdByUserId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SecretReplicationSyncResult {
+  replicationId: string
+  status: SecretReplicationStatus
+  created: number
+  updated: number
+  removed: number
+  conflicted: number
+  /** Named so an operator knows which secrets to resolve by hand. */
+  conflictingNames: string[]
+  syncedAt: string
+}
+
+export interface SecretReplicationsResponse {
+  replications: SecretReplication[]
+}
+
+export interface SecretReplicationResponse {
+  replication: SecretReplication
+}
+
+export interface SecretReplicationSyncResponse {
+  result: SecretReplicationSyncResult
+}
+
+export interface CreateSecretReplicationInput {
+  sourceConfigId: string
+  sourceFolderPath?: string
+  targetConfigId: string
+  targetFolderPath?: string
+  enabled?: boolean
+}
+
 export interface ScimToken {
   id: string
   organizationId: string

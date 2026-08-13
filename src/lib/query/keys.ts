@@ -150,6 +150,10 @@ export const queryKeys = {
     all: ['sso-connections'] as const,
     list: () => ['sso-connections'] as const,
   },
+  projectSecretReplications: {
+    all: ['project-secret-replications'] as const,
+    list: (projectId: string | null) => ['project-secret-replications', projectId] as const,
+  },
   projectApprovalPolicies: {
     all: ['project-approval-policies'] as const,
     list: (projectId: string | null) => ['project-approval-policies', projectId] as const,
