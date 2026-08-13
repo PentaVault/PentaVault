@@ -16,7 +16,7 @@ design-system code.
 | Secret lifecycle | Version envelopes, compromise states, rotation recommendations, bounded rotation schedules, due/overdue reminders, automatic rescheduling on value replacement, plus persisted `#rotation` schedules swept server-side with a project-scoped management API, a generated/provider strategy discriminator enforced by a database check constraint, and a routing executor that refuses to rotate a provider secret when no adapter is registered rather than overwriting it with a generated value, with bounded rollback windows, destroy-before-rotate priority, irreversible ciphertext destruction once the window closes, and no automatic retry after failure | Rotation UI, concrete provider adapters (Stripe/AWS/GitHub), leases and retention enforcement | Partial |
 | Secret replication | A folder in one config branch kept in step with a folder in another (`#replication`), so a value shared across environments is defined once instead of copy-pasted. Cycle and chain-depth detection at configuration time, both ends pinned to one project, one source per target folder enforced by a unique index, copies marked with the link that owns them, and a sweep that carries on past a broken link. A secret the link does not own is never overwritten or deleted — it is reported as a conflict, which is a distinct status from a failure. Removing a link detaches its copies by default (`on delete set null`) rather than destroying values | Automatic sync on source write rather than on request; a drift preview before syncing | Partial |
 | Change control | Config change requests, self-approval separation, configurable one-to-five reviewer quorum, protected/private/shared branches, plus a per-path approval-policy engine (`#policy`) enforced on merge, with environment scoping, named user/group approvers, unreachable-quorum guards a project-scoped CRUD API, and a management panel in project settings | A first-class rejection status; policy templates and conflict previews | Partial |
-| Access control | Central project policy, org/project roles, organisation groups with additive project grants, per-secret grants and requests, optional bounded expiries with token TTL clamping, and token-level exact IP/device/request policies | Custom roles and project-wide trusted IP policies | Partial |
+| Access control | Central project policy, org/project roles, organisation groups with additive project grants, per-secret grants and requests, optional bounded expiries with token TTL clamping, token-level exact IP/device/request policies, and an **organisation-wide trusted IP allowlist** (`#network`) applied to the whole `/api/v1` session surface: CIDR ranges for IPv4 and IPv6 stored canonically with host bits cleared, IPv4-mapped IPv6 unwrapped so a rule matches whichever form the socket reports, a `monitor` mode that records the denials `enforce` would have produced without applying them, an empty enforcing allowlist that denies rather than silently admitting everyone, and a self-lockout guard that refuses any change leaving the person making it outside the allowlist. The policy's own routes are deliberately not exempt, so a stolen session cannot switch it off from the address it excludes | Custom roles; bringing proxy and machine-identity tokens under the same allowlist | Partial |
 | Machine identities | Scoped API keys and proxy tokens, plus workload federation over **five** authentication methods — generic OIDC/JWT, **AWS IAM, Google Cloud, Azure managed identity and Kubernetes** — behind one verifier registry: in-repo JWT verification, JWKS caching with rotation refresh, mandatory workload allowlists that refuse a cluster-wide or tenant-wide trust, SSRF-guarded JWKS fetch, org-admin management API and settings UI, hashed `pv_mid_` access tokens that revoke on identity disable and resolve project grants live, secret-value reads on the workload surface (project-scope active secrets only — never personal-scope), and `pv identity login --method aws\|jwt`. AWS delegates verification to AWS itself: the workload signs `sts:GetCallerIdentity` locally and PentaVault replays it after checking endpoint, action, freshness and a signed audience binding, so it cannot become an outbound request forwarder and no AWS credential is ever stored | Lease-backed local caching; a per-method test button in the UI | Partial |
 | Authentication | Password, device flow, passkeys, MFA, sessions, invitations, organisation single sign-on over **OIDC, SAML and LDAP**, and **SCIM 2.0 directory sync**. OIDC: authorization-code flow with PKCE S256, single-use state, mandatory nonce, `email_verified` enforcement. SAML: verification delegated entirely to `@node-saml/node-saml`, mandatory assertion signature, audience pinned to the SP entity ID. LDAP: TLS required, RFC 4515 filter escaping, empty-password binds refused before the directory is contacted. SCIM: owner-issued org-scoped bearer tokens stored hashed, `/scim/v2/Users` create/list/patch/delete, deprovisioning that revokes project tokens and memberships rather than only flagging a row | Group-to-role mapping from the directory | Partial |
 | Audit and activity | Project/org audit events, activity UI, bounded sanitized CSV/JSONL exports | Retention controls, signed reports, bounded telemetry | Partial |
@@ -106,6 +106,34 @@ workloads. Three design points are worth knowing; the full reasoning is in
   to prevent. Verification runs against the cluster's public OIDC issuer
   instead — the same mechanism EKS IRSA, GKE Workload Identity and AKS
   federation already use.
+
+## Trusted IPs: notes
+
+The organisation allowlist narrows *where* a valid session may be used; it does
+not decide whether the session is valid. Full reasoning is in
+`PentaVault-Backend/docs/security/trusted-ips.md`.
+
+- **Sign-in stays reachable from anywhere.** Enforcement covers `/api/v1/`,
+  while Better Auth lives under `/api/auth`. Someone on an untrusted network can
+  still authenticate; what they cannot then do is reach the organisation's
+  projects, secrets or settings.
+- **The policy's own routes are not exempt.** Exempting them would let a stolen
+  session switch the allowlist off from exactly the address it excludes. Getting
+  stuck is prevented instead: any change that would leave the person making it
+  outside the allowlist is refused with a 409, judged against the rule set the
+  change *would* produce rather than the current one.
+- **An empty enforcing allowlist denies.** An allowlist with nothing on it
+  admits nobody — reading it the other way would leave an operator believing a
+  policy is enforcing while it applies to no one. The API refuses every route
+  into that state.
+- **It is worth exactly as much as `TRUSTED_PROXY_IPS`.** `request.ip` honours
+  `X-Forwarded-For` only from proxies named there. Set too widely, a client
+  picks its own apparent address.
+
+Still outstanding: proxy tokens (`pv_tok_`) and machine-identity tokens
+(`pv_mid_`) carry no session cookie and are not evaluated by the guard. Proxy
+tokens keep their own exact-match `allowedIps` list; bringing both under one
+CIDR-aware policy is worth doing and has not been done.
 
 Every capability must include backend authorization, audit behavior, tests, API contracts, frontend
 UX where applicable, and documentation before this ledger is marked complete.
