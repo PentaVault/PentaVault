@@ -6,6 +6,7 @@ import { type ReactNode, useEffect } from 'react'
 import { OrganizationAccessGroups } from '@/components/settings/organization-access-groups'
 import { OrganizationAppConnections } from '@/components/settings/organization-app-connections'
 import { OrganizationEncryptionKeys } from '@/components/settings/organization-encryption-keys'
+import { OrganizationMachineIdentities } from '@/components/settings/organization-machine-identities'
 import { OrganizationScim } from '@/components/settings/organization-scim'
 import { OrganizationSso } from '@/components/settings/organization-sso'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -165,6 +166,9 @@ export default function OrgAccessControlPage() {
       {org ? <OrganizationAccessGroups organizationId={org.id} /> : null}
 
       {org ? <OrganizationSso /> : null}
+
+      {/* Org-wide credentials, so owner or admin on the server too. */}
+      {org ? <OrganizationMachineIdentities /> : null}
 
       {/* Owner-only on the server: a SCIM token can add and remove members. */}
       {org && role === 'owner' ? <OrganizationScim /> : null}

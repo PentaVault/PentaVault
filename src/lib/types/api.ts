@@ -1245,6 +1245,122 @@ export interface CreateApprovalPolicyInput {
 
 export type UpdateApprovalPolicyInput = Partial<CreateApprovalPolicyInput>
 
+/**
+ * How a workload proves who it is. `oidc` is configured end to end by the
+ * operator; the cloud methods take the provider's issuer and keys as given and
+ * configure only which workload is trusted.
+ */
+export type MachineIdentityAuthMethodType = 'oidc' | 'aws-iam' | 'gcp-iam' | 'azure' | 'kubernetes'
+
+export interface MachineIdentity {
+  id: string
+  organizationId: string
+  name: string
+  description: string | null
+  /** Disabling revokes every token already issued, not just future logins. */
+  enabled: boolean
+  createdByUserId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface OidcAuthMethodConfig {
+  issuer: string
+  jwksUri: string
+  audience: string
+  subjectClaim?: string
+  requiredClaims: Record<string, string | string[]>
+  allowedSubjects?: string[]
+  accessTokenTtlSeconds?: number
+}
+
+export interface AwsIamAuthMethodConfig {
+  audience: string
+  allowedAccountIds: string[]
+  allowedPrincipalArns?: string[]
+  stsRegion?: string
+  requestMaxAgeSeconds?: number
+  accessTokenTtlSeconds?: number
+}
+
+export interface GcpIamAuthMethodConfig {
+  audience: string
+  allowedServiceAccountEmails: string[]
+  allowedProjectIds?: string[]
+  accessTokenTtlSeconds?: number
+}
+
+export interface AzureAuthMethodConfig {
+  tenantId: string
+  audience: string
+  allowedObjectIds?: string[]
+  allowedApplicationIds?: string[]
+  accessTokenTtlSeconds?: number
+}
+
+export interface KubernetesAuthMethodConfig {
+  issuer: string
+  jwksUri: string
+  audience: string
+  allowedNamespaces: string[]
+  allowedServiceAccountNames?: string[]
+  accessTokenTtlSeconds?: number
+}
+
+export type MachineIdentityAuthMethodConfig =
+  | OidcAuthMethodConfig
+  | AwsIamAuthMethodConfig
+  | GcpIamAuthMethodConfig
+  | AzureAuthMethodConfig
+  | KubernetesAuthMethodConfig
+
+export interface MachineIdentityAuthMethod {
+  id: string
+  identityId: string
+  type: MachineIdentityAuthMethodType
+  enabled: boolean
+  config: MachineIdentityAuthMethodConfig
+  createdAt: string
+  updatedAt: string
+}
+
+/** Machine identities never hold `owner`: that implies human accountability. */
+export type MachineIdentityGrantRole = 'admin' | 'member'
+
+export interface MachineIdentityProjectGrant {
+  id: string
+  identityId: string
+  projectId: string
+  role: MachineIdentityGrantRole
+  createdAt: string
+}
+
+export interface MachineIdentitiesResponse {
+  identities: MachineIdentity[]
+}
+
+export interface MachineIdentityAuthMethodsResponse {
+  authMethods: MachineIdentityAuthMethod[]
+}
+
+export interface MachineIdentityProjectGrantsResponse {
+  grants: MachineIdentityProjectGrant[]
+}
+
+export interface CreateMachineIdentityInput {
+  name: string
+  description?: string | null
+  enabled?: boolean
+}
+
+export type UpdateMachineIdentityInput = Partial<CreateMachineIdentityInput>
+
+export interface CreateMachineIdentityAuthMethodInput {
+  type: MachineIdentityAuthMethodType
+  config: MachineIdentityAuthMethodConfig
+  enabled?: boolean
+}
+
 export interface ScimToken {
   id: string
   organizationId: string

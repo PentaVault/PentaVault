@@ -134,6 +134,14 @@ export const queryKeys = {
     all: ['scim-tokens'] as const,
     list: () => ['scim-tokens'] as const,
   },
+  machineIdentities: {
+    all: ['machine-identities'] as const,
+    list: () => ['machine-identities'] as const,
+    authMethods: (identityId: string) =>
+      ['machine-identities', identityId, 'auth-methods'] as const,
+    projectGrants: (identityId: string) =>
+      ['machine-identities', identityId, 'project-grants'] as const,
+  },
   organizationEncryptionKeys: {
     all: ['organization-encryption-keys'] as const,
     list: () => ['organization-encryption-keys'] as const,

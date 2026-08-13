@@ -1681,6 +1681,70 @@ const httpsUrlSchema = z
   // inline field error the admin can act on.
   .refine((value) => value.startsWith('https://'), { message: 'Must use https.' })
 
+export const machineIdentityAuthMethodTypeSchema = z.enum([
+  'oidc',
+  'aws-iam',
+  'gcp-iam',
+  'azure',
+  'kubernetes',
+])
+
+export const machineIdentitySchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  enabled: z.boolean(),
+  createdByUserId: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+/**
+ * Config shapes differ per method and the server is the authority on them, so
+ * this stays a passthrough record rather than five parallel definitions that
+ * would have to be kept in step with the backend by hand.
+ */
+export const machineIdentityAuthMethodSchema = z.object({
+  id: z.string(),
+  identityId: z.string(),
+  type: machineIdentityAuthMethodTypeSchema,
+  enabled: z.boolean(),
+  config: z.record(z.string(), z.unknown()),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const machineIdentityProjectGrantSchema = z.object({
+  id: z.string(),
+  identityId: z.string(),
+  projectId: z.string(),
+  role: z.enum(['admin', 'member']),
+  createdAt: z.string(),
+})
+
+export const machineIdentitiesResponseSchema = z.object({
+  identities: z.array(machineIdentitySchema),
+})
+
+export const machineIdentityResponseSchema = z.object({ identity: machineIdentitySchema })
+
+export const machineIdentityAuthMethodsResponseSchema = z.object({
+  authMethods: z.array(machineIdentityAuthMethodSchema),
+})
+
+export const machineIdentityAuthMethodResponseSchema = z.object({
+  authMethod: machineIdentityAuthMethodSchema,
+})
+
+export const machineIdentityProjectGrantsResponseSchema = z.object({
+  grants: z.array(machineIdentityProjectGrantSchema),
+})
+
+export const machineIdentityProjectGrantResponseSchema = z.object({
+  grant: machineIdentityProjectGrantSchema,
+})
+
 export const scimTokenSchema = z.object({
   id: z.string(),
   organizationId: z.string(),

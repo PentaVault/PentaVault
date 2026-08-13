@@ -43,6 +43,10 @@ vi.mock('@/components/settings/organization-encryption-keys', () => ({
   OrganizationEncryptionKeys: () => <div data-testid="encryption-keys">Keys</div>,
 }))
 
+vi.mock('@/components/settings/organization-machine-identities', () => ({
+  OrganizationMachineIdentities: () => <div data-testid="machine-identities">Identities</div>,
+}))
+
 vi.mock('@/components/settings/organization-scim', () => ({
   OrganizationScim: () => <div data-testid="scim">SCIM</div>,
 }))
@@ -93,6 +97,9 @@ describe('OrgAccessControlPage', () => {
     expect(screen.getByText('Members can see all projects')).toBeInTheDocument()
     expect(screen.getByText('Members can request project access')).toBeInTheDocument()
     expect(screen.getByTestId('access-groups')).toHaveTextContent('org_123')
+    // Machine identities are org-wide credentials and belong on this page
+    // alongside SSO and access groups, not buried in a project.
+    expect(screen.getByTestId('machine-identities')).toBeInTheDocument()
   })
 
   it('hides project access requests when all-project visibility is disabled', () => {
